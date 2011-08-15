@@ -7,8 +7,13 @@ use LWP::UserAgent;
 use Time::HiRes qw( gettimeofday );
 use URI::URL;
 
-my $host = "monster";
-my $port = "8020";
+if (scalar @ARGV < 3) {
+  exit 1;
+}
+my $jobname = $ARGV[0];
+my $host = $ARGV[1];
+my $port = $ARGV[2];
+
 my $instance = "datastore";
 my $store = "192.168.1.5:8020";
 my $client = "/home/dparrish/src/openinstrument/client/cpp/add";
@@ -29,13 +34,14 @@ foreach (@output) {
   my($key, $value) = split /\s+/, $_, 2;
   $value = int($value);
   next if $key eq '' or $value eq '';
-  push @args, "$key:$value\@$time";
+  push @args, "$key\{hostname=$host,port=$port,job=$jobname}:$value\@$time";
 }
 
 for (my $i = 0; $i < scalar @args; $i += $maxargs) {
   my $max = ($i + 50 >= scalar @args) ? scalar @args : $i + $maxargs;
   my @argslice = @args[$i..$max - 1];
-  system($client, "--logtostderr", "--instance", $instance, "--hostname", $host, $store, @argslice);
+  #print "$client --logtostderr $store ". join(" ", @argslice). "\n";
+  system($client, "--logtostderr", $store, @argslice);
   exit 1 unless $? == 0;
 }
 

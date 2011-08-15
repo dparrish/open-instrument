@@ -57,32 +57,20 @@ void StoreClient::SendRequest(const string &path, const google::protobuf::Messag
 
 proto::AddResponse *StoreClient::Add(const proto::AddRequest &req) {
   scoped_ptr<proto::AddResponse> response(new proto::AddResponse());
-  try {
-    SendRequest("/add", req, response.get());
-    return response.release();
-  } catch (exception &e) {
-    throw e;
-  }
+  SendRequest("/add", req, response.get());
+  return response.release();
 }
 
 proto::ListResponse *StoreClient::List(const proto::ListRequest &req) {
   scoped_ptr<proto::ListResponse> response(new proto::ListResponse());
-  try {
-    SendRequest("/list", req, response.get());
-    return response.release();
-  } catch (exception &e) {
-    throw e;
-  }
+  SendRequest("/list", req, response.get());
+  return response.release();
 }
 
 proto::GetResponse *StoreClient::Get(const proto::GetRequest &req) {
   scoped_ptr<proto::GetResponse> response(new proto::GetResponse());
-  try {
-    SendRequest("/get", req, response.get());
-    return response.release();
-  } catch (exception &e) {
-    throw e;
-  }
+  SendRequest("/get", req, response.get());
+  return response.release();
 }
 
 }  // namespace openinstrument

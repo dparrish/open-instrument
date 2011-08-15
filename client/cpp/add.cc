@@ -86,8 +86,7 @@ int main(int argc, char *argv[]) {
     StoreClient client(argv[1]);
     scoped_ptr<proto::AddResponse> response(client.Add(req));
   } catch (exception &e) {
-    cerr << e.what();
-    usage(argv);
+    cerr << e.what() << std::endl;
     return 1;
   }
 

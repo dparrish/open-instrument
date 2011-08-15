@@ -45,6 +45,7 @@ foreach my $row (@rows) {
 for (my $i = 0; $i < scalar @args; $i += $maxargs) {
   my $max = ($i + 50 >= scalar @args) ? scalar @args : $i + $maxargs;
   my @argslice = @args[$i..$max - 1];
+  #print "$client --logtostderr --hostname $host $store ". join(" ", @argslice). "\n";
   system($client, "--logtostderr", "--hostname", $host, $store, @argslice);
   exit 1 unless $? == 0;
 }
