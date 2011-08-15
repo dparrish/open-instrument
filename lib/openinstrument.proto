@@ -1,0 +1,95 @@
+package openinstrument.proto;
+
+message StreamMutation {
+  enum SampleType {
+    // Do not modify the data at all
+    NONE = 0;
+    // Average out values between each sampling point
+    AVERAGE = 1;
+    // Get the maximum value between each sampling point
+    MAX = 2;
+    // Get the minimum value between each sampling point
+    MIN = 3;
+  }
+  required SampleType sample_type = 1 [ default = NONE ];
+
+  // Stretch or compress the stream so that there is a value every <sample_frequency> ms.
+  // Extra values between each sample will be aggregated according to <sample_type>.
+  // Gaps in the stream less than <max_gap_interpolate> samples will be filled with interpolated values between the
+  // closest real values.
+  // Gaps in the stream of more than <max_gap_interpolate> samples will not be filled.
+  optional uint64 sample_frequency = 2;
+  optional uint64 max_gap_interpolate = 3 [ default = 1 ];
+};
+
+message StreamAggregation {
+  enum AggregateType {
+    AVERAGE = 0;
+    MAX = 1;
+    MIN = 2;
+    MEDIAN = 3;
+    SUM = 4;
+  }
+  required AggregateType type = 1;
+
+  // Labels to aggregate by on the input streams. If no labels are specified, aggregation will be done on the variable
+  // only.
+  repeated string label = 2;
+
+  // Points will be aggregated if they are less than sample_interval ms apart. Default is 30 seconds.
+  optional uint64 sample_interval = 3 [ default = 30000 ];
+};
+
+message Value {
+  // Milliseconds since epoch
+  required uint64 timestamp = 1;
+  required double value = 2;
+}
+
+message ValueStream {
+  optional string variable = 1;
+  repeated Value value = 4;
+}
+
+message GetRequest {
+  optional string variable = 1;
+
+  // Milliseconds since epoch
+  optional uint64 min_timestamp = 2;
+  optional uint64 max_timestamp = 3;
+
+  // If mutations or aggregations are supplied, the GetResponse will have a separate stream for each change requested.
+  repeated StreamMutation mutation = 6;
+  repeated StreamAggregation aggregation = 7;
+}
+
+message GetResponse {
+  required bool success = 1;
+  optional string message = 2;
+
+  // Contains a separate stream for every mutation requested in GetRequest, in the same order. If no mutations are
+  // requested, the response will contain a single stream of the raw data.
+  repeated ValueStream stream = 3;
+}
+
+message AddRequest {
+  repeated ValueStream stream = 1;
+}
+
+message AddResponse {
+  required bool success = 1;
+  optional string message = 2;
+}
+
+message ListRequest {
+  optional string prefix = 1;
+}
+
+message ListResponse {
+  required bool success = 1;
+  optional string message = 2;
+
+  // Although this uses the ValueStream for returning a list of variables, the expectation is that the value field is
+  // empty.
+  repeated ValueStream stream = 3;
+}
