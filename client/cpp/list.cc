@@ -11,6 +11,7 @@
 #include <glog/logging.h>
 #include <iostream>
 #include <string>
+#include <set>
 #include "lib/common.h"
 #include "lib/openinstrument.pb.h"
 #include "lib/protobuf.h"
@@ -42,9 +43,13 @@ int main(int argc, char *argv[]) {
     req.set_prefix(argv[2]);
     StoreClient client(argv[1]);
     scoped_ptr<proto::ListResponse> response(client.List(req));
+    set<string> variables;
     for (int i = 0; i < response->stream_size(); i++) {
-      const proto::ValueStream &stream = response->stream(i);
-      cout << stream.variable() << endl;
+      Variable var(response->stream(i).variable());
+      variables.insert(var.ToString());
+    }
+    BOOST_FOREACH(string var, variables) {
+      cout << var << endl;
     }
   } catch (exception &e) {
     cerr << e.what();
