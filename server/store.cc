@@ -288,23 +288,33 @@ class DataStoreServer : private noncopyable {
     proto::AddResponse response;
     Timestamp now;
     for (int streamid = 0; streamid < req.stream_size(); streamid++) {
+      proto::ValueStream *stream = req.mutable_stream(streamid);
+      Variable var(stream->variable());
+      if (var.GetLabel("hostname").empty()) {
+        // Force "hostname" to be set on every value stream
+        var.SetLabel("hostname", request.source.ToString());
+      }
+      // Canonicalize the variable name
+      stream->set_variable(var.ToString());
       try {
-        response.set_success(true);
-        string var = req.stream(streamid).variable();
-        if (var.at(0) != '/' || var.size() < 2 || var.find_first_of("\n\t ") != string::npos)
+        if (var.variable().at(0) != '/' ||
+            var.variable().size() < 2 ||
+            var.variable().find_first_of("\n\t ") != string::npos) {
           throw runtime_error(StringPrintf("Invalid variable name"));
-        for (int valueid = 0; valueid < req.stream(streamid).value_size(); valueid++) {
-          Timestamp ts(req.stream(streamid).value(valueid).timestamp());
-          double value = req.stream(streamid).value(valueid).value();
+        }
+        for (int valueid = 0; valueid < stream->value_size(); valueid++) {
+          Timestamp ts(stream->value(valueid).timestamp());
+          double value = stream->value(valueid).value();
           if (ts.seconds() > now.seconds() + 1.0)
             // Allow up to 1 second clock drift
             throw runtime_error(StringPrintf("Attempt to set value in the future (t=%0.3f, now=%0.3f)", ts.seconds(),
                                              now.seconds()));
           if (ts.seconds() < now.seconds() - 86400 * 365)
-            LOG(WARNING) << "Adding very old data point for " << var;
+            LOG(WARNING) << "Adding very old data point for " << var.ToString();
 
-          datastore.Record(var, ts, value);
+          datastore.Record(var.ToString(), ts, value);
         }
+        response.set_success(true);
       } catch (exception &e) {
         LOG(WARNING) << e.what();
         response.set_success(false);
