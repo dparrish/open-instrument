@@ -10,6 +10,10 @@ message StreamMutation {
     MAX = 2;
     // Get the minimum value between each sampling point
     MIN = 3;
+    // Get the non-negative rate between each sampling point
+    RATE = 4;
+    // Get the (possibly) negative rate between each sampling point
+    RATE_SIGNED = 5;
   }
   required SampleType sample_type = 1 [ default = NONE ];
 

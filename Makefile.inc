@@ -30,11 +30,11 @@ endif
 
 %.pb.h: %.proto
 	@echo "Generating $@ from $<"
-	@protoc --cpp_out=. $<
+	@protoc -I. --cpp_out=. $<
 
 %.pb.cc: %.proto
 	@echo "Generating $@ from $<"
-	@protoc --cpp_out=. $<
+	@protoc -I. --cpp_out=. $<
 
 clean: subdirs_clean
 	@rm -f *.o $(CLEAN_TARGETS) $(TARGETS) $(TESTS)

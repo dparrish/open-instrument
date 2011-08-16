@@ -27,6 +27,7 @@ DEFINE_string(mean_by, "", "Average the output values by <sum_by>");
 DEFINE_string(max_by, "", "Max the output values by <sum_by>");
 DEFINE_string(min_by, "", "Min the output values by <sum_by>");
 DEFINE_string(median_by, "", "Min the output values by <sum_by>");
+DEFINE_bool(rate, false, "Get the rate of values");
 
 void usage(char *argv[]) {
   cerr << "\nUsage: \n"
@@ -56,6 +57,11 @@ int main(int argc, char *argv[]) {
       mutation->set_sample_type(proto::StreamMutation::AVERAGE);
       mutation->set_sample_frequency(interval.ms()); // 2 minute samples
     }
+  }
+
+  if (FLAGS_rate) {
+    proto::StreamMutation *mutation = req.add_mutation();
+    mutation->set_sample_type(proto::StreamMutation::RATE);
   }
 
   // Average by variable

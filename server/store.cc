@@ -246,6 +246,23 @@ class DataStoreServer : private noncopyable {
           newvalue->CopyFrom(tmpstream.value(j));
         }
       }
+    } else if (mutation.sample_type() == proto::StreamMutation::RATE ||
+               mutation.sample_type() == proto::StreamMutation::RATE_SIGNED) {
+      double lastval = 0;
+      uint64_t lastts = 0;
+      for (int i = 0; i < istream.value_size(); i++) {
+        const proto::Value &oldvalue = istream.value(i);
+        if (i > 0) {
+          double rate = (oldvalue.value() - lastval) / ((oldvalue.timestamp() - lastts) / 1000.0);
+          if (rate >= 0 || mutation.sample_type() == proto::StreamMutation::RATE_SIGNED) {
+            proto::Value *newvalue = ostream->add_value();
+            newvalue->set_timestamp(oldvalue.timestamp());
+            newvalue->set_value(rate);
+          }
+        }
+        lastval = oldvalue.value();
+        lastts = oldvalue.timestamp();
+      }
     } else {
       LOG(ERROR) << "Unsupported mutation type, returning original data";
       ostream->CopyFrom(istream);
