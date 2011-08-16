@@ -8,7 +8,7 @@ my $community = $ARGV[1];
 
 exit(1) if (!$host || !$community);
 
-my $store = "192.168.1.5:8020";
+my $store = "localhost";
 my $client = "/home/dparrish/src/openinstrument/client/cpp/add";
 my $maxargs = 50;
 chomp(my $localhost = `hostname`);
@@ -45,7 +45,7 @@ foreach my $row (@rows) {
 for (my $i = 0; $i < scalar @args; $i += $maxargs) {
   my $max = ($i + 50 >= scalar @args) ? scalar @args : $i + $maxargs;
   my @argslice = @args[$i..$max - 1];
-  #print "$client --logtostderr --hostname $host $store ". join(" ", @argslice). "\n";
-  system($client, "--logtostderr", "--hostname", $host, $store, @argslice);
+  #print "$client --logtostderr $store ". join(" ", @argslice). "\n";
+  system($client, "--logtostderr", $store, @argslice);
   exit 1 unless $? == 0;
 }
