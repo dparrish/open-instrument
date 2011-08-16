@@ -51,31 +51,31 @@ class Timestamp {
     return static_cast<double>(ms / 1000.0);
   }
 
-  void operator=(const Timestamp &other) {
+  inline void operator=(const Timestamp &other) {
     ms_ = other.ms();
   }
 
-  void operator=(const double seconds) {
+  inline void operator=(const double seconds) {
     ms_ = seconds * 1000;
   }
 
-  void operator=(const uint64_t ms) {
+  inline void operator=(const uint64_t ms) {
     ms_ = ms;
   }
 
-  void operator+(const Timestamp &other) {
+  inline void operator+(const Timestamp &other) {
     ms_ += other.ms();
   }
 
-  void operator+(const int64_t &other) {
+  inline void operator+(const int64_t &other) {
     ms_ += other;
   }
 
-  void operator-(const Timestamp &other) {
+  inline void operator-(const Timestamp &other) {
     ms_ -= other.ms();
   }
 
-  void operator-(const int64_t &other) {
+  inline void operator-(const int64_t &other) {
     ms_ -= other;
   }
 
@@ -83,20 +83,7 @@ class Timestamp {
   // This also accepts another formatting conversion "%." which is replaced with the timestamp's fraction of a second,
   // which is useful in something like:
   //   Timestamp().strftime("%H:%M:%S.%.") --> 12:15:05.114
-  string GmTime(const char *format = "%Y-%m-%d %H:%M:%S.%.") const {
-    time_t sec = seconds();
-    struct tm tm;
-    if (!gmtime_r(&sec, &tm))
-      return "";
-    char buf[128] = {0};
-    if (strftime(buf, 127, format, &tm) <= 0)
-      return "";
-    string out(buf);
-    size_t pos = out.find("%.");
-    if (pos != string::npos)
-      out.replace(pos, 2, lexical_cast<string>(ms() % 1000));
-    return out;
-  }
+  string GmTime(const char *format = "%Y-%m-%d %H:%M:%S.%.") const;
 
  protected:
   int64_t ms_;
@@ -178,57 +165,21 @@ class Duration : public Timestamp {
   //   1m    - 1 month
   //   1y    - 1 year
   //   1y1m1w1d1h1s = 1 year, 1 month, 1 week, 1 day, 1 hour, 1 second
-  static Duration Parse(const string &duration) {
-    char *newstr = strndup(duration.data(), duration.size());
-    char *start = newstr;
-    char *p = newstr;
-    int64_t seconds = 0;
-    for (p = start; p < newstr + duration.size(); ++p) {
-      if ((*p >= '0' && *p <= '9') || *p == ' ')
-        continue;
-      char multiplier = *p;
-      *p = '\x00';
-      switch (multiplier) {
-        case 's':  // seconds
-          seconds += atoll(start);
-          break;
-        case 'm':  // minutes
-          seconds += atoll(start) * 60LL;
-          break;
-        case 'h':  // hours
-          seconds += atoll(start) * 3600LL;
-          break;
-        case 'd':  // days
-          seconds += atoll(start) * 86400LL;
-          break;
-        case 'w':  // weeks
-          seconds += atoll(start) * 604800LL;
-          break;
-        case 'y':  // years
-          seconds += atoll(start) * 31556926LL;
-          break;
-        default:
-          LOG(WARNING) << "Unknown duration specification '" << start << "'";
-          break;
-      }
-      start = p + 1;
-    }
-    free(newstr);
+  static Duration FromString(const string &duration);
 
-    return Duration(seconds * 1000);
-  }
+  string ToString(bool longformat = true);
 };
 
 class Deadline {
  public:
   explicit Deadline(uint64_t deadline) : deadline_(deadline), start_(Timestamp::Now()) {}
 
-  operator uint64_t() const {
+  inline operator uint64_t() const {
     int64_t timeleft = deadline_ - (Timestamp::Now() - start_);
     return timeleft < 0 ? 0 : timeleft;
   }
 
-  void Reset() {
+  inline void Reset() {
     start_ = Timestamp::Now();
   }
 
