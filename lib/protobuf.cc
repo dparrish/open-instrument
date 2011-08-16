@@ -300,6 +300,8 @@ const string Variable::ToString() const {
   if (labels_.size()) {
     output += "{";
     for (MapType::const_iterator i = labels_.begin(); i != labels_.end(); ++i) {
+      if (i->second.empty())
+        continue;
       if (i != labels_.begin())
         output += ",";
       output += i->first;

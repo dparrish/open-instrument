@@ -54,6 +54,10 @@ class DataStoreServer : private noncopyable {
     server_->request_handler()->AddPath("/list$", &DataStoreServer::handle_list, this);
     server_->request_handler()->AddPath("/get$", &DataStoreServer::handle_get, this);
     server_->AddExportHandler();
+    // Export stats every 5 minutes
+    VariableExporter::GetGlobalExporter()->SetExportLabel("job", "datastore");
+    VariableExporter::GetGlobalExporter()->SetExportLabel("hostname", Socket::Hostname());
+    VariableExporter::GetGlobalExporter()->StartExportThread(StringPrintf("localhost:%lu", FLAGS_port), 300);
   }
 
   bool handle_get(const HttpRequest &request, HttpReply *reply) {
@@ -292,10 +296,11 @@ class DataStoreServer : private noncopyable {
       Variable var(stream->variable());
       if (var.GetLabel("hostname").empty()) {
         // Force "hostname" to be set on every value stream
-        var.SetLabel("hostname", request.source.ToString());
+        var.SetLabel("hostname", request.source.AddressToString());
       }
       // Canonicalize the variable name
       stream->set_variable(var.ToString());
+      VLOG(2) << "Adding value for " << var.ToString();
       try {
         if (var.variable().at(0) != '/' ||
             var.variable().size() < 2 ||

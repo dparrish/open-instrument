@@ -99,6 +99,9 @@ class Socket : private noncopyable {
     return &read_buffer_;
   }
 
+  // Return the current hostname
+  static string Hostname();
+
  private:
   int fd_;
   Address local_;

@@ -21,7 +21,7 @@ using namespace openinstrument;
 using namespace std;
 
 DEFINE_string(duration, "12h", "Duration of data to request");
-DEFINE_string(interval, "2m", "Interval between output samples. Provide an empty string to get the raw data.");
+DEFINE_string(interval, "", "Interval between output samples. Provide an empty string to get the raw data.");
 DEFINE_string(sum_by, "", "Sum the output values by <sum_by>");
 DEFINE_string(mean_by, "", "Average the output values by <sum_by>");
 DEFINE_string(max_by, "", "Max the output values by <sum_by>");

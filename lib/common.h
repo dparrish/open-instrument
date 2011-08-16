@@ -69,6 +69,13 @@ using std::exception;
 typedef boost::mutex Mutex;
 typedef boost::unique_lock<Mutex> MutexLock;
 
+typedef boost::shared_mutex SharedMutex;
+typedef boost::unique_lock<SharedMutex> ExclusiveLock;
+typedef boost::shared_lock<SharedMutex> SharedLock;
+
+// Wrapper around boost::this_thread::sleep, so that threads sleeping become interruptable
+void sleep(uint64_t interval);
+
 template<class T>
 class scoped_ptr : noncopyable {
  public:

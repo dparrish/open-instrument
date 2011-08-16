@@ -185,7 +185,7 @@ bool HttpServer::HandleExportVars(const HttpRequest &request, HttpReply *reply) 
   reply->set_status(HttpReply::OK);
   reply->SetContentType("text/plain");
   string c;
-  VariableExporter::get_global_exporter()->ExportToString(&c);
+  VariableExporter::GetGlobalExporter()->ExportToString(&c);
   reply->mutable_body()->CopyFrom(c);
   return true;
 }

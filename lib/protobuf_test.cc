@@ -53,7 +53,6 @@ TEST_F(ProtobufTest, GetAppendBuf) {
     while (reader.Next(&req)) {
       num_res++;
     }
-    // LOG(INFO) << "Iteration " << i << " had " << num_res << " results";
     ASSERT_GT(num_res, 0);
     CorruptFile(filename, 10);
   }
@@ -74,7 +73,6 @@ TEST_F(ProtobufTest, Variable) {
     EXPECT_EQ("", foo.GetLabel("label3"));
     EXPECT_EQ(true, foo.HasLabel("label1"));
     EXPECT_EQ(false, foo.HasLabel("label3"));
-    LOG(INFO) << foo.ToString();
     EXPECT_EQ("/test/variable/2{label1=value1,label2=\"valu\\\"e 2\"}", foo.ToString());
   }
 }

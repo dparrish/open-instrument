@@ -309,4 +309,10 @@ inline bool Socket::PollWrite(int timeout) const {
   return Poll(timeout, POLLOUT);
 }
 
+string Socket::Hostname() {
+  char hostname[4096] = {0};
+  gethostname(hostname, 4095);
+  return string(hostname);
+}
+
 }  // namespace openinstrument

@@ -11,8 +11,12 @@
 #include <vector>
 #include "lib/common.h"
 #include "lib/exported_vars.h"
+#include "lib/protobuf.h"
+#include "lib/store_client.h"
 
 namespace openinstrument {
+
+DEFINE_string(datastore_address, "", "Host and port of datastore, where all exported vars will be sent");
 
 ///////////// VariableExporter {{{ ////////////////////////////
 
@@ -21,13 +25,21 @@ VariableExporter global_exporter;
 VariableExporter::~VariableExporter() {
   if (all_exported_vars_.size())
     LOG(ERROR) << "VariableExporter being destroyed but still contains " << all_exported_vars_.size() << " vars";
+  if (export_thread_ != NULL) {
+    LOG(INFO) << "Waiting for variable export thread to shut down";
+    export_thread_->interrupt();
+    export_thread_->join();
+  }
+  ExclusiveLock lock(mutex_);
 }
 
-template <class T> void VariableExporter::add_var(T *var) {
+void VariableExporter::AddVar(ExportedVariable *var) {
+  ExclusiveLock lock(mutex_);
   all_exported_vars_.push_back(var);
 }
 
-template <class T> bool VariableExporter::remove_var(T *var) {
+bool VariableExporter::RemoveVar(ExportedVariable *var) {
+  ExclusiveLock lock(mutex_);
   for (vector<ExportedVariable *>::iterator i = all_exported_vars_.begin(); i != all_exported_vars_.end(); ++i) {
     if (*i == var) {
       all_exported_vars_.erase(i);
@@ -38,26 +50,85 @@ template <class T> bool VariableExporter::remove_var(T *var) {
 }
 
 void VariableExporter::ExportToString(string *output) {
+  SharedLock lock(mutex_);
   for (vector<ExportedVariable *>::iterator i = all_exported_vars_.begin(); i != all_exported_vars_.end(); ++i) {
     (*i)->ExportToString(output);
     output->append("\r\n");
   }
 }
 
-VariableExporter *VariableExporter::get_global_exporter() {
+void VariableExporter::ExportToStore(StoreClient *client) {
+  proto::AddRequest req;
+  BOOST_FOREACH(ExportedVariable *i, all_exported_vars_) {
+    proto::ValueStream *stream = req.add_stream();
+    i->ExportToValueStream(stream);
+    Variable var(stream->variable());
+    for (unordered_map<string, string>::iterator j = extra_labels_.begin(); j != extra_labels_.end(); ++j) {
+      var.SetLabel(j->first, j->second);
+    }
+    stream->set_variable(var.ToString());
+  }
+  try {
+    scoped_ptr<proto::AddResponse> response(client->Add(req));
+  } catch (exception &e) {
+    LOG(WARNING) << "Unable to export vars to the datastore: " << e.what();
+  }
+}
+
+void VariableExporter::ExportToStore(string server) {
+  if (server.empty())
+    server = FLAGS_datastore_address;
+  if (server.empty()) {
+    LOG(WARNING) << "No datastore address defined, all recorded statistics will be lost.";
+    return;
+  }
+  StoreClient client(server);
+  return ExportToStore(&client);
+}
+
+VariableExporter *VariableExporter::GetGlobalExporter() {
   return &global_exporter;
 }
 
-template <class T> void VariableExporter::export_var(T *var) {
-  global_exporter.add_var(var);
+void VariableExporter::ExportVar(ExportedVariable *var) {
+  global_exporter.AddVar(var);
+}
+
+void VariableExporter::StartExportThread(const string &server, uint64_t interval) {
+  if (export_thread_ != NULL)
+    return;
+  export_thread_ = new thread(bind(&VariableExporter::ExportThread, this,
+                                   server.size() ? server : FLAGS_datastore_address, interval));
+}
+
+void VariableExporter::ExportThread(const string &server, uint64_t interval) {
+  StoreClient client(server);
+  while (true) {
+    try {
+      sleep(interval);
+    } catch (boost::thread_interrupted) {
+      // Clean exit
+      return;
+    }
+    boost::this_thread::disable_interruption di;
+    ExportToStore(&client);
+  }
+}
+
+void VariableExporter::SetExportLabel(const string &label, const string &value) {
+  extra_labels_[label] = value;
+}
+
+void VariableExporter::ClearExportLabel(const string &label) {
+  extra_labels_.erase(label);
 }
 
 // }}}
 ///////////// ExportedVariable {{{ ////////////////////////////
 
 ExportedVariable::~ExportedVariable() {
-  if (!global_exporter.remove_var(this))
-    LOG(ERROR) << "~ExportedVariable(" << varname_ << ") where variable is not in the global list.";
+  if (!global_exporter.RemoveVar(this))
+    LOG(ERROR) << "~ExportedVariable(" << variable().ToString() << ") where variable is not in the global list.";
 }
 
 // }}}
@@ -66,13 +137,20 @@ ExportedVariable::~ExportedVariable() {
 ExportedInteger::ExportedInteger(const string &varname, int64_t initial)
   : ExportedVariable(varname),
     counter_(initial) {
-  VariableExporter::export_var(this);
+  VariableExporter::ExportVar(this);
 }
 
 void ExportedInteger::ExportToString(string *output) const {
-  output->append(varname_);
+  output->append(variable().ToString());
   output->append("\t");
   output->append(lexical_cast<string>(counter_));
+}
+
+void ExportedInteger::ExportToValueStream(proto::ValueStream *stream) const {
+  stream->set_variable(variable().ToString());
+  proto::Value *value = stream->add_value();
+  value->set_timestamp(Timestamp::Now());
+  value->set_value(lexical_cast<double>(counter_));
 }
 
 void ExportedInteger::operator=(int64_t value) {

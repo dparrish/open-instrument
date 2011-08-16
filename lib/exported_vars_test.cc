@@ -46,7 +46,7 @@ TEST_F(ExportedVarsTest, GlobalExporter) {
   ExportedInteger exp("/openinstrument/test/expint", 5);
   ExportedInteger exp2("/openinstrument/test/expint2", 15);
   string output;
-  VariableExporter::get_global_exporter()->ExportToString(&output);
+  VariableExporter::GetGlobalExporter()->ExportToString(&output);
   EXPECT_EQ("/openinstrument/test/expint\t5\r\n"
             "/openinstrument/test/expint2\t15\r\n", output);
 }
@@ -57,7 +57,7 @@ TEST_F(ExportedVarsTest, ExportedRatio) {
   exp.success();
   exp.failure();
   string output;
-  VariableExporter::get_global_exporter()->ExportToString(&output);
+  VariableExporter::GetGlobalExporter()->ExportToString(&output);
   EXPECT_EQ("/openinstrument/test/ratio-total\t3\r\n"
             "/openinstrument/test/ratio-success\t2\r\n"
             "/openinstrument/test/ratio-failure\t1\r\n", output);
@@ -68,7 +68,7 @@ TEST_F(ExportedVarsTest, ExportedAverage) {
   exp.update(15, 1);
   exp.update(30, 2);
   string output;
-  VariableExporter::get_global_exporter()->ExportToString(&output);
+  VariableExporter::GetGlobalExporter()->ExportToString(&output);
   EXPECT_EQ("/openinstrument/test/average-total-count\t3\r\n"
             "/openinstrument/test/average-overall-sum\t45\r\n", output);
 }
@@ -88,7 +88,7 @@ TEST_F(ExportedVarsTest, ExportedTimer) {
   exp.update(timer);
   exp.update(timer);
   string output;
-  VariableExporter::get_global_exporter()->ExportToString(&output);
+  VariableExporter::GetGlobalExporter()->ExportToString(&output);
   EXPECT_EQ("/openinstrument/test/timer-total-count\t2\r\n"
             "/openinstrument/test/timer-overall-sum\t2000\r\n", output);
 }
@@ -98,7 +98,7 @@ TEST_F(ExportedVarsTest, ExportedIntegerSet) {
   ++exp["/item1"];
   exp["/item2"] += 10;
   string output;
-  VariableExporter::get_global_exporter()->ExportToString(&output);
+  VariableExporter::GetGlobalExporter()->ExportToString(&output);
   EXPECT_EQ("/openinstrument/test/item1\t1\r\n"
             "/openinstrument/test/item2\t10\r\n", output);
 }

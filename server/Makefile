@@ -61,19 +61,19 @@ store.o: store.cc $(BASEDIR)/lib/atomic.h \
  $(BASEDIR)/lib/openinstrument.pb.h \
  $(BASEDIR)/lib/http_server.h \
  $(BASEDIR)/lib/exported_vars.h \
+ $(BASEDIR)/lib/protobuf.h \
+ $(BASEDIR)/lib/cord.h \
+ $(BASEDIR)/lib/file.h \
  $(BASEDIR)/lib/timer.h \
  $(BASEDIR)/lib/request_handler.h \
  $(BASEDIR)/lib/http_headers.h \
  $(BASEDIR)/lib/http_reply.h \
  $(BASEDIR)/lib/http_message.h \
- $(BASEDIR)/lib/cord.h \
  $(BASEDIR)/lib/http_request.h \
  $(BASEDIR)/lib/socket.h \
  $(BASEDIR)/lib/uri.h \
  $(BASEDIR)/lib/http_static_dir.h \
  $(BASEDIR)/lib/mime_types.h \
- $(BASEDIR)/lib/protobuf.h \
- $(BASEDIR)/lib/file.h \
  $(BASEDIR)/server/datastore.h \
  $(BASEDIR)/server/disk_datastore.h \
  $(BASEDIR)/server/record_log.h

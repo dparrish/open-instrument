@@ -8,7 +8,7 @@ my $community = $ARGV[1];
 
 exit(1) if (!$host || !$community);
 
-my $store = "localhost";
+my $store = "localhost:8020";
 my $client = "/home/dparrish/src/openinstrument/client/cpp/add";
 my $maxargs = 50;
 chomp(my $localhost = `hostname`);

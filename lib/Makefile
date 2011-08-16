@@ -1,6 +1,6 @@
 TARGETS=libopeninstrument.a
 TESTS=string_test timer_test uri_test exported_vars_test cord_test socket_test protobuf_test counter_test
-OBJS=string.o uri.o exported_vars.o openinstrument.pb.o mysql_builder.o base64.o protobuf.o cord.o socket.o \
+OBJS=common.o string.o uri.o exported_vars.o openinstrument.pb.o mysql_builder.o base64.o protobuf.o cord.o socket.o \
      http_message.o http_server.o http_client.o http_reply.o http_request.o store_client.o http_static_dir.o closure.o \
      mime_types.o file.o counter.o timer.o
 TEST_LIBS+=libopeninstrument.a
@@ -17,6 +17,10 @@ libopeninstrument.a: $(OBJS)
 base64.o: base64.cc base64.h
 closure.o: closure.cc $(BASEDIR)/lib/closure.h \
  $(BASEDIR)/lib/common.h \
+ $(BASEDIR)/lib/string.h \
+ $(BASEDIR)/lib/threadpool.h
+common.o: common.cc $(BASEDIR)/lib/common.h \
+ $(BASEDIR)/lib/closure.h \
  $(BASEDIR)/lib/string.h \
  $(BASEDIR)/lib/threadpool.h
 cord.o: cord.cc $(BASEDIR)/lib/common.h \
@@ -52,7 +56,13 @@ exported_vars.o: exported_vars.cc \
  $(BASEDIR)/lib/threadpool.h \
  $(BASEDIR)/lib/exported_vars.h \
  $(BASEDIR)/lib/atomic.h \
- $(BASEDIR)/lib/timer.h
+ $(BASEDIR)/lib/protobuf.h \
+ $(BASEDIR)/lib/cord.h \
+ $(BASEDIR)/lib/file.h \
+ $(BASEDIR)/lib/openinstrument.pb.h \
+ $(BASEDIR)/lib/timer.h \
+ $(BASEDIR)/lib/store_client.h \
+ $(BASEDIR)/lib/socket.h
 exported_vars_test.o: exported_vars_test.cc \
  $(BASEDIR)/lib/common.h \
  $(BASEDIR)/lib/closure.h \
@@ -60,6 +70,10 @@ exported_vars_test.o: exported_vars_test.cc \
  $(BASEDIR)/lib/threadpool.h \
  $(BASEDIR)/lib/exported_vars.h \
  $(BASEDIR)/lib/atomic.h \
+ $(BASEDIR)/lib/protobuf.h \
+ $(BASEDIR)/lib/cord.h \
+ $(BASEDIR)/lib/file.h \
+ $(BASEDIR)/lib/openinstrument.pb.h \
  $(BASEDIR)/lib/timer.h
 file.o: file.cc $(BASEDIR)/lib/common.h \
  $(BASEDIR)/lib/closure.h \
@@ -121,12 +135,15 @@ http_server.o: http_server.cc \
  $(BASEDIR)/lib/threadpool.h \
  $(BASEDIR)/lib/exported_vars.h \
  $(BASEDIR)/lib/atomic.h \
+ $(BASEDIR)/lib/protobuf.h \
+ $(BASEDIR)/lib/cord.h \
+ $(BASEDIR)/lib/file.h \
+ $(BASEDIR)/lib/openinstrument.pb.h \
  $(BASEDIR)/lib/timer.h \
  $(BASEDIR)/lib/request_handler.h \
  $(BASEDIR)/lib/http_headers.h \
  $(BASEDIR)/lib/http_reply.h \
  $(BASEDIR)/lib/http_message.h \
- $(BASEDIR)/lib/cord.h \
  $(BASEDIR)/lib/http_request.h \
  $(BASEDIR)/lib/socket.h \
  $(BASEDIR)/lib/uri.h
@@ -147,6 +164,8 @@ http_static_dir.o: http_static_dir.cc \
  $(BASEDIR)/lib/http_server.h \
  $(BASEDIR)/lib/exported_vars.h \
  $(BASEDIR)/lib/atomic.h \
+ $(BASEDIR)/lib/protobuf.h \
+ $(BASEDIR)/lib/openinstrument.pb.h \
  $(BASEDIR)/lib/request_handler.h \
  $(BASEDIR)/lib/http_static_dir.h \
  $(BASEDIR)/lib/mime_types.h
@@ -231,18 +250,18 @@ store_client.o: store_client.cc \
  $(BASEDIR)/lib/threadpool.h \
  $(BASEDIR)/lib/exported_vars.h \
  $(BASEDIR)/lib/atomic.h \
+ $(BASEDIR)/lib/protobuf.h \
+ $(BASEDIR)/lib/cord.h \
+ $(BASEDIR)/lib/file.h \
+ $(BASEDIR)/lib/openinstrument.pb.h \
  $(BASEDIR)/lib/timer.h \
  $(BASEDIR)/lib/http_client.h \
  $(BASEDIR)/lib/http_reply.h \
  $(BASEDIR)/lib/http_message.h \
- $(BASEDIR)/lib/cord.h \
  $(BASEDIR)/lib/http_headers.h \
  $(BASEDIR)/lib/http_request.h \
  $(BASEDIR)/lib/socket.h \
  $(BASEDIR)/lib/uri.h \
- $(BASEDIR)/lib/openinstrument.pb.h \
- $(BASEDIR)/lib/protobuf.h \
- $(BASEDIR)/lib/file.h \
  $(BASEDIR)/lib/store_client.h
 string.o: string.cc $(BASEDIR)/lib/string.h \
  $(BASEDIR)/lib/common.h \
@@ -253,6 +272,11 @@ string_test.o: string_test.cc \
  $(BASEDIR)/lib/common.h \
  $(BASEDIR)/lib/closure.h \
  $(BASEDIR)/lib/threadpool.h
+timer.o: timer.cc $(BASEDIR)/lib/common.h \
+ $(BASEDIR)/lib/closure.h \
+ $(BASEDIR)/lib/string.h \
+ $(BASEDIR)/lib/threadpool.h \
+ $(BASEDIR)/lib/timer.h
 timer_test.o: timer_test.cc $(BASEDIR)/lib/timer.h \
  $(BASEDIR)/lib/common.h \
  $(BASEDIR)/lib/closure.h \

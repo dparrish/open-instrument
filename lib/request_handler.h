@@ -32,7 +32,7 @@ class RequestHandler : private noncopyable {
   virtual void HandleRequest(const HttpRequest &req, HttpReply *reply) {
     VLOG(1) << "Received request for \"" << req.uri.Assemble() << "\"";
     for (size_t i = 0; i < req.headers().size(); ++i) {
-      VLOG(1) << "\t\"" << req.headers()[i].name << "\": \"" << req.headers()[i].value << "\"";
+      VLOG(2) << "\t\"" << req.headers()[i].name << "\": \"" << req.headers()[i].value << "\"";
     }
 
     // Find a callback for the requested path

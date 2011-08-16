@@ -25,12 +25,12 @@ using std::string;
 class Timestamp {
  public:
   Timestamp() : ms_(Now()) {}
-  Timestamp(const int64_t ms) : ms_(ms) {}
+  Timestamp(const uint64_t ms) : ms_(ms) {}
   Timestamp(const Timestamp &ts) : ms_(ts.ms()) {}
   ~Timestamp() {}
 
   // Returns the timestamp value in milliseconds since epoch.
-  inline int64_t ms() const {
+  inline uint64_t ms() const {
     return ms_;
   }
 
@@ -41,13 +41,13 @@ class Timestamp {
   }
 
   // Returns the current time in milliseconds since epoch.
-  inline static int64_t Now() {
+  inline static uint64_t Now() {
     struct timeval tv;
     gettimeofday(&tv, NULL);
     return (tv.tv_sec * 1000) + tv.tv_usec / 1000;
   }
 
-  inline static double MsToSeconds(int64_t ms) {
+  inline static double MsToSeconds(uint64_t ms) {
     return static_cast<double>(ms / 1000.0);
   }
 
@@ -67,7 +67,7 @@ class Timestamp {
     ms_ += other.ms();
   }
 
-  inline void operator+(const int64_t &other) {
+  inline void operator+(const uint64_t &other) {
     ms_ += other;
   }
 
@@ -75,7 +75,7 @@ class Timestamp {
     ms_ -= other.ms();
   }
 
-  inline void operator-(const int64_t &other) {
+  inline void operator-(const uint64_t &other) {
     ms_ -= other;
   }
 
@@ -86,7 +86,7 @@ class Timestamp {
   string GmTime(const char *format = "%Y-%m-%d %H:%M:%S.%.") const;
 
  protected:
-  int64_t ms_;
+  uint64_t ms_;
 };
 
 // A basic high-resolution timer.
