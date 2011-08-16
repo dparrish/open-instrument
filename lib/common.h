@@ -55,10 +55,11 @@ using boost::tie;
 using boost::tribool;
 using boost::tuple;
 using boost::unordered_map;
+using std::list;
+using std::set;
 using std::size_t;
 using std::string;
 using std::vector;
-using std::set;
 
 // Common exceptions
 using std::runtime_error;

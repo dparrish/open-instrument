@@ -2,7 +2,7 @@ TARGETS=libopeninstrument.a
 TESTS=string_test timer_test uri_test exported_vars_test cord_test socket_test protobuf_test counter_test
 OBJS=string.o uri.o exported_vars.o openinstrument.pb.o mysql_builder.o base64.o protobuf.o cord.o socket.o \
      http_message.o http_server.o http_client.o http_reply.o http_request.o store_client.o http_static_dir.o closure.o \
-     mime_types.o file.o counter.o
+     mime_types.o file.o counter.o timer.o
 TEST_LIBS+=libopeninstrument.a
 TEST_DEPS=libopeninstrument.a
 CLEAN_TARGETS=openinstrument.pb.cc openinstrument.pb.h

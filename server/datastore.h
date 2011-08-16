@@ -10,7 +10,7 @@
 #ifndef _OPENINSTRUMENT_LIB_DATASTORE_H_
 #define _OPENINSTRUMENT_LIB_DATASTORE_H_
 
-#include <vector>
+#include <list>
 #include <string>
 #include "lib/common.h"
 #include "lib/file.h"
@@ -36,6 +36,10 @@ class IndexedStoreFile : private noncopyable {
   void Clear();
   bool ReadHeader();
   proto::ValueStream &LoadVariable(const string &variable);
+
+  // Return a list of variables contained in this file that match the provided search variable.
+  // Supports label searches
+  list<Variable> ListVariables(const string &variable);
 
   inline bool ContainsVariable(const string &variable) {
     return log_data_.find(variable) != log_data_.end();

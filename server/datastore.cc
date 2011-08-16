@@ -96,4 +96,15 @@ proto::ValueStream &IndexedStoreFile::LoadVariable(const string &variable) {
   throw out_of_range("Variable does not exist in log file");
 }
 
+list<Variable> IndexedStoreFile::ListVariables(const string &variable) {
+  list<Variable> vars;
+  Variable search(variable);
+  for (MapType::iterator i = log_data_.begin(); i != log_data_.end(); ++i) {
+    Variable x(i->first);
+    if (x.Matches(search))
+      vars.push_back(x);
+  }
+  return vars;
+}
+
 }  // namespace openinstrument
