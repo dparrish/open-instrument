@@ -77,7 +77,7 @@ typedef boost::shared_lock<SharedMutex> SharedLock;
 void sleep(uint64_t interval);
 
 template<class T>
-class scoped_ptr : noncopyable {
+class scoped_ptr : private noncopyable {
  public:
   typedef T element_type;
 
@@ -162,6 +162,23 @@ class Queue {
   mutable MutexLock mutex_;
   boost::condition_variable condvar_;
 };
+
+class Notification : private noncopyable {
+ public:
+  Notification() : ready_(false) {}
+  void Notify();
+  bool WaitForNotification() const;
+  bool WaitForNotification(uint64_t timeout) const;
+  inline bool HasBeenNotified() const {
+    return ready_;
+  }
+
+ private:
+  bool ready_;
+  mutable boost::condition_variable condvar_;
+  mutable Mutex mutex_;
+};
+
 
 }  // namespace
 
