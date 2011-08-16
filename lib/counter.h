@@ -17,7 +17,7 @@
 
 namespace openinstrument {
 
-class UniformTimeSeries {
+class UniformTimeSeries : private noncopyable {
  public:
   // Args:
   //   interval - The duration between output points in ms

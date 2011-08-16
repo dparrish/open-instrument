@@ -41,7 +41,6 @@ TEST_F(CounterTest, UniformTimeSeries) {
 
   // Expect a uniform set out
   vector<TimestampValue> expected;
-  expected.push_back(TimestampValue(0,   10.0000));
   expected.push_back(TimestampValue(60,  109.31035));
   expected.push_back(TimestampValue(120, 255.0000));
   expected.push_back(TimestampValue(180, 430.0000));

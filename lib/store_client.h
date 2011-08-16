@@ -19,7 +19,7 @@
 
 namespace openinstrument {
 
-class StoreClient {
+class StoreClient : private noncopyable {
  public:
   explicit StoreClient(const string &address)
     : address_(address),

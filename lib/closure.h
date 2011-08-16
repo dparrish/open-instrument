@@ -11,10 +11,11 @@
 #define _OPENINSTRUMENT_LIB_CLOSURE_H_
 
 #include <boost/function.hpp>
+#include "lib/common.h"
 
 namespace openinstrument {
 
-class Executor {
+class Executor : public boost::noncopyable {
  public:
   virtual void Run(const boost::function0<void> &f) {
     f();
@@ -23,7 +24,7 @@ class Executor {
 };
 
 typedef boost::function<void()> Callback;
-class CallbackRunner {
+class CallbackRunner : public boost::noncopyable {
  public:
   CallbackRunner(Callback cb) : cb_(cb) {}
   ~CallbackRunner() {
@@ -33,32 +34,6 @@ class CallbackRunner {
  private:
   Callback cb_;
 };
-
-/*
-class Closure {
- public:
-  typedef boost::function<void()> FuncType;
-  Closure(FuncType func) : func_(func) {}
-  virtual ~Closure() {}
-  virtual void Run() = 0;
- protected:
-  FuncType func_;
-};
-
-Closure *NewCallback(Closure::FuncType fun);
-Closure *NewPermanentCallback(Closure::FuncType fun);
-
-class ClosureRunner {
- public:
-  ClosureRunner(Closure *done) : done_(done) {}
-  ~ClosureRunner() {
-    if (done_)
-      done_->Run();
-  }
- private:
-  Closure *done_;
-};
-*/
 
 }  // namespace openinstrument
 

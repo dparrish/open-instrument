@@ -15,7 +15,10 @@ libopeninstrument.a: $(OBJS)
 
 ## DEPENDENCIES START HERE (do not remove this line)
 base64.o: base64.cc base64.h
-closure.o: closure.cc $(BASEDIR)/lib/closure.h
+closure.o: closure.cc $(BASEDIR)/lib/closure.h \
+ $(BASEDIR)/lib/common.h \
+ $(BASEDIR)/lib/string.h \
+ $(BASEDIR)/lib/threadpool.h
 cord.o: cord.cc $(BASEDIR)/lib/common.h \
  $(BASEDIR)/lib/closure.h \
  $(BASEDIR)/lib/string.h \
@@ -193,6 +196,7 @@ protobuf.o: protobuf.cc $(BASEDIR)/lib/base64.h \
  $(BASEDIR)/lib/closure.h \
  $(BASEDIR)/lib/string.h \
  $(BASEDIR)/lib/threadpool.h \
+ $(BASEDIR)/lib/openinstrument.pb.h \
  $(BASEDIR)/lib/protobuf.h \
  $(BASEDIR)/lib/cord.h \
  $(BASEDIR)/lib/file.h

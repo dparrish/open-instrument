@@ -16,7 +16,7 @@
 
 namespace openinstrument {
 
-class MimeTypes {
+class MimeTypes : private noncopyable {
  public:
   const string &Lookup(const string &filename);
   uint32_t ReadFile(const string &filename);

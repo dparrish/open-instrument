@@ -31,6 +31,7 @@
 #include <google/protobuf/message.h>
 #include <climits>
 #include <queue>
+#include <set>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -57,6 +58,7 @@ using boost::unordered_map;
 using std::size_t;
 using std::string;
 using std::vector;
+using std::set;
 
 // Common exceptions
 using std::runtime_error;
@@ -151,63 +153,6 @@ class Queue {
   std::queue<T *> queue_;
   mutable MutexLock mutex_;
   boost::condition_variable condvar_;
-};
-
-
-template <class T>
-class Buffer {
- public:
-  Buffer() : size_(0), capacity_(0) {}
-
-  explicit Buffer(int capacity) {
-    reserve(capacity);
-  }
-
-  void clear() {
-    size_ = 0;
-    capacity_ = 0;
-    t_.Reset();
-  }
-
-  void reserve(int capacity) {
-    size_ = 0;
-    t_.Reset(new T[capacity + 1]);
-    capacity_ = capacity;
-  }
-
-  T *data() const {
-    return t_.get() + size_;
-  }
-
-  T *content() const {
-    return t_.get();
-  }
-
-  void inc_size(int size) {
-    size_ += size;
-  }
-
-  void push_back(const T &t) {
-    *data() = t;
-    inc_size(1);
-  }
-
-  int size() const {
-    return capacity_ - size_;
-  }
-
-  bool full() const {
-    return size() == 0;
-  }
-
-  int capacity() const {
-    return capacity_;
-  }
-
- private:
-  scoped_array<T> t_;
-  int size_;
-  int capacity_;
 };
 
 }  // namespace

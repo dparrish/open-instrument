@@ -83,7 +83,7 @@ class Timestamp {
   // This also accepts another formatting conversion "%." which is replaced with the timestamp's fraction of a second,
   // which is useful in something like:
   //   Timestamp().strftime("%H:%M:%S.%.") --> 12:15:05.114
-  string GmTime(const char *format) const {
+  string GmTime(const char *format = "%Y-%m-%d %H:%M:%S.%.") const {
     time_t sec = seconds();
     struct tm tm;
     if (!gmtime_r(&sec, &tm))

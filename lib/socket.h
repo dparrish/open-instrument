@@ -18,7 +18,7 @@
 
 namespace openinstrument {
 
-class Socket {
+class Socket : private noncopyable {
  public:
   class Address {
    public:

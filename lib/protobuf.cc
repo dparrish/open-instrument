@@ -164,19 +164,7 @@ bool ProtoStreamReader::Skip(int count) {
       FindNextHeader();
       continue;
     }
-    buf_.resize(size);
-    if (fh_.Read(const_cast<char *>(buf_.data()), size) != size) {
-      LOG(WARNING) << "Short read of protobuf";
-      return false;
-    }
-    crc_type crc;
-    if (fh_.Read(&crc, sizeof(crc)) != sizeof(crc))
-      return false;
-    if (crc != Crc(buf_)) {
-      if (FindNextHeader())
-        continue;
-      return false;
-    }
+    fh_.SeekRel(size + sizeof(crc_type));
   }
   return true;
 }

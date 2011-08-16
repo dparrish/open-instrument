@@ -22,7 +22,7 @@
 
 namespace openinstrument {
 
-class RecordLog {
+class RecordLog : private noncopyable {
  public:
   typedef proto::ValueStream & iterator_type;
   typedef const proto::ValueStream & const_iterator_type;
@@ -31,19 +31,8 @@ class RecordLog {
 
   // Create a RecordLog stored at <basedir>/recordlog and a thread that will regularly flush items in memory to disk.
   // This thread will remain active until Shutdown() is called or this object is destroyed.
-  RecordLog(const string &basedir)
-    : basedir_(basedir),
-      size_(0),
-      shutdown_(false),
-      admin_thread_(new thread(bind(&RecordLog::AdminThread, this))),
-      replay_reader_(NULL) {
-  }
-
-  ~RecordLog() {
-    Shutdown();
-    if (admin_thread_.get())
-      admin_thread_->join();
-  }
+  RecordLog(const string &basedir);
+  ~RecordLog();
 
   // Tell the admin thread to shut down.
   // It could be up to 5 minutes until the thread actually shuts down.
@@ -61,11 +50,11 @@ class RecordLog {
   // At some point in the future this will be flushed to disk, but a successful return from Add() does not guarantee
   // that it is written to disk.
   // Call Flush() until the return is true to force disk output.
-  uint64_t Add(proto::ValueStream &stream);
+  void Add(proto::ValueStream &stream);
 
   // Helper method to add a single Value.
   // This creates a temporary ValueStream and adds it to the log.
-  uint64_t Add(const string &variable, const proto::Value &value);
+  void Add(const string &variable, const proto::Value &value);
 
   // Flush as many streams as possible to the record log.
   // No attempt is made to re-order or compress the streams so this is a very inefficient (and fast) way of recording
@@ -81,10 +70,6 @@ class RecordLog {
     return log_.size();
   }
 
-  inline uint64_t size() const {
-    return size_;
-  }
-
   inline iterator begin() {
     return log_.begin();
   }
@@ -95,11 +80,12 @@ class RecordLog {
 
  private:
   void AdminThread();
-  void RotateFlushLogs();
+  void RotateRecordLog();
+  void ReindexRecordLog();
+  void LoadIndexedFile(const string &filename);
 
   const string basedir_;
   deque<proto::ValueStream> log_;
-  uint64_t size_;
   Mutex mutex_;
   bool shutdown_;
   scoped_ptr<thread> admin_thread_;

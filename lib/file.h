@@ -13,6 +13,7 @@
 #define _FILE_OFFSET_BITS 64
 
 #include <string>
+#include <glob.h>
 #include <stdio.h>
 #include <sys/stat.h>
 #include "lib/common.h"
@@ -101,7 +102,7 @@ class MmapFile : public File {
   int fd;
 };
 
-class MmapFileRef {
+class MmapFileRef : private noncopyable {
  public:
   MmapFileRef(MmapFile *fh) : fh_(fh) {}
   ~MmapFileRef() {
@@ -148,6 +149,8 @@ class LocalFile : public File {
  private:
   int fd_;
 };
+
+vector<string> Glob(const string &pattern);
 
 }  // namespace openinstrument
 

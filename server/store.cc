@@ -25,6 +25,7 @@
 #include "lib/string.h"
 #include "lib/timer.h"
 #include "server/datastore.h"
+#include "server/disk_datastore.h"
 #include "server/record_log.h"
 
 DEFINE_int32(port, 8020, "Port to listen on");
@@ -39,148 +40,7 @@ using http::HttpServer;
 using http::HttpRequest;
 using http::HttpReply;
 
-class DiskDatastore {
- public:
-  typedef unordered_map<string, proto::ValueStream *> MapType;
-
-  DiskDatastore(const string &basedir)
-    : basedir_(basedir),
-      record_log_(basedir_) {
-    ReplayRecordLog();
-  }
-
-  ~DiskDatastore() {
-    for (MapType::iterator i = live_data_.begin(); i != live_data_.end(); ++i) {
-      delete i->second;
-    }
-    live_data_.clear();
-  }
-
-  void ListVariables(const string &prefix, vector<string> *vars) {
-    for (MapType::iterator i = live_data_.begin(); i != live_data_.end(); ++i) {
-      proto::ValueStream *stream = i->second;
-      if (!stream->has_variable())
-        continue;
-      if (stream->variable().find(prefix) == 0)
-        vars->push_back(stream->variable());
-    }
-  }
-
-  bool CompareMessage(const proto::ValueStream &a, const proto::ValueStream &b) {
-    return a.variable() == b.variable();
-  }
-
-  bool CompareMessage(const proto::Value &a, const proto::Value &b) {
-    return a.timestamp() == b.timestamp() && a.value() == b.value();
-  }
-
-  void Record(const string &variable, Timestamp timestamp, double value) {
-    proto::Value *val = RecordNoLog(variable, timestamp, value);
-    if (val)
-      record_log_.Add(variable, *val);
-  }
-
-  void Record(const string &variable, double value) {
-    Record(variable, Timestamp::Now(), value);
-  }
-
-  void GetRange(const string &variable, const Timestamp &start, const Timestamp &end, proto::ValueStream *outstream) {
-    proto::ValueStream *instream = GetVariable(variable);
-    if (!instream || !instream->value_size())
-      return;
-    outstream->set_variable(instream->variable());
-    for (int i = 0; i < instream->value_size(); i++) {
-      const proto::Value &value = instream->value(i);
-      if (value.timestamp() >= static_cast<uint64_t>(start.ms()) &&
-          ((end.ms() && value.timestamp() < static_cast<uint64_t>(end.ms())) || !end.ms())) {
-        proto::Value *val = outstream->add_value();
-        val->set_timestamp(value.timestamp());
-        val->set_value(value.value());
-      }
-    }
-  }
-
-  vector<Variable> FindVariables(const string &variable) {
-    vector<Variable> vars;
-    Variable search(variable);
-    if (search.variable().empty())
-      return vars;
-    for (MapType::iterator i = live_data_.begin(); i != live_data_.end(); ++i) {
-      Variable thisvar(i->first);
-      if (thisvar.variable() != search.variable())
-        continue;
-      bool found = true;
-      for (Variable::MapType::const_iterator l = search.labels().begin(); l != search.labels().end(); ++l) {
-        if (l->second == "*") {
-          if (!thisvar.HasLabel(l->first)) {
-            found = false;
-            break;
-          }
-        } else if (thisvar.GetLabel(l->first) != l->second) {
-          found = false;
-          break;
-        }
-      }
-      if (found)
-        vars.push_back(thisvar.ToString());
-    }
-    return vars;
-  }
-
- private:
-  proto::ValueStream *GetOrCreateVariable(const string &variable) {
-    proto::ValueStream *stream = GetVariable(variable);
-    if (stream)
-      return stream;
-    return CreateVariable(variable);
-  }
-
-  proto::ValueStream *GetVariable(const string &variable) {
-    MapType::iterator it = live_data_.find(variable);
-    if (it == live_data_.end())
-      return NULL;
-    return it->second;
-  }
-
-  proto::ValueStream *CreateVariable(const string &variable) {
-    proto::ValueStream *stream = new proto::ValueStream();
-    stream->set_variable(variable);
-    live_data_[variable] = stream;
-    return stream;
-  }
-
-  proto::Value *RecordNoLog(const string &variable, Timestamp timestamp, double value) {
-    proto::ValueStream *stream = GetOrCreateVariable(variable);
-    proto::Value *val = stream->add_value();
-    val->set_timestamp(timestamp.ms());
-    val->set_value(value);
-    return val;
-  }
-
-  void ReplayRecordLog() {
-    try {
-      VLOG(1) << "Replaying record log";
-      proto::ValueStream stream;
-      uint64_t num_points = 0, num_streams = 0;
-      while (record_log_.ReplayLog(&stream)) {
-        for (int i = 0; i < stream.value_size(); i++) {
-          RecordNoLog(stream.variable(), stream.value(i).timestamp(), stream.value(i).value());
-          num_points++;
-        }
-        num_streams++;
-      }
-      LOG(INFO) << "Replayed record log, got " << num_points << " points" << " in " << num_streams << " streams";
-    } catch (exception &e) {
-      LOG(WARNING) << "Couldn't replay record log: " << e.what();
-    }
-  }
-
-  string basedir_;
-  MapType live_data_;
-  RecordLog record_log_;
-};
-
-class DataStoreServer {
+class DataStoreServer : private noncopyable {
  public:
   DataStoreServer(const string &addr, uint16_t port, int num_threads)
     : datastore(FLAGS_datastore),
@@ -195,6 +55,19 @@ class DataStoreServer {
     server_->request_handler()->AddPath("/list$", &DataStoreServer::handle_list, this);
     server_->request_handler()->AddPath("/get$", &DataStoreServer::handle_get, this);
     server_->AddExportHandler();
+
+    try {
+      IndexedStoreFile::LoadAndGetVar("/network/interface/stats/ifInOctets{hostname=gw1,interface=Dialer0,srchost=monster}",
+                                      1313388961363);
+    } catch (exception &e) {
+      LOG(INFO) << e.what();
+    }
+    try {
+      IndexedStoreFile::LoadAndGetVar("/network/interface/stats/ifInOctets{hostname=gw1,interface=Dialer0,srchost=monster}",
+                                      1313382121822);
+    } catch (exception &e) {
+      LOG(INFO) << e.what();
+    }
   }
 
   bool handle_get(const HttpRequest &request, HttpReply *reply) {
@@ -213,8 +86,9 @@ class DataStoreServer {
     try {
       // Retrieve all the variable streams requested, mutating them on the way
       BOOST_FOREACH(Variable &var, vars) {
-        Timestamp start(req.min_timestamp() ? req.min_timestamp() : 0);
-        Timestamp end(req.has_max_timestamp() ? req.has_max_timestamp() : Timestamp::Now());
+        // Default to retrieving the last day
+        Timestamp start(req.has_min_timestamp() ? req.min_timestamp() : Timestamp::Now() - (86400 * 1000));
+        Timestamp end(req.has_max_timestamp() ? req.max_timestamp() : Timestamp::Now());
 
         if (req.mutation_size()) {
           proto::ValueStream initial_stream;

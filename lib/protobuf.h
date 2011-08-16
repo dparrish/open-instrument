@@ -33,7 +33,7 @@ void ValueStreamMax(vector<proto::ValueStream> &input, uint64_t sample_interval,
 void ValueStreamMedian(vector<proto::ValueStream> &input, uint64_t sample_interval, proto::ValueStream *output);
 void ValueStreamSum(vector<proto::ValueStream> &input, uint64_t sample_interval, proto::ValueStream *output);
 
-class ProtoStreamReader {
+class ProtoStreamReader : private noncopyable {
  public:
   ProtoStreamReader(const string &filename) : fh_(filename, "r") {}
   bool Skip(int count = 1);
@@ -46,7 +46,7 @@ class ProtoStreamReader {
   LocalFile fh_;
 };
 
-class ProtoStreamWriter {
+class ProtoStreamWriter : private noncopyable {
  public:
   ProtoStreamWriter(const string &filename) : fh_(filename, "a") {}
   bool Write(google::protobuf::Message &msg);

@@ -126,4 +126,16 @@ int64_t LocalFile::Tell() const {
   return lseek64(fd_, 0, SEEK_CUR);
 }
 
+vector<string> Glob(const string &pattern) {
+  vector<string> files;
+  glob_t pglob;
+  if (::glob(pattern.c_str(), 0, NULL, &pglob) == 0) {
+    files.reserve(pglob.gl_pathc + 1);
+    for (size_t i = 0; i < pglob.gl_pathc; i++)
+      files.push_back(pglob.gl_pathv[i]);
+  }
+  ::globfree(&pglob);
+  return files;
+}
+
 }  // namespace openinstrument

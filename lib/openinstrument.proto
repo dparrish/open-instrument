@@ -93,3 +93,10 @@ message ListResponse {
   // empty.
   repeated ValueStream stream = 3;
 }
+
+message StoreFileHeader {
+  required uint64 start_timestamp = 1;
+  required uint64 end_timestamp = 2;
+  repeated string variable = 3;
+}
+
