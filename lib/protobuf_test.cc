@@ -79,6 +79,28 @@ TEST_F(ProtobufTest, Variable) {
   }
 }
 
+TEST_F(ProtobufTest, VariableMatches) {
+  Variable input("/test/variable/1{label1=foobar,label2=barfoo,label3=1219827391}");
+  EXPECT_TRUE(input.Matches("/test/variable/1"));
+  EXPECT_FALSE(input.Matches("/test/variable/2"));
+  EXPECT_TRUE(input.Matches("/test/varia*"));
+  EXPECT_FALSE(input.Matches("/test/notvaria*"));
+  EXPECT_TRUE(input.Matches("/test/variable/1{}"));
+  EXPECT_TRUE(input.Matches("/test/variable/1{label1=*}"));
+  EXPECT_FALSE(input.Matches("/test/variable/1{label4=*}"));
+  EXPECT_TRUE(input.Matches("/test/variable/1{label1=foobar}"));
+  EXPECT_FALSE(input.Matches("/test/variable/1{label1=barfoo}"));
+  EXPECT_TRUE(input.Matches("/test/variable/1{label1=/foo.*/}"));
+  EXPECT_FALSE(input.Matches("/test/variable/1{label1=/foo/}"));
+  EXPECT_TRUE(input.Matches("/test/variable/1{label1=/foo.*/}"));
+  EXPECT_FALSE(input.Matches("/test/variable/1{label4=yay}"));
+  EXPECT_TRUE(input == "/test/variable/1{label1=foobar,label2=barfoo,label3=1219827391}");
+  EXPECT_TRUE(input.equals("/test/variable/1{label2=barfoo,label3=1219827391,label1=foobar}"));
+  EXPECT_FALSE(input.equals("/test/variable/1{label3=1219827391,label1=foobar}"));
+  EXPECT_FALSE(input.equals("/test/variable/1{label1=foobar,label2=barfoo,label3=1298371927}"));
+  EXPECT_FALSE(input.equals("/test/variable/1{label1=foobar,label2=barfoo,label3=1219827391,label4=yay}"));
+}
+
 }  // namespace
 
 int main(int argc, char **argv) {

@@ -109,6 +109,33 @@ class Variable {
     return it->second;
   }
 
+  bool Matches(const Variable &search) const;
+  inline bool Matches(const string &search) const {
+    return Matches(Variable(search));
+  }
+
+  inline bool operator==(const Variable &search) const {
+    return equals(search);
+  }
+
+  inline bool operator==(const string &search) const {
+    return equals(Variable(search));
+  }
+
+  bool equals(const Variable &search) const;
+  inline bool equals(const string &search) const {
+    return equals(Variable(search));
+  }
+
+  // Used to keep track of how much data is in RAM
+  inline uint64_t RamSize() const {
+    uint64_t size = sizeof(labels_) + variable_.capacity();
+    for (MapType::const_iterator i = labels_.begin(); i != labels_.end(); ++i) {
+      size += i->first.capacity() + i->second.capacity();
+    }
+    return size;
+  }
+
  private:
   bool ShouldQuoteValue(const string &input) const;
   string QuoteValue(const string &input) const;

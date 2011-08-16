@@ -352,4 +352,46 @@ string Variable::QuoteValue(const string &input) const {
   return output;
 }
 
+bool Variable::Matches(const Variable &search) const {
+  if (search.variable_[search.variable_.size() - 1] == '*') {
+    // Compare up to the trailing *
+    if (variable_.substr(0, search.variable_.size() - 1) != search.variable_.substr(0, search.variable_.size() - 1))
+      return false;
+  } else {
+    if (search.variable_ != variable_)
+      return false;
+  }
+  for (MapType::const_iterator i = search.labels_.begin(); i != search.labels_.end(); ++i) {
+    if (i->second == "*") {
+      if (!HasLabel(i->first))
+        return false;
+    } else if (i->second[0] == '/' && i->second[i->second.size() - 1] == '/') {
+      // It's a regex match
+      boost::regex regex(i->second.substr(1, i->second.size() - 2));
+      if (!boost::regex_match(GetLabel(i->first), regex))
+        return false;
+    } else if (i->second != GetLabel(i->first)) {
+      // Straight string match
+      return false;
+    }
+  }
+  return true;
+}
+
+bool Variable::equals(const Variable &search) const {
+  if (search.variable_ != variable_)
+    return false;
+  if (search.labels_.size() != labels_.size())
+    return false;
+  for (MapType::const_iterator i = search.labels_.begin(); i != search.labels_.end(); ++i) {
+    if (GetLabel(i->first) != i->second)
+      return false;
+  }
+  for (MapType::const_iterator i = labels_.begin(); i != labels_.end(); ++i) {
+    if (search.GetLabel(i->first) != i->second)
+      return false;
+  }
+  return true;
+}
+
 }  // namespace openinstrument
