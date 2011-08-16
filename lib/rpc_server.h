@@ -10,6 +10,7 @@
 #ifndef OPENINSTRUMENT_LIB_RPC_SERVER_H_
 #define OPENINSTRUMENT_LIB_RPC_SERVER_H_
 
+#include <string>
 #include "lib/common.h"
 #include "lib/exported_vars.h"
 #include "lib/http_server.h"
@@ -22,7 +23,7 @@ namespace rpc {
 
 class RpcServer {
  public:
-  RpcServer(http::HttpServer *server)
+  explicit RpcServer(http::HttpServer *server)
     : server_(server) {
     server_->request_handler()->AddPath("/__START_RPC__", &RpcServer::HandleRpc, this);
   }

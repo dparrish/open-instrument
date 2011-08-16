@@ -8,6 +8,7 @@
  */
 
 #include <vector>
+#include <set>
 #include <string>
 #include "lib/common.h"
 #include "lib/file.h"

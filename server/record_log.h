@@ -14,7 +14,9 @@
 #ifndef OPENINSTRUMENT_SERVER_RECORD_LOG_H_
 #define OPENINSTRUMENT_SERVER_RECORD_LOG_H_
 
+#include <deque>
 #include <string>
+#include <vector>
 #include "lib/common.h"
 #include "lib/openinstrument.pb.h"
 #include "lib/protobuf.h"
@@ -31,7 +33,7 @@ class RecordLog : private noncopyable {
 
   // Create a RecordLog stored at <basedir>/recordlog and a thread that will regularly flush items in memory to disk.
   // This thread will remain active until Shutdown() is called or this object is destroyed.
-  RecordLog(const string &basedir);
+  explicit RecordLog(const string &basedir);
   ~RecordLog();
 
   // Tell the admin thread to shut down.
@@ -50,7 +52,7 @@ class RecordLog : private noncopyable {
   // At some point in the future this will be flushed to disk, but a successful return from Add() does not guarantee
   // that it is written to disk.
   // Call Flush() until the return is true to force disk output.
-  void Add(proto::ValueStream &stream);
+  void Add(const proto::ValueStream &stream);
 
   // Helper method to add a single Value.
   // This creates a temporary ValueStream and adds it to the log.

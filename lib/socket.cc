@@ -229,7 +229,7 @@ uint32_t Socket::Address::AddressFromString(const string &addr) {
   if (inet_aton(addr.c_str(), &in) == 0) {
     vector<Address> addrs = Resolve(addr.c_str());
     if (addrs.size())
-      return address = addrs[0].address;;
+      return address = addrs[0].address;
     throw runtime_error(StringPrintf("Invalid address %s", addr.c_str()));
   }
   memcpy(&address, &in, sizeof(uint32_t));

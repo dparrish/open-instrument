@@ -26,7 +26,7 @@ class Executor : public boost::noncopyable {
 typedef boost::function<void()> Callback;
 class CallbackRunner : public boost::noncopyable {
  public:
-  CallbackRunner(Callback cb) : cb_(cb) {}
+  explicit CallbackRunner(Callback cb) : cb_(cb) {}
   ~CallbackRunner() {
     if (cb_)
       cb_();
@@ -37,4 +37,4 @@ class CallbackRunner : public boost::noncopyable {
 
 }  // namespace openinstrument
 
-#endif  //_OPENINSTRUMENT_LIB_COMMON_H_
+#endif  // _OPENINSTRUMENT_LIB_COMMON_H_

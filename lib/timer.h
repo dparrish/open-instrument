@@ -154,6 +154,7 @@ class Duration : public Timestamp {
  public:
   Duration() {}
   explicit Duration(int64_t ms) : Timestamp(ms) {}
+  explicit Duration(const string &str) : Timestamp(FromString(str).ms()) {}
   ~Duration() {}
 
   // Parse a string containing a duration and return the number of milliseconds.

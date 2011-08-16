@@ -30,17 +30,8 @@ DiskDatastore::~DiskDatastore() {
   live_data_.clear();
 }
 
-void DiskDatastore::ListVariables(const string &prefix, vector<string> *vars) {
-  for (MapType::iterator i = live_data_.begin(); i != live_data_.end(); ++i) {
-    proto::ValueStream &stream = i->second;
-    if (!stream.has_variable())
-      continue;
-    if (stream.variable().find(prefix) == 0)
-      vars->push_back(stream.variable());
-  }
-}
-
-void DiskDatastore::GetRange(const string &variable, const Timestamp &start, const Timestamp &end, proto::ValueStream *outstream) {
+void DiskDatastore::GetRange(const string &variable, const Timestamp &start, const Timestamp &end,
+                             proto::ValueStream *outstream) {
   try {
     proto::ValueStream &instream = GetVariable(variable);
     if (!instream.value_size())
@@ -60,29 +51,14 @@ void DiskDatastore::GetRange(const string &variable, const Timestamp &start, con
   }
 }
 
-vector<Variable> DiskDatastore::FindVariables(const string &variable) {
-  vector<Variable> vars;
+set<Variable> DiskDatastore::FindVariables(const string &variable) {
+  set<Variable> vars;
   Variable search(variable);
   if (search.variable().empty())
     return vars;
   for (MapType::iterator i = live_data_.begin(); i != live_data_.end(); ++i) {
-    Variable thisvar(i->first);
-    if (thisvar.variable() != search.variable())
-      continue;
-    bool found = true;
-    for (Variable::MapType::const_iterator l = search.labels().begin(); l != search.labels().end(); ++l) {
-      if (l->second == "*") {
-        if (!thisvar.HasLabel(l->first)) {
-          found = false;
-          break;
-        }
-      } else if (thisvar.GetLabel(l->first) != l->second) {
-        found = false;
-        break;
-      }
-    }
-    if (found)
-      vars.push_back(thisvar.ToString());
+    if (Variable(i->first).Matches(search))
+      vars.insert(Variable(i->first));
   }
   return vars;
 }

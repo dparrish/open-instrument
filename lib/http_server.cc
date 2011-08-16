@@ -144,7 +144,7 @@ void HttpServer::HandleClient(Socket *sock) {
     // Ignore errors
   }
   try {
-    //stats_["/total-bytes-write"] += reply.body().size();
+    // stats_["/total-bytes-write"] += reply.body().size();
     reply.Write(sock);
     sock->Flush();
     if (reply.IsSuccess())

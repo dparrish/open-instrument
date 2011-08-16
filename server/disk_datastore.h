@@ -26,12 +26,11 @@ class DiskDatastore : private noncopyable {
  public:
   typedef unordered_map<string, proto::ValueStream> MapType;
 
-  DiskDatastore(const string &basedir);
+  explicit DiskDatastore(const string &basedir);
   ~DiskDatastore();
 
-  void ListVariables(const string &prefix, vector<string> *vars);
   void GetRange(const string &variable, const Timestamp &start, const Timestamp &end, proto::ValueStream *outstream);
-  vector<Variable> FindVariables(const string &variable);
+  set<Variable> FindVariables(const string &variable);
 
   inline bool CompareMessage(const proto::ValueStream &a, const proto::ValueStream &b) {
     return a.variable() == b.variable();
@@ -65,4 +64,4 @@ class DiskDatastore : private noncopyable {
 
 }  // namespace
 
-#endif  //_OPENINSTRUMENT_LIB_DISK_DATASTORE_H
+#endif  // _OPENINSTRUMENT_LIB_DISK_DATASTORE_H

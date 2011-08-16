@@ -1,7 +1,7 @@
 /*
  *  -
  *
- * (c) 2010 David Parrish <david@dparrish.com>
+ * Copyright 2011 David Parrish <david@dparrish.com>
  *
  * vim: sw=2 tw=120
  *
@@ -24,7 +24,7 @@ class IndexedStoreFile : private noncopyable {
  public:
   typedef unordered_map<string, proto::ValueStream> MapType;
 
-  IndexedStoreFile(const string &filename)
+  explicit IndexedStoreFile(const string &filename)
     : filename_(filename),
       fh_(filename) {}
 
@@ -55,4 +55,4 @@ class IndexedStoreFile : private noncopyable {
 
 }  // namespace
 
-#endif  //_OPENINSTRUMENT_LIB_DATASTORE_H_ 
+#endif  // _OPENINSTRUMENT_LIB_DATASTORE_H_

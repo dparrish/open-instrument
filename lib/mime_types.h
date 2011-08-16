@@ -10,7 +10,7 @@
 #ifndef OPENINSTRUMENT_LIB_MIME_TYPES_H_
 #define OPENINSTRUMENT_LIB_MIME_TYPES_H_
 
-#include <stdio.h>
+#include <string>
 #include <boost/algorithm/string/split.hpp>
 #include <boost/algorithm/string/classification.hpp>
 

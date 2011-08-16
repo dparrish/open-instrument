@@ -21,7 +21,7 @@ class UniformTimeSeries : private noncopyable {
  public:
   // Args:
   //   interval - The duration between output points in ms
-  UniformTimeSeries(uint64_t interval)
+  explicit UniformTimeSeries(uint64_t interval)
     : interval_(interval),
       base_timestamp_(0),
       points_input_(0),

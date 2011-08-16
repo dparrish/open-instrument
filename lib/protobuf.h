@@ -10,9 +10,10 @@
 #ifndef _OPENINSTRUMENT_LIB_PROTOBUF_H_
 #define _OPENINSTRUMENT_LIB_PROTOBUF_H_
 
-#include <google/protobuf/message.h>
+#include <map>
 #include <string>
 #include <vector>
+#include <google/protobuf/message.h>
 #include "lib/common.h"
 #include "lib/cord.h"
 #include "lib/file.h"
@@ -27,15 +28,15 @@ bool SerializeProtobuf(const google::protobuf::Message &proto, Cord *output);
 // Base64 decode and write the de-serialized result to <proto>
 bool UnserializeProtobuf(const Cord &input, google::protobuf::Message *proto);
 
-void ValueStreamAverage(vector<proto::ValueStream> &input, uint64_t sample_interval, proto::ValueStream *output);
-void ValueStreamMin(vector<proto::ValueStream> &input, uint64_t sample_interval, proto::ValueStream *output);
-void ValueStreamMax(vector<proto::ValueStream> &input, uint64_t sample_interval, proto::ValueStream *output);
-void ValueStreamMedian(vector<proto::ValueStream> &input, uint64_t sample_interval, proto::ValueStream *output);
-void ValueStreamSum(vector<proto::ValueStream> &input, uint64_t sample_interval, proto::ValueStream *output);
+void ValueStreamAverage(const vector<proto::ValueStream> &input, uint64_t sample_interval, proto::ValueStream *output);
+void ValueStreamMin(const vector<proto::ValueStream> &input, uint64_t sample_interval, proto::ValueStream *output);
+void ValueStreamMax(const vector<proto::ValueStream> &input, uint64_t sample_interval, proto::ValueStream *output);
+void ValueStreamMedian(const vector<proto::ValueStream> &input, uint64_t sample_interval, proto::ValueStream *output);
+void ValueStreamSum(const vector<proto::ValueStream> &input, uint64_t sample_interval, proto::ValueStream *output);
 
 class ProtoStreamReader : private noncopyable {
  public:
-  ProtoStreamReader(const string &filename) : fh_(filename, "r") {}
+  explicit ProtoStreamReader(const string &filename) : fh_(filename, "r") {}
   bool Skip(int count = 1);
   bool Next(google::protobuf::Message *msg);
 
@@ -48,8 +49,8 @@ class ProtoStreamReader : private noncopyable {
 
 class ProtoStreamWriter : private noncopyable {
  public:
-  ProtoStreamWriter(const string &filename) : fh_(filename, "a") {}
-  bool Write(google::protobuf::Message &msg);
+  explicit ProtoStreamWriter(const string &filename) : fh_(filename, "a") {}
+  bool Write(const google::protobuf::Message &msg);
 
  private:
   string buf_;
@@ -79,6 +80,10 @@ class Variable {
 
   void FromString(const string &input);
   const string ToString() const;
+
+  inline bool operator<(const Variable &b) const {
+    return ToString() < b.ToString();
+  }
 
   inline const string &variable() const {
     return variable_;

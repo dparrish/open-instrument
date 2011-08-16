@@ -7,10 +7,12 @@
  *
  */
 
-#include "lib/mysql_builder.h"
-#include "mysql/errmsg.h"
+#include <string>
+#include <vector>
 #include <mysql++.h>
 #include <mysql++/mystring.h>
+#include "lib/mysql_builder.h"
+#include "mysql/errmsg.h"
 
 namespace openinstrument {
 

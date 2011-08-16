@@ -13,6 +13,7 @@
 #define _FILE_OFFSET_BITS 64
 
 #include <string>
+#include <vector>
 #include <glob.h>
 #include <stdio.h>
 #include <sys/stat.h>
@@ -22,7 +23,7 @@ namespace openinstrument {
 
 class FileStat {
  public:
-  FileStat(const string &filename) {
+  explicit FileStat(const string &filename) {
     if (stat(filename.c_str(), &sb_) < 0) {
       error_ = strerror(errno);
       memset(&sb_, 0, sizeof(sb_));
@@ -56,7 +57,7 @@ class FileStat {
 
 class File : private noncopyable {
  public:
-  File(const string &filename) : filename_(filename) {
+  explicit File(const string &filename) : filename_(filename) {
     Stat(filename);
   }
 
@@ -93,7 +94,7 @@ class MmapFile : public File {
   inline char *data() const { return reinterpret_cast<char *>(ptr_); }
 
  private:
-  MmapFile(const string &filename)
+  explicit MmapFile(const string &filename)
     : File(filename),
       ptr_(NULL),
       refcount_(0) {}
@@ -104,7 +105,7 @@ class MmapFile : public File {
 
 class MmapFileRef : private noncopyable {
  public:
-  MmapFileRef(MmapFile *fh) : fh_(fh) {}
+  explicit MmapFileRef(MmapFile *fh) : fh_(fh) {}
   ~MmapFileRef() {
     if (fh_)
       fh_->Deref();
@@ -132,10 +133,10 @@ class LocalFile : public File {
   size_t Write(const char *ptr, size_t size);
   size_t Write(const string &str);
 
-  template<typename T> size_t Write(T &val, size_t size) {
+  template<typename T> size_t Write(const T &val, size_t size) {
     if (!fd_)
       return 0;
-    return write(fd_, reinterpret_cast<char *>(&val), size);
+    return write(fd_, reinterpret_cast<const char *>(&val), size);
   }
 
   int64_t SeekAbs(int64_t offset);

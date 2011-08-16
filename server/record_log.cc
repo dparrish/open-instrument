@@ -33,7 +33,7 @@ RecordLog::~RecordLog() {
     admin_thread_->join();
 }
 
-void RecordLog::Add(proto::ValueStream &stream) {
+void RecordLog::Add(const proto::ValueStream &stream) {
   MutexLock locker(mutex_);
   log_.push_back(proto::ValueStream());
   log_.back().CopyFrom(stream);
@@ -165,7 +165,7 @@ void RecordLog::ReindexRecordLog() {
         value->set_timestamp(stream.value(i).timestamp());
         value->set_value(stream.value(i).value());
         if (!header.has_start_timestamp() || value->timestamp() < header.start_timestamp())
-          header.set_start_timestamp( value->timestamp());
+          header.set_start_timestamp(value->timestamp());
         if (value->timestamp() > header.end_timestamp())
           header.set_end_timestamp(value->timestamp());
         input_values++;
@@ -186,7 +186,7 @@ void RecordLog::ReindexRecordLog() {
     }
     LOG(INFO) << "Created indexed file " << outfile << " containing " << output_streams << " streams and "
               << input_values << " values, between " << Timestamp(header.start_timestamp()).GmTime() << " and "
-              << Timestamp(header.end_timestamp()).GmTime();;
+              << Timestamp(header.end_timestamp()).GmTime();
     ::unlink(filename.c_str());
   }
 }

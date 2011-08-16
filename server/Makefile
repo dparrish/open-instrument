@@ -1,10 +1,8 @@
-TARGETS=store store_client
+TARGETS=store
 TESTS=
 EXTRA_DEPS=store.o record_log.o disk_datastore.o datastore.o $(BASEDIR)/lib/libopenstrument.a
 EXTRA_LIBS_store=record_log.o disk_datastore.o datastore.o $(BASEDIR)/lib/libopenstrument.a
 EXTRA_DEPS_store=disk_datastore.o datastore.o record_log.o $(BASEDIR)/lib/libopenstrument.a
-EXTRA_LIBS_hostport_test=hostport.o
-EXTRA_LIBS_datastore_test=hostport.o
 
 include $(BASEDIR)/Makefile.inc
 
@@ -43,17 +41,6 @@ disk_datastore.o: disk_datastore.cc \
  $(BASEDIR)/server/datastore.h \
  $(BASEDIR)/server/disk_datastore.h \
  $(BASEDIR)/server/record_log.h
-hostport.o: hostport.cc \
- $(BASEDIR)/server/hostport.h \
- $(BASEDIR)/lib/common.h \
- $(BASEDIR)/lib/closure.h \
- $(BASEDIR)/lib/string.h \
- $(BASEDIR)/lib/threadpool.h
-hostport_test.o: hostport_test.cc hostport.h \
- $(BASEDIR)/lib/common.h \
- $(BASEDIR)/lib/closure.h \
- $(BASEDIR)/lib/string.h \
- $(BASEDIR)/lib/threadpool.h
 record_log.o: record_log.cc \
  $(BASEDIR)/lib/common.h \
  $(BASEDIR)/lib/closure.h \
@@ -90,18 +77,3 @@ store.o: store.cc $(BASEDIR)/lib/atomic.h \
  $(BASEDIR)/server/datastore.h \
  $(BASEDIR)/server/disk_datastore.h \
  $(BASEDIR)/server/record_log.h
-store_client.o: store_client.cc \
- $(BASEDIR)/lib/atomic.h \
- $(BASEDIR)/lib/common.h \
- $(BASEDIR)/lib/closure.h \
- $(BASEDIR)/lib/string.h \
- $(BASEDIR)/lib/threadpool.h \
- $(BASEDIR)/lib/http_client.h \
- $(BASEDIR)/lib/http_reply.h \
- $(BASEDIR)/lib/http_message.h \
- $(BASEDIR)/lib/cord.h \
- $(BASEDIR)/lib/http_headers.h \
- $(BASEDIR)/lib/timer.h \
- $(BASEDIR)/lib/http_request.h \
- $(BASEDIR)/lib/socket.h \
- $(BASEDIR)/lib/uri.h

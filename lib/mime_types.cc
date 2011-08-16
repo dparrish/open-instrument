@@ -8,13 +8,14 @@
  */
 
 #include <string>
+#include <vector>
 #include "lib/common.h"
 #include "lib/mime_types.h"
 
 namespace openinstrument {
 
 const string &MimeTypes::Lookup(const string &filename) {
-  const static string unknown("application/x-binary");
+  static const string unknown("application/x-binary");
   string extension(filename);
   size_t pos = filename.find_last_of(".");
   if (pos != string::npos)

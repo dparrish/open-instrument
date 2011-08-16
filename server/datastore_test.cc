@@ -9,6 +9,7 @@
 
 #include <gtest/gtest.h>
 #include <string>
+#include <vector>
 #include "server/datastore.h"
 
 namespace openinstrument {

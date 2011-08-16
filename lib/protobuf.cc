@@ -7,6 +7,7 @@
  *
  */
 
+#include <algorithm>
 #include <string>
 #include <vector>
 #include <boost/crc.hpp>
@@ -38,7 +39,7 @@ bool UnserializeProtobuf(const Cord &input, google::protobuf::Message *proto) {
   return proto->ParseFromString(Base64Decode(c));
 }
 
-void ValueStreamCalculation(vector<proto::ValueStream> &input, uint64_t sample_interval,
+void ValueStreamCalculation(const vector<proto::ValueStream> &input, uint64_t sample_interval,
                             boost::function<double(vector<double>)> calcfunc, proto::ValueStream *output) {
   vector<int> iterators;
   for (size_t i = 0; i < input.size(); i++)
@@ -84,7 +85,7 @@ double _DoAverage(vector<double> bucket) {
   return total / bucket.size();
 }
 
-void ValueStreamAverage(vector<proto::ValueStream> &input, uint64_t sample_interval, proto::ValueStream *output) {
+void ValueStreamAverage(const vector<proto::ValueStream> &input, uint64_t sample_interval, proto::ValueStream *output) {
   ValueStreamCalculation(input, sample_interval, &_DoAverage, output);
 }
 
@@ -96,7 +97,7 @@ double _DoSum(vector<double> bucket) {
   return total;
 }
 
-void ValueStreamSum(vector<proto::ValueStream> &input, uint64_t sample_interval, proto::ValueStream *output) {
+void ValueStreamSum(const vector<proto::ValueStream> &input, uint64_t sample_interval, proto::ValueStream *output) {
   ValueStreamCalculation(input, sample_interval, &_DoSum, output);
 }
 
@@ -109,7 +110,7 @@ double _DoMax(vector<double> bucket) {
   return max;
 }
 
-void ValueStreamMax(vector<proto::ValueStream> &input, uint64_t sample_interval, proto::ValueStream *output) {
+void ValueStreamMax(const vector<proto::ValueStream> &input, uint64_t sample_interval, proto::ValueStream *output) {
   ValueStreamCalculation(input, sample_interval, &_DoMax, output);
 }
 
@@ -122,7 +123,7 @@ double _DoMin(vector<double> bucket) {
   return min;
 }
 
-void ValueStreamMin(vector<proto::ValueStream> &input, uint64_t sample_interval, proto::ValueStream *output) {
+void ValueStreamMin(const vector<proto::ValueStream> &input, uint64_t sample_interval, proto::ValueStream *output) {
   ValueStreamCalculation(input, sample_interval, &_DoMin, output);
 }
 
@@ -131,7 +132,7 @@ double _DoMedian(vector<double> bucket) {
   return bucket[bucket.size() / 2];
 }
 
-void ValueStreamMedian(vector<proto::ValueStream> &input, uint64_t sample_interval, proto::ValueStream *output) {
+void ValueStreamMedian(const vector<proto::ValueStream> &input, uint64_t sample_interval, proto::ValueStream *output) {
   ValueStreamCalculation(input, sample_interval, &_DoMedian, output);
 }
 
@@ -242,7 +243,7 @@ bool ProtoStreamReader::FindNextHeader() {
   return false;
 }
 
-bool ProtoStreamWriter::Write(google::protobuf::Message &msg) {
+bool ProtoStreamWriter::Write(const google::protobuf::Message &msg) {
   if (!msg.SerializeToString(&buf_))
     return false;
   // Write proto magic token and size
@@ -277,11 +278,11 @@ void Variable::FromString(const string &input) {
     return;
   }
   variable_ = input.substr(0, pos);
-  string labelstring = input.substr(pos + 1, input.size() - pos - 2); // Lose the trailing }
+  string labelstring = input.substr(pos + 1, input.size() - pos - 2);  // Lose the trailing }
 
   typedef boost::tokenizer<boost::escaped_list_separator<char> > Tokenizer;
   Tokenizer tokens(labelstring);
-  for(Tokenizer::iterator it = tokens.begin(); it != tokens.end(); ++it){
+  for (Tokenizer::iterator it = tokens.begin(); it != tokens.end(); ++it) {
     string lv(*it);
     size_t pos = lv.find("=");
     if (pos == string::npos) {

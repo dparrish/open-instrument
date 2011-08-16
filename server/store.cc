@@ -50,24 +50,10 @@ class DataStoreServer : private noncopyable {
       add_request_timer_("/openinstrument/store/add-requests"),
       list_request_timer_("/openinstrument/store/list-requests"),
       get_request_timer_("/openinstrument/store/get-requests") {
-    //datastore.connect("openinstrument", "localhost", "openinstrument", "openinstrument");
     server_->request_handler()->AddPath("/add$", &DataStoreServer::handle_add, this);
     server_->request_handler()->AddPath("/list$", &DataStoreServer::handle_list, this);
     server_->request_handler()->AddPath("/get$", &DataStoreServer::handle_get, this);
     server_->AddExportHandler();
-
-    try {
-      IndexedStoreFile::LoadAndGetVar("/network/interface/stats/ifInOctets{hostname=gw1,interface=Dialer0,srchost=monster}",
-                                      1313388961363);
-    } catch (exception &e) {
-      LOG(INFO) << e.what();
-    }
-    try {
-      IndexedStoreFile::LoadAndGetVar("/network/interface/stats/ifInOctets{hostname=gw1,interface=Dialer0,srchost=monster}",
-                                      1313382121822);
-    } catch (exception &e) {
-      LOG(INFO) << e.what();
-    }
   }
 
   bool handle_get(const HttpRequest &request, HttpReply *reply) {
@@ -79,13 +65,14 @@ class DataStoreServer : private noncopyable {
 
     proto::GetResponse response;
     // Loop through all variables that match the requested variable.
-    vector<Variable> vars(datastore.FindVariables(req.variable()));
+    set<Variable> vars(datastore.FindVariables(req.variable()));
     VLOG(1) << "Found " << vars.size() << " variables matching " << req.variable();
     vector<proto::ValueStream> streams;
+    set<string> unique_vars;
 
     try {
       // Retrieve all the variable streams requested, mutating them on the way
-      BOOST_FOREACH(Variable &var, vars) {
+      BOOST_FOREACH(const Variable &var, vars) {
         // Default to retrieving the last day
         Timestamp start(req.has_min_timestamp() ? req.min_timestamp() : Timestamp::Now() - (86400 * 1000));
         Timestamp end(req.has_max_timestamp() ? req.max_timestamp() : Timestamp::Now());
@@ -101,98 +88,107 @@ class DataStoreServer : private noncopyable {
           streams.push_back(proto::ValueStream());
           datastore.GetRange(var.ToString(), start, end, &streams.back());
         }
+        unique_vars.insert(var.variable());
       }
 
       // Perform any requested aggregation
       if (req.aggregation_size()) {
-        for (int agg_i = 0; agg_i < req.aggregation_size(); agg_i++) {
-          const proto::StreamAggregation &agg = req.aggregation(agg_i);
-          uint64_t sample_interval = agg.sample_interval();
-          if (!sample_interval)
-            sample_interval = 30000;
-
-          Variable var;
-          if (streams.size())
-            var.SetVariable(Variable(streams[0].variable()).variable());
-
-          if (!agg.label_size()) {
-            LOG(INFO) << "Throw away all labels";
-            // Aggregate by variable only, throw away all labels
-            proto::ValueStream output;
-            if (agg.type() == proto::StreamAggregation::AVERAGE) {
-              ValueStreamAverage(streams, sample_interval, &output);
-            } else if (agg.type() == proto::StreamAggregation::SUM) {
-              ValueStreamSum(streams, sample_interval, &output);
-            } else if (agg.type() == proto::StreamAggregation::MIN) {
-              ValueStreamMin(streams, sample_interval, &output);
-            } else if (agg.type() == proto::StreamAggregation::MAX) {
-              ValueStreamMax(streams, sample_interval, &output);
-            } else if (agg.type() == proto::StreamAggregation::MEDIAN) {
-              ValueStreamMedian(streams, sample_interval, &output);
+        BOOST_FOREACH(string varname, unique_vars) {
+          // Get a list of all streams with the same variable name
+          vector<proto::ValueStream> aggstreams;
+          BOOST_FOREACH(proto::ValueStream &stream, streams) {
+            if (Variable(stream.variable()).variable() == varname) {
+              aggstreams.push_back(stream);
             }
-            output.set_variable(var.ToString());
-            response.add_stream()->CopyFrom(output);
-          } else {
-            for (int i = 0; i < agg.label_size(); i++) {
-              string label = agg.label(i);
-              set<string> distinct_values;
+          }
+          for (int agg_i = 0; agg_i < req.aggregation_size(); agg_i++) {
+            const proto::StreamAggregation &agg = req.aggregation(agg_i);
+            uint64_t sample_interval = agg.sample_interval();
+            if (!sample_interval)
+              sample_interval = 30000;
 
-              BOOST_FOREACH(proto::ValueStream &stream, streams) {
-                Variable tmpvar(stream.variable());
-                if (tmpvar.HasLabel(label))
-                  distinct_values.insert(tmpvar.GetLabel(label));
+            Variable var;
+            if (aggstreams.size())
+              var.SetVariable(Variable(aggstreams[0].variable()).variable());
+
+            if (!agg.label_size()) {
+              LOG(INFO) << "Throw away all labels";
+              // Aggregate by variable only, throw away all labels
+              proto::ValueStream output;
+              if (agg.type() == proto::StreamAggregation::AVERAGE) {
+                ValueStreamAverage(aggstreams, sample_interval, &output);
+              } else if (agg.type() == proto::StreamAggregation::SUM) {
+                ValueStreamSum(aggstreams, sample_interval, &output);
+              } else if (agg.type() == proto::StreamAggregation::MIN) {
+                ValueStreamMin(aggstreams, sample_interval, &output);
+              } else if (agg.type() == proto::StreamAggregation::MAX) {
+                ValueStreamMax(aggstreams, sample_interval, &output);
+              } else if (agg.type() == proto::StreamAggregation::MEDIAN) {
+                ValueStreamMedian(aggstreams, sample_interval, &output);
               }
-              VLOG(2) << "Distinct values for " << label << ":";
-              BOOST_FOREACH(string output_label, distinct_values) {
-                VLOG(2) << "  " << output_label;
-                vector<proto::ValueStream> tmpstreams;
-                unordered_map<string, int> other_label_counts;
-                unordered_map<string, string> other_label_values;
-                BOOST_FOREACH(proto::ValueStream &stream, streams) {
+              output.set_variable(var.ToString());
+              response.add_stream()->CopyFrom(output);
+            } else {
+              for (int i = 0; i < agg.label_size(); i++) {
+                string label = agg.label(i);
+                set<string> distinct_values;
+
+                BOOST_FOREACH(proto::ValueStream &stream, aggstreams) {
                   Variable tmpvar(stream.variable());
-                  if (tmpvar.GetLabel(label) == output_label) {
-                    tmpstreams.push_back(stream);
-                    for (Variable::MapType::const_iterator it = tmpvar.labels().begin(); it != tmpvar.labels().end();
-                         ++it) {
-                      if (other_label_values[it->first] != it->second) {
-                        ++other_label_counts[it->first];
-                        other_label_values[it->first] = it->second;
+                  if (tmpvar.HasLabel(label))
+                    distinct_values.insert(tmpvar.GetLabel(label));
+                }
+                VLOG(2) << "Distinct values for " << label << ":";
+                BOOST_FOREACH(string output_label, distinct_values) {
+                  VLOG(2) << "  " << output_label;
+                  vector<proto::ValueStream> tmpstreams;
+                  unordered_map<string, int> other_label_counts;
+                  unordered_map<string, string> other_label_values;
+                  BOOST_FOREACH(proto::ValueStream &stream, aggstreams) {
+                    Variable tmpvar(stream.variable());
+                    if (tmpvar.GetLabel(label) == output_label) {
+                      tmpstreams.push_back(stream);
+                      for (Variable::MapType::const_iterator it = tmpvar.labels().begin(); it != tmpvar.labels().end();
+                           ++it) {
+                        if (other_label_values[it->first] != it->second) {
+                          ++other_label_counts[it->first];
+                          other_label_values[it->first] = it->second;
+                        }
                       }
                     }
                   }
-                }
 
-                Variable outputvar(var.ToString());
-                outputvar.SetLabel(label, output_label);
+                  Variable outputvar(var.ToString());
+                  outputvar.SetLabel(label, output_label);
 
-                for (unordered_map<string, int>::iterator it = other_label_counts.begin();
-                     it != other_label_counts.end(); ++it) {
-                  if (it->second == 1) {
-                    outputvar.SetLabel(it->first, other_label_values[it->first]);
+                  for (unordered_map<string, int>::iterator it = other_label_counts.begin();
+                       it != other_label_counts.end(); ++it) {
+                    if (it->second == 1) {
+                      outputvar.SetLabel(it->first, other_label_values[it->first]);
+                    }
                   }
-                }
 
-                if (!tmpstreams.size()) {
-                  LOG(ERROR) << "Could not find any streams with " << label << " == " << output_label;
-                  continue;
-                }
-                VLOG(1) << "Found " << tmpstreams.size() << " streams with " << label << " == " << output_label;
+                  if (!tmpstreams.size()) {
+                    LOG(ERROR) << "Could not find any streams with " << label << " == " << output_label;
+                    continue;
+                  }
+                  VLOG(1) << "Found " << tmpstreams.size() << " streams with " << label << " == " << output_label;
 
-                proto::ValueStream output;
-                if (agg.type() == proto::StreamAggregation::AVERAGE) {
-                  ValueStreamAverage(tmpstreams, sample_interval, &output);
-                } else if (agg.type() == proto::StreamAggregation::SUM) {
-                  ValueStreamSum(tmpstreams, sample_interval, &output);
-                } else if (agg.type() == proto::StreamAggregation::MIN) {
-                  ValueStreamMin(tmpstreams, sample_interval, &output);
-                } else if (agg.type() == proto::StreamAggregation::MAX) {
-                  ValueStreamMax(tmpstreams, sample_interval, &output);
-                } else if (agg.type() == proto::StreamAggregation::MEDIAN) {
-                  ValueStreamMedian(tmpstreams, sample_interval, &output);
+                  proto::ValueStream output;
+                  if (agg.type() == proto::StreamAggregation::AVERAGE) {
+                    ValueStreamAverage(tmpstreams, sample_interval, &output);
+                  } else if (agg.type() == proto::StreamAggregation::SUM) {
+                    ValueStreamSum(tmpstreams, sample_interval, &output);
+                  } else if (agg.type() == proto::StreamAggregation::MIN) {
+                    ValueStreamMin(tmpstreams, sample_interval, &output);
+                  } else if (agg.type() == proto::StreamAggregation::MAX) {
+                    ValueStreamMax(tmpstreams, sample_interval, &output);
+                  } else if (agg.type() == proto::StreamAggregation::MEDIAN) {
+                    ValueStreamMedian(tmpstreams, sample_interval, &output);
+                  }
+                  output.set_variable(outputvar.ToString());
+                  response.add_stream()->CopyFrom(output);
                 }
-                output.set_variable(outputvar.ToString());
-                response.add_stream()->CopyFrom(output);
-
               }
             }
           }
@@ -264,12 +260,11 @@ class DataStoreServer : private noncopyable {
       throw runtime_error("Empty prefix");
 
     proto::ListResponse response;
-    vector<string> vars;
-    datastore.ListVariables(req.prefix(), &vars);
+    set<Variable> vars = datastore.FindVariables(req.prefix());
     response.set_success(true);
-    for (vector<string>::const_iterator i = vars.begin(); i != vars.end(); ++i) {
+    BOOST_FOREACH(const Variable &var, vars) {
       proto::ValueStream *stream = response.add_stream();
-      stream->set_variable(*i);
+      stream->set_variable(var.ToString());
     }
     reply->set_status(HttpReply::OK);
     reply->SetContentType("application/base64");
