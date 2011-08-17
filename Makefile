@@ -22,6 +22,6 @@ export CXXFLAGS=\
   -g \
   -march=native \
 
-SUBDIRS=lib server client
+SUBDIRS=lib server client tools
 
 ## DEPENDENCIES START HERE (do not remove this line)

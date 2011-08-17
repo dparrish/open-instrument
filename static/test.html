@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>OpenInstrument Test</title>
+  <script type="text/javascript" src="protojs/protobuf.js"></script>
+  <script type="text/javascript" src="protojs/pbj.js"></script>
+  <script type="text/javascript" src="flot/jquery.js"></script>
+  <script type="text/javascript" src="flot/jquery.flot.js"></script>
+  <script type="text/javascript" src="flot/jquery.flot.resize.js"></script>
+  <script type="text/javascript" src="flot/jquery.flot.selection.js"></script> 
+  <script type="text/javascript" src="openinstrument.js"></script>
+  <script type="text/javascript" src="openinstrument.pb.js"></script>
+  <script type="text/javascript" src="test.js"></script>
+  <style type="text/css">
+    html, body {
+      margin: 0;
+    }
+    form {
+      margin: 0px;
+      padding: 0px;
+    }
+  </style>
+</head>
+<body>
+  <div id="graph" style="width:200px; height:200px; margin: 10px"></div>
+  <div id="graphbuttons">
+    <table>
+      <tr>
+        <td><button id='zoomout' disabled="true">Zoom Out</button></td>
+        <td>
+          <button id='increase_duration'>+</button>
+          <input type='text' id='nice_duration' size='3' style="text-align: center" />
+          <button id='decrease_duration'>-</button>
+          <select id='host'></select>
+          <select id='variable'></select>
+          <select id='interface'></select>
+          <select id='value_type'>
+            <option value='0'>Raw</option>
+            <option value='4' selected='1'>Rate</option>
+            <option value='5'>Signed Rate</option>
+            <option value='6'>Delta</option>
+          </select>
+        </td>
+      </tr>
+    </table>
+  </div>
+</body>
+</html>
