@@ -62,8 +62,13 @@ class DataStoreServer : private noncopyable {
 
   bool handle_get(const HttpRequest &request, HttpReply *reply) {
     proto::GetRequest req;
-    if (!UnserializeProtobuf(request.body(), &req))
-      throw runtime_error("Invalid request");
+    if (!UnserializeProtobuf(request.body(), &req)) {
+      reply->set_status(HttpReply::BAD_REQUEST);
+      reply->mutable_body()->clear();
+      reply->mutable_body()->CopyFrom("Invalid Request\n");
+      return true;
+    }
+    VLOG(2) << ProtobufText(req);
     if (req.variable().empty())
       throw runtime_error("No variable specified");
 
@@ -208,7 +213,7 @@ class DataStoreServer : private noncopyable {
     } catch (exception &e) {
       LOG(WARNING) << e.what();
       response.set_success(false);
-      response.set_message(e.what());
+      response.set_errormessage(e.what());
     }
 
     reply->set_status(HttpReply::OK);
@@ -262,6 +267,20 @@ class DataStoreServer : private noncopyable {
         }
         lastval = oldvalue.value();
         lastts = oldvalue.timestamp();
+      }
+    } else if (mutation.sample_type() == proto::StreamMutation::DELTA) {
+      double lastval = 0;
+      for (int i = 0; i < istream.value_size(); i++) {
+        const proto::Value &oldvalue = istream.value(i);
+        if (i > 0) {
+          double delta = oldvalue.value() - lastval;
+          if (delta >= 0) {
+            proto::Value *newvalue = ostream->add_value();
+            newvalue->set_timestamp(oldvalue.timestamp());
+            newvalue->set_value(delta);
+          }
+        }
+        lastval = oldvalue.value();
       }
     } else {
       LOG(ERROR) << "Unsupported mutation type, returning original data";
@@ -340,7 +359,7 @@ class DataStoreServer : private noncopyable {
       } catch (exception &e) {
         LOG(WARNING) << e.what();
         response.set_success(false);
-        response.set_message(e.what());
+        response.set_errormessage(e.what());
         break;
       }
     }

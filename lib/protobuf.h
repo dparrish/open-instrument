@@ -22,6 +22,8 @@
 
 namespace openinstrument {
 
+string ProtobufText(const google::protobuf::Message &proto);
+
 // Serialize a protobuf message and base64 encode it. Write the result to <output>
 bool SerializeProtobuf(const google::protobuf::Message &proto, Cord *output);
 

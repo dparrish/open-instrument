@@ -8,7 +8,6 @@
  */
 
 #include <string>
-#include <google/protobuf/text_format.h>
 #include "lib/common.h"
 #include "lib/openinstrument.pb.h"
 #include "lib/protobuf.h"
@@ -16,7 +15,7 @@
 #include "lib/timer.h"
 #include "server/record_log.h"
 
-DEFINE_int32(recordlog_max_log_size, 20, "Size of record log file in mb");
+DEFINE_int32(recordlog_max_log_size, 100, "Size of record log file in mb");
 
 namespace openinstrument {
 

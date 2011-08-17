@@ -52,7 +52,7 @@ void StoreClient::SendRequest(const string &path, const google::protobuf::Messag
     throw runtime_error("Invalid response from the server");
 
   if (!response->success())
-    throw runtime_error(StringPrintf("Server Error: %s", response->message().c_str()));
+    throw runtime_error(StringPrintf("Server Error: %s", response->errormessage().c_str()));
 }
 
 proto::AddResponse *StoreClient::Add(const proto::AddRequest &req) {

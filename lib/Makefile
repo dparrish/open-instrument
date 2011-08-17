@@ -1,4 +1,4 @@
-TARGETS=libopeninstrument.a
+TARGETS=libopeninstrument.a $(BASEDIR)/static/openinstrument.pb.js
 TESTS=string_test timer_test uri_test exported_vars_test cord_test socket_test protobuf_test counter_test
 OBJS=common.o string.o uri.o exported_vars.o openinstrument.pb.o mysql_builder.o base64.o protobuf.o cord.o socket.o \
      http_message.o http_server.o http_client.o http_reply.o http_request.o store_client.o http_static_dir.o closure.o \
@@ -10,6 +10,10 @@ SUBDIRS=
 EXTRA_LIBS_mysql_builder_test=-lmysql++
 
 include $(BASEDIR)/Makefile.inc
+
+$(BASEDIR)/static/openinstrument.pb.js: openinstrument.proto
+	@echo "Generating $@ from $<"
+	@../static/protojs/pbj $< $@
 
 libopeninstrument.a: $(OBJS)
 

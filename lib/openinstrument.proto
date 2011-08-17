@@ -14,17 +14,19 @@ message StreamMutation {
     RATE = 4;
     // Get the (possibly) negative rate between each sampling point
     RATE_SIGNED = 5;
+    // Difference between each point
+    DELTA = 6;
   }
-  required SampleType sample_type = 1 [ default = NONE ];
+  required SampleType sample_type = 1;
 
   // Stretch or compress the stream so that there is a value every <sample_frequency> ms.
   // Extra values between each sample will be aggregated according to <sample_type>.
   // Gaps in the stream less than <max_gap_interpolate> samples will be filled with interpolated values between the
   // closest real values.
   // Gaps in the stream of more than <max_gap_interpolate> samples will not be filled.
-  optional uint64 sample_frequency = 2;
-  optional uint64 max_gap_interpolate = 3 [ default = 1 ];
-};
+  optional uint32 sample_frequency = 2;
+  optional uint32 max_gap_interpolate = 3 [ default = 1 ];
+}
 
 message StreamAggregation {
   enum AggregateType {
@@ -41,8 +43,8 @@ message StreamAggregation {
   repeated string label = 2;
 
   // Points will be aggregated if they are less than sample_interval ms apart. Default is 30 seconds.
-  optional uint64 sample_interval = 3 [ default = 30000 ];
-};
+  optional uint32 sample_interval = 3 [ default = 30000 ];
+}
 
 message Value {
   // Milliseconds since epoch
@@ -69,7 +71,7 @@ message GetRequest {
 
 message GetResponse {
   required bool success = 1;
-  optional string message = 2;
+  optional string errormessage = 2;
 
   // Contains a separate stream for every mutation requested in GetRequest, in the same order. If no mutations are
   // requested, the response will contain a single stream of the raw data.
@@ -82,7 +84,7 @@ message AddRequest {
 
 message AddResponse {
   required bool success = 1;
-  optional string message = 2;
+  optional string errormessage = 2;
 }
 
 message ListRequest {
@@ -91,7 +93,7 @@ message ListRequest {
 
 message ListResponse {
   required bool success = 1;
-  optional string message = 2;
+  optional string errormessage = 2;
 
   // Although this uses the ValueStream for returning a list of variables, the expectation is that the value field is
   // empty.

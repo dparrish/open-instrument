@@ -12,6 +12,7 @@
 #include <vector>
 #include <boost/crc.hpp>
 #include <boost/tokenizer.hpp>
+#include <google/protobuf/text_format.h>
 #include "lib/base64.h"
 #include "lib/common.h"
 #include "lib/openinstrument.pb.h"
@@ -24,6 +25,12 @@ typedef uint32_t size_type;
 typedef uint16_t crc_type;
 
 const magic_type protomagic = 0xDEAD;
+
+string ProtobufText(const google::protobuf::Message &proto) {
+  string output;
+  google::protobuf::TextFormat::PrintToString(proto, &output);
+  return output;
+}
 
 bool SerializeProtobuf(const google::protobuf::Message &proto, Cord *output) {
   string temp;
