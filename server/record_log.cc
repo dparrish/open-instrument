@@ -13,6 +13,7 @@
 #include "lib/protobuf.h"
 #include "lib/string.h"
 #include "lib/timer.h"
+#include "lib/trie.h"
 #include "server/record_log.h"
 
 DEFINE_int32(recordlog_max_log_size, 100, "Size of record log file in mb");
@@ -140,7 +141,7 @@ bool RecordLog::ReplayLog(proto::ValueStream *stream) {
 
 void RecordLog::ReindexRecordLog() {
   vector<string> files = Glob(filename() + ".*");
-  typedef unordered_map<string, proto::ValueStream> MapType;
+  typedef Trie<proto::ValueStream> MapType;
   MapType log_data;
   BOOST_FOREACH(string &filename, files) {
     proto::StoreFileHeader header;
@@ -153,14 +154,14 @@ void RecordLog::ReindexRecordLog() {
       input_streams++;
       MapType::iterator it = log_data.find(stream.variable());
       if (it == log_data.end()) {
-        log_data[stream.variable()] = proto::ValueStream();
+        log_data.insert(stream.variable(), proto::ValueStream());
         it = log_data.find(stream.variable());
-        it->second.set_variable(stream.variable());
+        it->set_variable(stream.variable());
         output_streams++;
       }
       CHECK(it != log_data.end());
       for (int i = 0; i < stream.value_size(); i++) {
-        proto::Value *value = it->second.add_value();
+        proto::Value *value = it->add_value();
         value->set_timestamp(stream.value(i).timestamp());
         value->set_value(stream.value(i).value());
         if (!header.has_start_timestamp() || value->timestamp() < header.start_timestamp())
@@ -173,7 +174,7 @@ void RecordLog::ReindexRecordLog() {
 
     // Build the output header
     for (MapType::iterator i = log_data.begin(); i != log_data.end(); ++i) {
-      header.add_variable(i->first);
+      header.add_variable(i.key());
     }
     string outfile = StringPrintf("%s/datastore.%llu.bin", basedir_.c_str(), header.end_timestamp());
 
@@ -181,7 +182,7 @@ void RecordLog::ReindexRecordLog() {
     ProtoStreamWriter writer(outfile);
     writer.Write(header);
     for (MapType::iterator i = log_data.begin(); i != log_data.end(); ++i) {
-      writer.Write(i->second);
+      writer.Write(*i);
     }
     LOG(INFO) << "Created indexed file " << outfile << " containing " << output_streams << " streams and "
               << input_values << " values, between " << Timestamp(header.start_timestamp()).GmTime() << " and "
