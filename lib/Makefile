@@ -172,13 +172,15 @@ http_static_dir.o: http_static_dir.cc \
  $(BASEDIR)/lib/openinstrument.pb.h \
  $(BASEDIR)/lib/request_handler.h \
  $(BASEDIR)/lib/http_static_dir.h \
- $(BASEDIR)/lib/mime_types.h
+ $(BASEDIR)/lib/mime_types.h \
+ $(BASEDIR)/lib/trie.h
 mime_types.o: mime_types.cc \
  $(BASEDIR)/lib/common.h \
  $(BASEDIR)/lib/closure.h \
  $(BASEDIR)/lib/string.h \
  $(BASEDIR)/lib/threadpool.h \
- $(BASEDIR)/lib/mime_types.h
+ $(BASEDIR)/lib/mime_types.h \
+ $(BASEDIR)/lib/trie.h
 mysql_builder.o: mysql_builder.cc /usr/include/mysql++/mysql++.h \
  $(BASEDIR)/lib/common.h \
  $(BASEDIR)/lib/closure.h \

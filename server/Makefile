@@ -16,7 +16,8 @@ datastore.o: datastore.cc $(BASEDIR)/lib/common.h \
  $(BASEDIR)/server/datastore.h \
  $(BASEDIR)/lib/protobuf.h \
  $(BASEDIR)/lib/cord.h \
- $(BASEDIR)/lib/openinstrument.pb.h
+ $(BASEDIR)/lib/openinstrument.pb.h \
+ $(BASEDIR)/lib/trie.h
 datastore_test.o: datastore_test.cc \
  $(BASEDIR)/server/datastore.h \
  $(BASEDIR)/lib/common.h \
@@ -27,7 +28,8 @@ datastore_test.o: datastore_test.cc \
  $(BASEDIR)/lib/timer.h \
  $(BASEDIR)/lib/protobuf.h \
  $(BASEDIR)/lib/cord.h \
- $(BASEDIR)/lib/openinstrument.pb.h
+ $(BASEDIR)/lib/openinstrument.pb.h \
+ $(BASEDIR)/lib/trie.h
 disk_datastore.o: disk_datastore.cc \
  $(BASEDIR)/lib/common.h \
  $(BASEDIR)/lib/closure.h \
@@ -39,6 +41,7 @@ disk_datastore.o: disk_datastore.cc \
  $(BASEDIR)/lib/openinstrument.pb.h \
  $(BASEDIR)/lib/timer.h \
  $(BASEDIR)/server/datastore.h \
+ $(BASEDIR)/lib/trie.h \
  $(BASEDIR)/server/disk_datastore.h \
  $(BASEDIR)/server/record_log.h
 record_log.o: record_log.cc \
@@ -74,6 +77,7 @@ store.o: store.cc $(BASEDIR)/lib/atomic.h \
  $(BASEDIR)/lib/uri.h \
  $(BASEDIR)/lib/http_static_dir.h \
  $(BASEDIR)/lib/mime_types.h \
+ $(BASEDIR)/lib/trie.h \
  $(BASEDIR)/server/datastore.h \
  $(BASEDIR)/server/disk_datastore.h \
  $(BASEDIR)/server/record_log.h

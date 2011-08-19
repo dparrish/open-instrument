@@ -11,6 +11,7 @@
 #include <vector>
 #include "lib/common.h"
 #include "lib/mime_types.h"
+#include "lib/trie.h"
 
 namespace openinstrument {
 
@@ -20,10 +21,10 @@ const string &MimeTypes::Lookup(const string &filename) {
   size_t pos = filename.find_last_of(".");
   if (pos != string::npos)
     extension = filename.substr(pos + 1);
-  unordered_map<string, string>::iterator it = types_.find(extension.c_str());
+  Trie<string>::iterator it = types_.find(extension.c_str());
   if (it == types_.end())
     return unknown;
-  return it->second;
+  return *it;
 }
 
 uint32_t MimeTypes::ReadFile(const string &filename) {
@@ -50,7 +51,7 @@ uint32_t MimeTypes::ReadFile(const string &filename) {
       continue;
     string mimetype = parts[0];
     for (vector<string>::iterator i = parts.begin() + 1; i != parts.end(); ++i) {
-      types_[*i] = mimetype;
+      types_.insert(*i, mimetype);
       num_types++;
     }
   }

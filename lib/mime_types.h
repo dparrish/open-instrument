@@ -13,6 +13,7 @@
 #include <string>
 #include <boost/algorithm/string/split.hpp>
 #include <boost/algorithm/string/classification.hpp>
+#include "lib/trie.h"
 
 namespace openinstrument {
 
@@ -22,7 +23,7 @@ class MimeTypes : private noncopyable {
   uint32_t ReadFile(const string &filename);
 
  private:
-  unordered_map<string, string> types_;
+  Trie<string> types_;
 };
 
 }  // namespace openinstrument
