@@ -286,11 +286,6 @@ timer_test.o: timer_test.cc $(BASEDIR)/lib/timer.h \
  $(BASEDIR)/lib/closure.h \
  $(BASEDIR)/lib/string.h \
  $(BASEDIR)/lib/threadpool.h
-trie.o: trie.cc $(BASEDIR)/lib/trie.h \
- $(BASEDIR)/lib/common.h \
- $(BASEDIR)/lib/closure.h \
- $(BASEDIR)/lib/string.h \
- $(BASEDIR)/lib/threadpool.h
 trie_test.o: trie_test.cc $(BASEDIR)/lib/common.h \
  $(BASEDIR)/lib/closure.h \
  $(BASEDIR)/lib/string.h \

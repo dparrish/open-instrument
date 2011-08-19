@@ -165,7 +165,7 @@ class Trie {
       return key_;
     }
 
-    const T &operator*() const {
+    T &operator*() {
       if (!curr_ || !curr_->value)
         throw out_of_range("No current value");
       return *curr_->value;
@@ -202,7 +202,7 @@ class Trie {
   typedef TrieIterator iterator;
   typedef const iterator const_iterator;
 
-  const_reference operator[](const key_type &key) {
+  T &operator[](const key_type &key) {
     iterator it = find(key);
     if (it == end())
       throw out_of_range("Key not found in Trie");

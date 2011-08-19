@@ -17,12 +17,13 @@
 #include "lib/string.h"
 #include "lib/timer.h"
 #include "lib/protobuf.h"
+#include "lib/trie.h"
 
 namespace openinstrument {
 
 class IndexedStoreFile : private noncopyable {
  public:
-  typedef unordered_map<string, proto::ValueStream> MapType;
+  typedef Trie<proto::ValueStream> MapType;
 
   explicit IndexedStoreFile(const string &filename)
     : filename_(filename),

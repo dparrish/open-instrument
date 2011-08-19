@@ -7,10 +7,6 @@
  *
  */
 
-// TODO(dparrish): Handle "If-Modified-Since": "Fri, 12 Aug 2011 03:32:52 GMT"
-// TODO(dparrish): Handle "Connection": "keep-alive"
-// TODO(dparrish): Handle "Accept-Encoding": "gzip,deflate,sdch"
-
 #ifndef OPENINSTRUMENT_LIB_HTTP_STATIC_DIR_H_
 #define OPENINSTRUMENT_LIB_HTTP_STATIC_DIR_H_
 

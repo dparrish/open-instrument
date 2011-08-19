@@ -68,7 +68,7 @@ bool IndexedStoreFile::ReadHeader() {
     return false;
   }
   for (int i = 0; i< file_header_.variable_size(); i++)
-    log_data_[file_header_.variable(i)] = proto::ValueStream();
+    log_data_.insert(file_header_.variable(i), proto::ValueStream());
   return true;
 }
 
@@ -76,8 +76,8 @@ proto::ValueStream &IndexedStoreFile::LoadVariable(const string &variable) {
   MapType::iterator i = log_data_.find(variable);
   if (i == log_data_.end())
     throw out_of_range("Variable not found");
-  if (i->second.value_size())
-    return i->second;
+  if (i->value_size())
+    return *i;
   ProtoStreamReader reader(filename_);
   for (int i = 0; i < file_header_.variable_size(); i++) {
     reader.Skip(1);
@@ -101,7 +101,7 @@ list<Variable> IndexedStoreFile::ListVariables(const string &variable) {
   list<Variable> vars;
   Variable search(variable);
   for (MapType::iterator i = log_data_.begin(); i != log_data_.end(); ++i) {
-    Variable x(i->first);
+    Variable x(i.key());
     if (x.Matches(search))
       vars.push_back(x);
   }
