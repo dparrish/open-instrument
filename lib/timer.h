@@ -10,10 +10,11 @@
 #ifndef _OPENINSTRUMENT_LIB_TIMESTAMP_
 #define _OPENINSTRUMENT_LIB_TIMESTAMP_
 
+#include <boost/thread.hpp>
 #include <glog/logging.h>
 #include <stdlib.h>
-#include <string.h>
 #include <sys/time.h>
+#include <sys/types.h>
 #include <time.h>
 #include <string>
 #include "lib/common.h"
@@ -187,6 +188,46 @@ class Deadline {
  private:
   uint64_t deadline_;
   uint64_t start_;
+};
+
+// High-resolution timer that keeps track of the amount of CPU time consumed by the current PROCESS.
+// This will likely not relate to real time unless the process is using 100% CPU.
+class ProcessCpuTimer {
+ public:
+  explicit ProcessCpuTimer(clockid_t clock = CLOCK_PROCESS_CPUTIME_ID) : clock_(clock), running_(false) {}
+
+  void Start() {
+    CHECK(!running_);
+    tid_ = boost::this_thread::get_id();
+    clock_gettime(clock_, &start_ts_);
+    running_ = true;
+  }
+
+  void Stop() {
+    CHECK(running_);
+    CHECK(boost::this_thread::get_id() == tid_);
+    clock_gettime(clock_, &end_ts_);
+    running_ = false;
+  }
+
+  int64_t ms();
+  int64_t us();
+
+ protected:
+  const clockid_t clock_;
+
+ private:
+  bool running_;
+  boost::thread::id tid_;
+  struct timespec start_ts_;
+  struct timespec end_ts_;
+};
+
+// High-resolution timer that keeps track of the amount of CPU time consumed by the current THREAD.
+// This will likely not relate to real time unless the thread is using 100% CPU.
+class ThreadCpuTimer : public ProcessCpuTimer {
+ public:
+  ThreadCpuTimer() : ProcessCpuTimer(CLOCK_THREAD_CPUTIME_ID) {}
 };
 
 }  // namespace openinstrument

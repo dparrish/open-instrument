@@ -52,6 +52,36 @@ TEST_F(TimerTest, Strftime) {
   EXPECT_EQ("2011-01-06 23:34:02.114 GMT", t.GmTime("%Y-%m-%d %H:%M:%S.%. %Z"));
 }
 
+TEST_F(TimerTest, ProcessCpuTimer) {
+  ProcessCpuTimer processtimer;
+  Timer basictimer;
+  processtimer.Start();
+  basictimer.Start();
+  // Count, just to consume some CPU time
+  for (uint64_t i = 0; i < 500000000; ++i);
+  processtimer.Stop();
+  basictimer.Stop();
+  EXPECT_NEAR(processtimer.ms(), static_cast<double>(processtimer.us()) / 1000, 10);
+  VLOG(1) << "Process Timer: " << processtimer.ms() << " ms";
+  VLOG(1) << "Process Timer: " << processtimer.us() << " us";
+  VLOG(1) << "Basic Timer: " << basictimer.ms() << " ms";
+}
+
+TEST_F(TimerTest, ThreadCpuTimer) {
+  ThreadCpuTimer threadtimer;
+  Timer basictimer;
+  threadtimer.Start();
+  basictimer.Start();
+  // Count, just to consume some CPU time
+  for (uint64_t i = 0; i < 500000000; ++i);
+  threadtimer.Stop();
+  basictimer.Stop();
+  EXPECT_NEAR(threadtimer.ms(), static_cast<double>(threadtimer.us()) / 1000, 10);
+  VLOG(1) << "Thread Timer: " << threadtimer.ms() << " ms";
+  VLOG(1) << "Thread Timer: " << threadtimer.us() << " us";
+  VLOG(1) << "Basic Timer: " << basictimer.ms() << " ms";
+}
+
 }  // namespace
 
 int main(int argc, char **argv) {

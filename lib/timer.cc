@@ -9,8 +9,8 @@
 
 #include <glog/logging.h>
 #include <stdlib.h>
-#include <string.h>
 #include <sys/time.h>
+#include <sys/types.h>
 #include <time.h>
 #include <string>
 #include "lib/common.h"
@@ -105,4 +105,23 @@ string Duration::ToString(bool longformat) {
     return output.substr(0, output.size() - 1);
   return output;
 }
+
+int64_t ProcessCpuTimer::ms() {
+  if (running_) {
+    CHECK(boost::this_thread::get_id() == tid_);
+    clock_gettime(clock_, &end_ts_);
+  }
+  return ((static_cast<int64_t>(end_ts_.tv_sec - start_ts_.tv_sec) * 1000) +
+          (static_cast<int64_t>(end_ts_.tv_nsec - start_ts_.tv_nsec)) / 1000000);
+}
+
+int64_t ProcessCpuTimer::us() {
+  if (running_) {
+    CHECK(boost::this_thread::get_id() == tid_);
+    clock_gettime(clock_, &end_ts_);
+  }
+  return ((static_cast<int64_t>(end_ts_.tv_sec - start_ts_.tv_sec) * 1000000) +
+          (static_cast<int64_t>(end_ts_.tv_nsec - start_ts_.tv_nsec) / 1000));
+}
+
 }  // namespace openinstrument
