@@ -20,6 +20,7 @@ const char *HttpMessage::header_sep_ = ": ";
 const char *HttpMessage::crlf_ = "\r\n";
 
 void HttpMessage::WriteHeader(Socket *sock) {
+  VLOG(2) << "Write HTTP message";
   if (!status_written_)
     WriteFirstline(sock);
   if (!header_written_) {
@@ -28,6 +29,7 @@ void HttpMessage::WriteHeader(Socket *sock) {
       sock->Write(header_sep_);
       sock->Write(headers_[i].value);
       sock->Write(crlf_);
+      VLOG(2) << "        " << headers_[i].name << ": " << headers_[i].value;
     }
     sock->Write(crlf_);
   }

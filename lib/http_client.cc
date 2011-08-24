@@ -47,10 +47,10 @@ HttpReply *HttpClient::SendRequest(HttpRequest &request) {
 
       try {
         reply->set_http_version(ConsumeFirstWord(&output));
-        reply->set_status(static_cast<HttpReply::status_type>(lexical_cast<uint16_t>(ConsumeFirstWord(&output))));
+        reply->SetStatus(static_cast<HttpReply::status_type>(lexical_cast<uint16_t>(ConsumeFirstWord(&output))));
       } catch (exception) {
         LOG(WARNING) << "Invalid HTTP response";
-        reply->set_status(HttpReply::INTERNAL_SERVER_ERROR);
+        reply->SetStatus(HttpReply::INTERNAL_SERVER_ERROR);
         return NULL;
       }
       break;

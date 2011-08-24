@@ -114,6 +114,7 @@ void HttpReply::StockReply(HttpReply::status_type status) {
 }
 
 void HttpReply::WriteFirstline(Socket *sock) {
+  VLOG(2) << StatusToResponse(status_);
   sock->Write(StatusToResponse(status_));
 }
 

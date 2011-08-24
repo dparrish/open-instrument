@@ -40,10 +40,21 @@ const string &MimeType(const string &filename) {
   return http_static_mime_types_->Lookup(filename);
 }
 
-void HttpStaticHandler::ServeLocalFile(const string &filename, HttpReply *reply) const {
+void HttpStaticHandler::ServeLocalFile(const string &filename, const HttpRequest &request, HttpReply *reply) const {
+  if (request.headers().HeaderExists("If-Modified-Since")) {
+    Timestamp ifs(Timestamp::FromGmTime(request.headers().GetHeader("If-Modified-Since"), HttpServer::RFC112Format));
+    FileStat fs(filename);
+    if (fs.mtime() <= ifs.seconds()) {
+      reply->SetStatus(HttpReply::NOT_MODIFIED);
+      reply->SetHeader("Last-Modified", Timestamp(fs.mtime() * 1000).GmTime(HttpServer::RFC112Format).c_str());
+      reply->SetContentLength(0);
+      return;
+    }
+  }
+
   MmapFile *fh = MmapFile::Open(filename);
   reply->AddCompleteCallback(bind(&MmapFile::Deref, fh));
-  reply->set_status(HttpReply::OK);
+  reply->SetStatus(HttpReply::OK);
   reply->SetContentLength(fh->size());
   reply->SetContentType(MimeType(filename).c_str());
   reply->SetHeader("Last-Modified", Timestamp(fh->mtime() * 1000).GmTime(HttpServer::RFC112Format).c_str());
@@ -75,28 +86,28 @@ bool HttpStaticDir::HandleGet(const HttpRequest &request, HttpReply *reply) {
   string localfile = request.uri.path;
   if (request.uri.path.find(http_path_) != 0) {
     LOG(WARNING) << "Could not find http path in request for " << localfile;
-    reply->set_status(HttpReply::NOT_FOUND);
+    reply->SetStatus(HttpReply::NOT_FOUND);
     return true;
   }
   localfile.replace(0, http_path_.size(), local_path_);
   if (localfile.find(string("\0", 1)) != string::npos) {
     LOG(WARNING) << "NULL found in request for local file at " << localfile.find("\0");
-    reply->set_status(HttpReply::NOT_FOUND);
+    reply->SetStatus(HttpReply::NOT_FOUND);
     return true;
   }
   while (localfile[0] == '/' || localfile[0] == '.')
     localfile.erase(0, 1);
   if (localfile.find("../") != string::npos) {
     LOG(WARNING) << ".. found in request for local file";
-    reply->set_status(HttpReply::NOT_FOUND);
+    reply->SetStatus(HttpReply::NOT_FOUND);
     return true;
   }
 
   try {
-    ServeLocalFile(localfile, reply);
+    ServeLocalFile(localfile, request, reply);
   } catch (runtime_error &e) {
     LOG(INFO) << e.what();
-    reply->set_status(HttpReply::NOT_FOUND);
+    reply->SetStatus(HttpReply::NOT_FOUND);
   }
   return true;
 }
@@ -116,15 +127,15 @@ HttpStaticFile::HttpStaticFile(const string &http_path, const string &local_path
 bool HttpStaticFile::HandleGet(const HttpRequest &request, HttpReply *reply) {
   if (request.uri.path != http_path_) {
     LOG(WARNING) << "Could not find http path in request for " << http_path_;
-    reply->set_status(HttpReply::NOT_FOUND);
+    reply->SetStatus(HttpReply::NOT_FOUND);
     return true;
   }
 
   try {
-    ServeLocalFile(local_path_, reply);
+    ServeLocalFile(local_path_, request, reply);
   } catch (runtime_error &e) {
     LOG(INFO) << e.what();
-    reply->set_status(HttpReply::NOT_FOUND);
+    reply->SetStatus(HttpReply::NOT_FOUND);
   }
   return true;
 }

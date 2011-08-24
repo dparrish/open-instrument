@@ -63,7 +63,7 @@ class DataStoreServer : private noncopyable {
   bool handle_get(const HttpRequest &request, HttpReply *reply) {
     proto::GetRequest req;
     if (!UnserializeProtobuf(request.body(), &req)) {
-      reply->set_status(HttpReply::BAD_REQUEST);
+      reply->SetStatus(HttpReply::BAD_REQUEST);
       reply->mutable_body()->clear();
       reply->mutable_body()->CopyFrom("Invalid Request\n");
       return true;
@@ -216,10 +216,10 @@ class DataStoreServer : private noncopyable {
       response.set_errormessage(e.what());
     }
 
-    reply->set_status(HttpReply::OK);
+    reply->SetStatus(HttpReply::OK);
     reply->SetContentType("application/base64");
     if (!SerializeProtobuf(response, reply->mutable_body())) {
-      reply->set_status(HttpReply::INTERNAL_SERVER_ERROR);
+      reply->SetStatus(HttpReply::INTERNAL_SERVER_ERROR);
       reply->mutable_body()->clear();
       reply->mutable_body()->CopyFrom("Error serializing protobuf\n");
     }
@@ -306,10 +306,10 @@ class DataStoreServer : private noncopyable {
       proto::ValueStream *stream = response.add_stream();
       stream->set_variable(var.ToString());
     }
-    reply->set_status(HttpReply::OK);
+    reply->SetStatus(HttpReply::OK);
     reply->SetContentType("application/base64");
     if (!SerializeProtobuf(response, reply->mutable_body())) {
-      reply->set_status(HttpReply::INTERNAL_SERVER_ERROR);
+      reply->SetStatus(HttpReply::INTERNAL_SERVER_ERROR);
       reply->mutable_body()->clear();
       reply->mutable_body()->CopyFrom("Error serializing protobuf\n");
     }
@@ -364,10 +364,10 @@ class DataStoreServer : private noncopyable {
       }
     }
 
-    reply->set_status(HttpReply::OK);
+    reply->SetStatus(HttpReply::OK);
     reply->SetContentType("application/base64");
     if (!SerializeProtobuf(response, reply->mutable_body())) {
-      reply->set_status(HttpReply::INTERNAL_SERVER_ERROR);
+      reply->SetStatus(HttpReply::INTERNAL_SERVER_ERROR);
       reply->mutable_body()->clear();
       reply->mutable_body()->CopyFrom("Error serializing protobuf\n");
     }

@@ -86,6 +86,8 @@ class Timestamp {
   //   Timestamp().strftime("%H:%M:%S.%.") --> 12:15:05.114
   string GmTime(const char *format = "%Y-%m-%d %H:%M:%S.%.") const;
 
+  static uint64_t FromGmTime(const string &input, const char *format = "%Y-%m-%d %H:%M:%S");
+
  protected:
   uint64_t ms_;
 };

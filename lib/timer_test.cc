@@ -50,6 +50,7 @@ TEST_F(TimerTest, DurationToString) {
 TEST_F(TimerTest, Strftime) {
   Timestamp t(1294356842114);
   EXPECT_EQ("2011-01-06 23:34:02.114 GMT", t.GmTime("%Y-%m-%d %H:%M:%S.%. %Z"));
+  EXPECT_EQ(1294320842000, Timestamp::FromGmTime(t.GmTime("%Y-%m-%d %H:%M:%S.%. %Z"), "%Y-%m-%d %H:%M:%S %Z"));
 }
 
 TEST_F(TimerTest, ProcessCpuTimer) {

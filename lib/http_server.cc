@@ -182,7 +182,7 @@ void HttpServer::AddExportHandler() {
 }
 
 bool HttpServer::HandleExportVars(const HttpRequest &request, HttpReply *reply) {
-  reply->set_status(HttpReply::OK);
+  reply->SetStatus(HttpReply::OK);
   reply->SetContentType("text/plain");
   string c;
   VariableExporter::GetGlobalExporter()->ExportToString(&c);

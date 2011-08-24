@@ -49,7 +49,7 @@ class RequestHandler : private noncopyable {
       }
 
       // Run the callback
-      reply->set_status(HttpReply::OK);
+      reply->SetStatus(HttpReply::OK);
       reply->SetHeader("X-Frame-Options", "SAMEORIGIN");
       try {
         if (!handlers_[i].callback(req, reply)) {

@@ -7,6 +7,8 @@
  *
  */
 
+#define _XOPEN_SOURCE
+
 #include <glog/logging.h>
 #include <stdlib.h>
 #include <sys/time.h>
@@ -31,6 +33,37 @@ string Timestamp::GmTime(const char *format) const {
   if (pos != string::npos)
     out.replace(pos, 2, lexical_cast<string>(ms() % 1000));
   return out;
+}
+
+time_t my_timegm(struct tm *tm) {
+  time_t ret;
+  char *tz;
+
+  tz = getenv("TZ");
+  setenv("TZ", "", 1);
+  tzset();
+  ret = mktime(tm);
+  if (tz)
+    setenv("TZ", tz, 1);
+  else
+    unsetenv("TZ");
+  tzset();
+  return ret;
+}
+
+uint64_t Timestamp::FromGmTime(const string &input, const char *format) {
+  struct tm tm;
+  const char *p = strptime(input.c_str(), format, &tm);
+  if (p == NULL)
+    return 0;
+  string tmp(p);
+  if (tmp.size()) {
+    LOG(INFO) << "Leftover characters in FromGmTime: " << tmp;
+  }
+
+  uint64_t ret = my_timegm(&tm) * 1000;
+  // TODO(dparrish): Support ms here (%. field descriptor)
+  return ret;
 }
 
 Duration Duration::FromString(const string &duration) {

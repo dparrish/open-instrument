@@ -73,7 +73,7 @@ class HttpReply : public HttpMessage {
     return static_cast<uint16_t>(status_) >= 400;
   }
 
-  inline void set_status(status_type status) {
+  inline void SetStatus(status_type status) {
     status_ = status;
   }
 

@@ -25,7 +25,7 @@ class HttpStaticHandler {
  public:
   HttpStaticHandler() {}
  protected:
-  void ServeLocalFile(const string &filename, HttpReply *reply) const;
+  void ServeLocalFile(const string &filename, const HttpRequest &request, HttpReply *reply) const;
 };
 
 class HttpStaticDir : public HttpStaticHandler {

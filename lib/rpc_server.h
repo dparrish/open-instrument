@@ -36,7 +36,7 @@ class RpcServer {
   bool HandleRpc(const http::HttpRequest &request, http::HttpReply *reply) {
     google::protobuf::Message req;
     if (!UnserializeProtobuf(request.body(), &req)) {
-      reply->set_status(HttpReply::BAD_REQUEST);
+      reply->SetStatus(HttpReply::BAD_REQUEST);
       reply->mutable_body()->clear();
       reply->mutable_body()->CopyFrom("Invalid request.\n");
       return true;
@@ -45,7 +45,7 @@ class RpcServer {
       throw runtime_error("Invalid request");
 
     if (!SerializeProtobuf(response, reply->mutable_body())) {
-      reply->set_status(HttpReply::INTERNAL_SERVER_ERROR);
+      reply->SetStatus(HttpReply::INTERNAL_SERVER_ERROR);
       reply->mutable_body()->clear();
       reply->mutable_body()->CopyFrom("Error serializing protobuf\n");
     }
