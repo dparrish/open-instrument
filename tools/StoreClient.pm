@@ -39,8 +39,8 @@ sub Add {
     die "Value \"$value\" is not a number" unless $value =~ /^\d+(?:\.\d+)?$/;
     push @output, "$variable:$value\@$time";
   }
-  $self->RunCommand([$self->{_add_tool}, $self->{store}], @output);
-  return unless @output;
+  return 0 unless $self->RunCommand([$self->{_add_tool}, $self->{store}], @output);
+  return 1;
 }
 
 sub Get {
@@ -65,8 +65,9 @@ sub RunCommand {
     push @run_args, @args[$i..$max - 1];
     #print join(" ", @run_args). "\n";
     system(@run_args);
-    exit 1 unless $? == 0;
+    return 0 unless $? == 0;
   }
+  return 1;
 }
 
 1;
