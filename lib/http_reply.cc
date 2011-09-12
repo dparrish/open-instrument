@@ -19,38 +19,38 @@ namespace http {
 string HttpReply::StatusToResponse(HttpReply::status_type status) const {
   switch (status) {
     case HttpReply::OK:
-      return "HTTP/1.0 200 OK\r\n";
+      return StringPrintf("%s 200 OK\r\n", http_version().c_str());
     case HttpReply::CREATED:
-      return "HTTP/1.0 201 Created\r\n";
+      return StringPrintf("%s 201 Created\r\n", http_version().c_str());
     case HttpReply::ACCEPTED:
-      return "HTTP/1.0 202 Accepted\r\n";
+      return StringPrintf("%s 202 Accepted\r\n", http_version().c_str());
     case HttpReply::NO_CONTENT:
-      return "HTTP/1.0 204 No Content\r\n";
+      return StringPrintf("%s 204 No Content\r\n", http_version().c_str());
     case HttpReply::MULTIPLE_CHOICES:
-      return "HTTP/1.0 300 Multiple Choices\r\n";
+      return StringPrintf("%s 300 Multiple Choices\r\n", http_version().c_str());
     case HttpReply::MOVED_PERMANENTLY:
-      return "HTTP/1.0 301 Moved Permanently\r\n";
+      return StringPrintf("%s 301 Moved Permanently\r\n", http_version().c_str());
     case HttpReply::MOVED_TEMPORARILY:
-      return "HTTP/1.0 302 Moved Temporarily\r\n";
+      return StringPrintf("%s 302 Moved Temporarily\r\n", http_version().c_str());
     case HttpReply::NOT_MODIFIED:
-      return "HTTP/1.0 304 Not Modified\r\n";
+      return StringPrintf("%s 304 Not Modified\r\n", http_version().c_str());
     case HttpReply::BAD_REQUEST:
-      return "HTTP/1.0 400 Bad Request\r\n";
+      return StringPrintf("%s 400 Bad Request\r\n", http_version().c_str());
     case HttpReply::UNAUTHORIZED:
-      return "HTTP/1.0 401 Unauthorized\r\n";
+      return StringPrintf("%s 401 Unauthorized\r\n", http_version().c_str());
     case HttpReply::FORBIDDEN:
-      return "HTTP/1.0 403 Forbidden\r\n";
+      return StringPrintf("%s 403 Forbidden\r\n", http_version().c_str());
     case HttpReply::NOT_FOUND:
-      return "HTTP/1.0 404 Not Found\r\n";
+      return StringPrintf("%s 404 Not Found\r\n", http_version().c_str());
     case HttpReply::NOT_IMPLEMENTED:
-      return "HTTP/1.0 501 Not Implemented\r\n";
+      return StringPrintf("%s 501 Not Implemented\r\n", http_version().c_str());
     case HttpReply::BAD_GATEWAY:
-      return "HTTP/1.0 502 Bad Gateway\r\n";
+      return StringPrintf("%s 502 Bad Gateway\r\n", http_version().c_str());
     case HttpReply::SERVICE_UNAVAILABLE:
-      return "HTTP/1.0 503 Service Unavailable\r\n";
+      return StringPrintf("%s 503 Service Unavailable\r\n", http_version().c_str());
     case HttpReply::INTERNAL_SERVER_ERROR:
     default:
-      return "HTTP/1.0 500 Internal Server Error\r\n";
+      return StringPrintf("%s 500 Internal Server Error\r\n", http_version().c_str());
   }
 }
 

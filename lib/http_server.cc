@@ -58,6 +58,7 @@ void HttpServer::Acceptor() {
       continue;
     ++stats_["/connections-received"];
     ++stats_["/worker-threads-busy"];
+    VLOG(1) << "Accepted new connection from " << client->remote().ToString();
     try {
       HandleClient(client.get());
       client->Flush();
@@ -70,90 +71,103 @@ void HttpServer::Acceptor() {
 }
 
 void HttpServer::HandleClient(Socket *sock) {
-  Deadline deadline(30000);
-  HttpRequest request;
-  request.source = sock->remote();
-  for (int i = 0; i < 20; ++i) {
-    string output;
-    try {
-      sock->read_buffer()->ConsumeLine(&output);
-    } catch (out_of_range) {
+  bool close_connection = false;
+  while (!close_connection) {
+    Deadline deadline(30000);
+    HttpRequest request;
+    request.source = sock->remote();
+    for (int i = 0; i < 20; ++i) {
+      string output;
       try {
-        sock->Read(deadline);
-        continue;
-      } catch (exception) {
-        throw runtime_error(StringPrintf("No response received from %s", sock->remote().ToString().c_str()));
+        sock->read_buffer()->ConsumeLine(&output);
+      } catch (out_of_range) {
+        try {
+          if (sock->Read(deadline) == 0)
+            return;
+          continue;
+        } catch (exception) {
+          throw runtime_error(StringPrintf("No response received from %s", sock->remote().ToString().c_str()));
+        }
       }
+
+      try {
+        request.set_method(ConsumeFirstWord(&output));
+        request.uri = Uri(ConsumeFirstWord(&output));
+        request.set_http_version(ConsumeFirstWord(&output));
+        if (request.http_version() == "HTTP/0.0")
+          throw runtime_error("Invalid HTTP version");
+        request.ReadAndParseHeaders(sock, deadline);
+      } catch (exception &e) {
+        LOG(WARNING) << "Invalid HTTP request: " << e.what();
+        HttpReply reply;
+        reply.StockReply(HttpReply::BAD_REQUEST);
+        reply.Write(sock);
+        return;
+      }
+      break;
     }
 
+    if (request.GetContentLength()) {
+      // There has been some POST data
+      while (sock->read_buffer()->size() < request.GetContentLength()) {
+        try {
+          if (sock->Read(deadline) == 0)
+            return;
+        } catch (exception) {
+          throw runtime_error(StringPrintf("No POST received from %s", sock->remote().ToString().c_str()));
+        }
+      }
+    } else if (request.method() == "POST") {
+      if (request.headers().GetHeader("Connection") != "close") {
+        LOG(WARNING) << "POST request with no Content-Length and Connection != close";
+        close_connection = true;
+      }
+      while (sock->Read(deadline) > 0);
+    }
+
+    if (sock->read_buffer()->size())
+      request.mutable_body()->CopyFrom(*sock->read_buffer());
+
+    HttpReply reply;
+    reply.set_http_version(request.http_version());
+
+    request_handler_->HandleRequest(request, &reply);
+
     try {
-      request.set_method(ConsumeFirstWord(&output));
-      request.uri = Uri(ConsumeFirstWord(&output));
-      request.set_http_version(ConsumeFirstWord(&output));
-      if (request.http_version() == "HTTP/0.0")
-        throw runtime_error("Invalid HTTP version");
-      request.ReadAndParseHeaders(sock, deadline);
+      // Set default required headers in the reply
+      if (!reply.headers().HeaderExists("Content-Length"))
+        reply.SetContentLength(reply.body().size());
+      if (!reply.headers().HeaderExists("Content-Type"))
+        reply.SetContentType("text/html; charset=UTF-8");
+      if (!reply.headers().HeaderExists("Date"))
+        reply.mutable_headers()->AddHeader("Date", Timestamp().GmTime(RFC112Format));
+      if (!reply.headers().HeaderExists("Last-Modified"))
+        reply.mutable_headers()->AddHeader("Last-Modified", Timestamp().GmTime(RFC112Format));
+      if (!reply.headers().HeaderExists("Server"))
+        reply.mutable_headers()->AddHeader("Server", "OpenInstrument/1.0");
+      if (!close_connection && request.http_version() >= "HTTP/1.1" &&
+          request.headers().GetHeader("Connection").find("close") == string::npos) {
+        reply.mutable_headers()->SetHeader("Connection", "keep-alive");
+      } else {
+        close_connection = true;
+        reply.mutable_headers()->SetHeader("Connection", "close");
+      }
     } catch (exception &e) {
-      LOG(WARNING) << "Invalid HTTP request: " << e.what();
-      HttpReply reply;
-      reply.StockReply(HttpReply::BAD_REQUEST);
+      LOG(WARNING) << e.what();
+      // Ignore errors
+    }
+    try {
+      // stats_["/total-bytes-write"] += reply.body().size();
       reply.Write(sock);
-      return;
-    }
-    break;
-  }
-
-  if (request.GetContentLength()) {
-    // There has been some POST data
-    while (sock->read_buffer()->size() < request.GetContentLength()) {
-      try {
-        sock->Read(deadline);
-      } catch (exception) {
-        throw runtime_error(StringPrintf("No POST received from %s", sock->remote().ToString().c_str()));
-      }
-    }
-  } else if (request.method() == "POST") {
-    if (request.headers().GetHeader("Connection") != "close")
-      LOG(WARNING) << "POST request with no Content-Length and Connection != close";
-    while (sock->Read(deadline) > 0);
-  }
-
-  if (sock->read_buffer()->size())
-    request.mutable_body()->CopyFrom(*sock->read_buffer());
-
-  HttpReply reply;
-  reply.set_http_version(request.http_version());
-
-  request_handler_->HandleRequest(request, &reply);
-
-  try {
-    // Set default required headers in the reply
-    if (!reply.headers().HeaderExists("Content-Length"))
-      reply.SetContentLength(0);
-    if (!reply.headers().HeaderExists("Content-Type"))
-      reply.SetContentType("text/html; charset=UTF-8");
-    if (!reply.headers().HeaderExists("Date"))
-      reply.mutable_headers()->AddHeader("Date", Timestamp().GmTime(RFC112Format));
-    if (!reply.headers().HeaderExists("Last-Modified"))
-      reply.mutable_headers()->AddHeader("Last-Modified", Timestamp().GmTime(RFC112Format));
-    if (!reply.headers().HeaderExists("Server"))
-      reply.mutable_headers()->AddHeader("Server", "OpenInstrument/1.0");
-    reply.mutable_headers()->SetHeader("Connection", "close");
-  } catch (exception &e) {
-    LOG(WARNING) << e.what();
-    // Ignore errors
-  }
-  try {
-    // stats_["/total-bytes-write"] += reply.body().size();
-    reply.Write(sock);
-    sock->Flush();
-    if (reply.IsSuccess())
-      ++stats_["/request-success"];
-    else
+      sock->Flush();
+      if (reply.IsSuccess())
+        ++stats_["/request-success"];
+      else
+        ++stats_["/request-failure"];
+    } catch (exception &e) {
+      LOG(WARNING) << e.what();
       ++stats_["/request-failure"];
-  } catch (exception &e) {
-    LOG(WARNING) << e.what();
-    ++stats_["/request-failure"];
+    }
   }
 }
 
