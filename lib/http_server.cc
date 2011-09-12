@@ -145,6 +145,12 @@ void HttpServer::HandleClient(Socket *sock) {
         reply.mutable_headers()->AddHeader("Last-Modified", Timestamp().GmTime(RFC112Format));
       if (!reply.headers().HeaderExists("Server"))
         reply.mutable_headers()->AddHeader("Server", "OpenInstrument/1.0");
+      if (!reply.headers().HeaderExists("X-Frame-Options"))
+        reply.mutable_headers()->AddHeader("X-Frame-Options", "SAMEORIGIN");
+      if (!reply.headers().HeaderExists("X-XSS-Protection"))
+        reply.mutable_headers()->AddHeader("X-XSS-Protection", "1; mode=block");
+      if (!reply.headers().HeaderExists("X-Frame-Options"))
+        reply.mutable_headers()->AddHeader("X-Frame-Options", "deny");
       if (!close_connection && request.http_version() >= "HTTP/1.1" &&
           request.headers().GetHeader("Connection").find("close") == string::npos) {
         reply.mutable_headers()->SetHeader("Connection", "keep-alive");
