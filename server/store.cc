@@ -53,11 +53,20 @@ class DataStoreServer : private noncopyable {
     server_->request_handler()->AddPath("/add$", &DataStoreServer::handle_add, this);
     server_->request_handler()->AddPath("/list$", &DataStoreServer::handle_list, this);
     server_->request_handler()->AddPath("/get$", &DataStoreServer::handle_get, this);
+    server_->request_handler()->AddPath("/health$", &DataStoreServer::handle_health, this);
     server_->AddExportHandler();
     // Export stats every 5 minutes
     VariableExporter::GetGlobalExporter()->SetExportLabel("job", "datastore");
     VariableExporter::GetGlobalExporter()->SetExportLabel("hostname", Socket::Hostname());
     VariableExporter::GetGlobalExporter()->StartExportThread(StringPrintf("localhost:%lu", FLAGS_port), 300);
+  }
+
+  bool handle_health(const HttpRequest &request, HttpReply *reply) {
+    // Default health check, just return "OK"
+    reply->SetStatus(HttpReply::OK);
+    reply->SetContentType("text/plain");
+    reply->mutable_body()->CopyFrom("OK\n");
+    return true;
   }
 
   bool handle_get(const HttpRequest &request, HttpReply *reply) {
