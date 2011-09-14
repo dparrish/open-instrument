@@ -1,13 +1,12 @@
 TARGETS=libopeninstrument.a $(BASEDIR)/static/openinstrument.pb.js
 TESTS=string_test timer_test uri_test exported_vars_test cord_test socket_test protobuf_test counter_test trie_test
-OBJS=common.o string.o uri.o exported_vars.o openinstrument.pb.o mysql_builder.o base64.o protobuf.o cord.o socket.o \
+OBJS=common.o string.o uri.o exported_vars.o openinstrument.pb.o base64.o protobuf.o cord.o socket.o \
      http_message.o http_server.o http_client.o http_reply.o http_request.o store_client.o http_static_dir.o closure.o \
      mime_types.o file.o counter.o timer.o
 TEST_LIBS+=libopeninstrument.a
 TEST_DEPS=libopeninstrument.a
 CLEAN_TARGETS=openinstrument.pb.cc openinstrument.pb.h
 SUBDIRS=
-EXTRA_LIBS_mysql_builder_test=-lmysql++
 
 include $(BASEDIR)/Makefile.inc
 
@@ -181,40 +180,6 @@ mime_types.o: mime_types.cc \
  $(BASEDIR)/lib/threadpool.h \
  $(BASEDIR)/lib/mime_types.h \
  $(BASEDIR)/lib/trie.h
-mysql_builder.o: mysql_builder.cc /usr/include/mysql++/mysql++.h \
- $(BASEDIR)/lib/common.h \
- $(BASEDIR)/lib/closure.h \
- $(BASEDIR)/lib/string.h \
- $(BASEDIR)/lib/threadpool.h \
- $(BASEDIR)/lib/mysql_builder.h
-mysql_builder_test.o: mysql_builder_test.cc \
- $(BASEDIR)/lib/common.h \
- $(BASEDIR)/lib/closure.h \
- $(BASEDIR)/lib/string.h \
- $(BASEDIR)/lib/threadpool.h \
- $(BASEDIR)/lib/mysql_builder.h \
- /usr/include/mysql++/mysql++.h /usr/include/mysql++/connection.h \
- /usr/include/mysql++/common.h /usr/include/mysql/mysql_version.h \
- /usr/include/mysql/mysql.h /usr/include/mysql/mysql_version.h \
- /usr/include/mysql/mysql_com.h /usr/include/mysql/mysql_time.h \
- /usr/include/mysql/my_list.h /usr/include/mysql/typelib.h \
- /usr/include/mysql/my_alloc.h /usr/include/mysql++/noexceptions.h \
- /usr/include/mysql++/options.h /usr/include/mysql++/tcp_connection.h \
- /usr/include/mysql++/uds_connection.h \
- /usr/include/mysql++/wnp_connection.h /usr/include/mysql++/cpool.h \
- /usr/include/mysql++/beemutex.h /usr/include/mysql++/exceptions.h \
- /usr/include/mysql++/query.h /usr/include/mysql++/qparms.h \
- /usr/include/mysql++/stadapter.h /usr/include/mysql++/datetime.h \
- /usr/include/mysql++/comparable.h /usr/include/mysql++/null.h \
- /usr/include/mysql++/sql_buffer.h /usr/include/mysql++/refcounted.h \
- /usr/include/mysql++/type_info.h /usr/include/mysql++/sql_types.h \
- /usr/include/mysql++/tiny_int.h /usr/include/mysql++/querydef.h \
- /usr/include/mysql++/result.h /usr/include/mysql++/field.h \
- /usr/include/mysql++/field_names.h /usr/include/mysql++/field_types.h \
- /usr/include/mysql++/row.h /usr/include/mysql++/mystring.h \
- /usr/include/mysql++/vallist.h /usr/include/mysql++/manip.h \
- /usr/include/mysql++/myset.h /usr/include/mysql++/stream2string.h \
- /usr/include/mysql++/transaction.h
 openinstrument.pb.o: openinstrument.pb.cc openinstrument.pb.h
 protobuf.o: protobuf.cc $(BASEDIR)/lib/base64.h \
  $(BASEDIR)/lib/common.h \

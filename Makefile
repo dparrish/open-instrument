@@ -1,7 +1,7 @@
 include Makefile.inc
 
 export CXX=g++
-export INCLUDE_DIRS += -I/usr/include/mysql -I/usr/include/mysql++ -I$(BASEDIR)
+export INCLUDE_DIRS += -I$(BASEDIR)
 export LD=g++
 export LDFLAGS=-g $(LIB_DIRS)
 export LIBS=-lrt -lglog -lgflags -ltcmalloc -lboost_thread -lopeninstrument -lboost_regex -lboost_system -lprotobuf
