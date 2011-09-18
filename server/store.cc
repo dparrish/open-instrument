@@ -28,6 +28,7 @@
 #include "server/disk_datastore.h"
 #include "server/record_log.h"
 
+DECLARE_int32(v);
 DEFINE_int32(port, 8020, "Port to listen on");
 DEFINE_string(listen_address, "0.0.0.0", "Address to listen on. Use 0.0.0.0 to listen on any address");
 DEFINE_int32(num_threads, 10, "Number of threads to create in the thread pool");

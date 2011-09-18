@@ -96,13 +96,13 @@ void LocalFile::Close() {
     close(fd_);
 }
 
-size_t LocalFile::Write(const char *ptr, size_t size) {
+int32_t LocalFile::Write(const char *ptr, int32_t size) {
   if (!fd_)
     return 0;
   return write(fd_, ptr, size);
 }
 
-size_t LocalFile::Write(const string &str) {
+int32_t LocalFile::Write(const string &str) {
   if (!fd_)
     return 0;
   return Write(str.data(), str.size());

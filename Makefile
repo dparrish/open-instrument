@@ -4,9 +4,9 @@ export CXX=g++
 export INCLUDE_DIRS += -I$(BASEDIR)
 export LD=g++
 export LDFLAGS=-g $(LIB_DIRS)
-export LIBS=-lrt -lglog -lgflags -ltcmalloc -lboost_thread -lopeninstrument -lboost_regex -lboost_system -lprotobuf
+export LIBS=-lrt -lgflags -lglog -ltcmalloc -lboost_thread -lopeninstrument -lboost_regex -lboost_system -lprotobuf
 export LDLIBS=$(LIBS) $(EXTRA_LIBS_$@)
-export LIB_DIRS += -L$(BASEDIR)/lib
+export LIB_DIRS += -L$(BASEDIR)/lib -L/usr/lib
 export TEST_LIBS=-lgtest
 export CXXFLAGS=\
   $(INCLUDE_DIRS) \

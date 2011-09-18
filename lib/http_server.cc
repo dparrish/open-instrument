@@ -185,7 +185,7 @@ thread *HttpServer::listen_thread() const {
   return listen_thread_.get();
 }
 
-HttpServer::HttpServer *HttpServer::NewServer(const string &addr, uint16_t port, size_t num_threads) {
+HttpServer *HttpServer::NewServer(const string &addr, uint16_t port, size_t num_threads) {
   try {
     // Run server in background thread.
     HttpServer *server = new http::HttpServer(addr, port, num_threads);

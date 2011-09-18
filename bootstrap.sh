@@ -5,6 +5,7 @@ if [ ! -d static/protojs ]; then
   git clone https://github.com/sirikata/protojs.git protojs
   cd protojs
   ./bootstrap.sh
+  make
   popd
 fi
 

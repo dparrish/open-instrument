@@ -21,7 +21,7 @@
 namespace openinstrument {
 
 typedef uint16_t magic_type;
-typedef uint32_t size_type;
+typedef int32_t size_type;
 typedef uint16_t crc_type;
 
 const magic_type protomagic = 0xDEAD;
@@ -264,7 +264,7 @@ bool ProtoStreamWriter::Write(const google::protobuf::Message &msg) {
     LOG(INFO) << "Short write for size";
     return false;
   }
-  if (fh_.Write(buf_) != buf_.size()) {
+  if (fh_.Write(buf_) != static_cast<int32_t>(buf_.size())) {
     LOG(INFO) << "Short write for proto";
     return false;
   }

@@ -42,7 +42,7 @@ class FileStat {
   inline uid_t uid() const { return sb_.st_uid; }
   inline gid_t gid() const { return sb_.st_gid; }
   inline dev_t rdev() const { return sb_.st_rdev; }
-  inline off_t size() const { return sb_.st_size; }
+  inline int64_t size() const { return sb_.st_size; }
   inline blksize_t blksize() const { return sb_.st_blksize; }
   inline blkcnt_t blocks() const { return sb_.st_blocks; }
   inline time_t atime() const { return sb_.st_atime; }
@@ -124,16 +124,16 @@ class LocalFile : public File {
   bool Open(const char *mode);
   void Close();
 
-  template<typename T> size_t Read(T *ptr, size_t size) {
+  template<typename T> int32_t Read(T *ptr, int32_t size) {
     if (!fd_)
       return 0;
     return read(fd_, reinterpret_cast<char *>(ptr), size);
   }
 
-  size_t Write(const char *ptr, size_t size);
-  size_t Write(const string &str);
+  int32_t Write(const char *ptr, int32_t size);
+  int32_t Write(const string &str);
 
-  template<typename T> size_t Write(const T &val, size_t size) {
+  template<typename T> int32_t Write(const T &val, int32_t size) {
     if (!fd_)
       return 0;
     return write(fd_, reinterpret_cast<const char *>(&val), size);
