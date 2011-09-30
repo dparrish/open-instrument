@@ -67,6 +67,9 @@ message GetRequest {
   // If mutations or aggregations are supplied, the GetResponse will have a separate stream for each change requested.
   repeated StreamMutation mutation = 6;
   repeated StreamAggregation aggregation = 7;
+
+  // Limit to how many variables can be returned in a standard GetRequest. This can be overridden if required.
+  optional uint32 max_variables = 8 [ default = 100 ];
 }
 
 message GetResponse {
@@ -89,6 +92,9 @@ message AddResponse {
 
 message ListRequest {
   optional string prefix = 1;
+
+  // Limit to how many variables can be returned in a standard ListRequest. This can be overridden if required.
+  optional uint32 max_variables = 2 [ default = 100 ];
 }
 
 message ListResponse {

@@ -51,10 +51,10 @@ class DataStoreServer : private noncopyable {
       add_request_timer_("/openinstrument/store/add-requests"),
       list_request_timer_("/openinstrument/store/list-requests"),
       get_request_timer_("/openinstrument/store/get-requests") {
-    server_->request_handler()->AddPath("/add$", &DataStoreServer::handle_add, this);
-    server_->request_handler()->AddPath("/list$", &DataStoreServer::handle_list, this);
-    server_->request_handler()->AddPath("/get$", &DataStoreServer::handle_get, this);
-    server_->request_handler()->AddPath("/health$", &DataStoreServer::handle_health, this);
+    server_->request_handler()->AddPath("/add$", &DataStoreServer::HandleAdd, this);
+    server_->request_handler()->AddPath("/list$", &DataStoreServer::HandleList, this);
+    server_->request_handler()->AddPath("/get$", &DataStoreServer::HandleGet, this);
+    server_->request_handler()->AddPath("/health$", &DataStoreServer::HandleHealth, this);
     server_->AddExportHandler();
     // Export stats every 5 minutes
     VariableExporter::GetGlobalExporter()->SetExportLabel("job", "datastore");
@@ -62,7 +62,7 @@ class DataStoreServer : private noncopyable {
     VariableExporter::GetGlobalExporter()->StartExportThread(StringPrintf("localhost:%lu", FLAGS_port), 300);
   }
 
-  bool handle_health(const HttpRequest &request, HttpReply *reply) {
+  bool HandleHealth(const HttpRequest &request, HttpReply *reply) {
     // Default health check, just return "OK"
     reply->SetStatus(HttpReply::OK);
     reply->SetContentType("text/plain");
@@ -70,7 +70,7 @@ class DataStoreServer : private noncopyable {
     return true;
   }
 
-  bool handle_get(const HttpRequest &request, HttpReply *reply) {
+  bool HandleGet(const HttpRequest &request, HttpReply *reply) {
     proto::GetRequest req;
     if (!UnserializeProtobuf(request.body(), &req)) {
       reply->SetStatus(HttpReply::BAD_REQUEST);
@@ -90,8 +90,11 @@ class DataStoreServer : private noncopyable {
     set<string> unique_vars;
 
     try {
+      uint32_t varcounter = 0;
       // Retrieve all the variable streams requested, mutating them on the way
       BOOST_FOREACH(const Variable &var, vars) {
+        if (++varcounter > req.max_variables())
+          break;
         // Default to retrieving the last day
         Timestamp start(req.has_min_timestamp() ? req.min_timestamp() : Timestamp::Now() - (86400 * 1000));
         Timestamp end(req.has_max_timestamp() ? req.max_timestamp() : Timestamp::Now());
@@ -300,7 +303,7 @@ class DataStoreServer : private noncopyable {
     return true;
   }
 
-  bool handle_list(const HttpRequest &request, HttpReply *reply) {
+  bool HandleList(const HttpRequest &request, HttpReply *reply) {
     ScopedExportTimer t(&list_request_timer_);
 
     proto::ListRequest req;
@@ -312,7 +315,10 @@ class DataStoreServer : private noncopyable {
     proto::ListResponse response;
     set<Variable> vars = datastore.FindVariables(req.prefix());
     response.set_success(true);
+    uint32_t varcounter = 0;
     BOOST_FOREACH(const Variable &var, vars) {
+      if (++varcounter > req.max_variables())
+        break;
       proto::ValueStream *stream = response.add_stream();
       stream->set_variable(var.ToString());
     }
@@ -326,7 +332,7 @@ class DataStoreServer : private noncopyable {
     return true;
   }
 
-  bool handle_add(const HttpRequest &request, HttpReply *reply) {
+  bool HandleAdd(const HttpRequest &request, HttpReply *reply) {
     ScopedExportTimer t(&add_request_timer_);
 
     proto::AddRequest req;
