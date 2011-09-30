@@ -23,6 +23,16 @@ namespace openinstrument {
 
 using std::string;
 
+// Returns ms since epoch given an input time string and format.
+// Throws out_of_range on error
+uint64_t strptime_64(const char *input, const char *format);
+
+// Make a time_t (seconds since epoch) out a struct tm.
+// This is a replacement for mktime that assumes GMT.
+// Returns negative on failure.
+time_t mkgmtime(const struct tm &tm);
+
+
 class Timestamp {
  public:
   Timestamp() : ms_(Now()) {}

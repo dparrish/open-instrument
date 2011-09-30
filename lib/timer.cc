@@ -9,6 +9,7 @@
 
 #define _XOPEN_SOURCE
 
+#include <boost/date_time/posix_time/posix_time.hpp>
 #include <glog/logging.h>
 #include <stdlib.h>
 #include <sys/time.h>
@@ -19,6 +20,49 @@
 #include "lib/timer.h"
 
 namespace openinstrument {
+
+time_t mkgmtime(const struct tm &tm) {
+  static const int month_day[12] = {0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334};
+  time_t tm_year = tm.tm_year;
+  time_t tm_mon = tm.tm_mon;
+  time_t tm_mday = tm.tm_mday;
+  time_t tm_hour = tm.tm_hour;
+  time_t tm_min = tm.tm_min;
+  time_t tm_sec = tm.tm_sec;
+  time_t month = tm_mon % 12;
+  time_t year = tm_year + tm_mon / 12;
+  if (month < 0) {
+    month += 12;
+    --year;
+  }
+  const time_t year_for_leap = (month > 1) ? year + 1 : year;
+  return tm_sec + 60 * (tm_min + 60 * (tm_hour + 24 * (month_day[month] + tm_mday - 1 + 365 * (year - 70)
+       + (year_for_leap - 69) / 4 - (year_for_leap - 1) / 100 + (year_for_leap + 299) / 400)));
+}
+
+uint64_t strptime_64(const char *input, const char *format) {
+  if (!input || !strlen(input))
+    throw out_of_range("No input string");
+
+  uint32_t ms = 0;
+  struct tm tm = {0, };
+  const char *p = strptime(input, format, &tm);
+  if (p == NULL)
+    throw out_of_range("Invalid input string for format");
+  if (*p == '.') {
+    // There are milliseconds
+    if (strlen(p) < 2)
+      throw out_of_range("Not enough characters left in input for ms");
+
+    if (sscanf(p, ".%3d", &ms) != 1)
+      throw out_of_range("Milliseconds not found in input string");
+    p += 4;
+  }
+  uint64_t ret = mkgmtime(tm);
+  if (ret < 0)
+    throw out_of_range("Invalid return from mkgmtime");
+  return ret * 1000 + ms;
+}
 
 string Timestamp::GmTime(const char *format) const {
   time_t sec = seconds();
@@ -35,35 +79,8 @@ string Timestamp::GmTime(const char *format) const {
   return out;
 }
 
-time_t my_timegm(struct tm *tm) {
-  time_t ret;
-  char *tz;
-
-  tz = getenv("TZ");
-  setenv("TZ", "", 1);
-  tzset();
-  ret = mktime(tm);
-  if (tz)
-    setenv("TZ", tz, 1);
-  else
-    unsetenv("TZ");
-  tzset();
-  return ret;
-}
-
 uint64_t Timestamp::FromGmTime(const string &input, const char *format) {
-  struct tm tm;
-  const char *p = strptime(input.c_str(), format, &tm);
-  if (p == NULL)
-    return 0;
-  string tmp(p);
-  if (tmp.size()) {
-    LOG(INFO) << "Leftover characters in FromGmTime: " << tmp;
-  }
-
-  uint64_t ret = my_timegm(&tm) * 1000;
-  // TODO(dparrish): Support ms here (%. field descriptor)
-  return ret;
+  return strptime_64(input.c_str(), format);
 }
 
 Duration Duration::FromString(const string &duration) {
