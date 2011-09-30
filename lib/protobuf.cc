@@ -167,7 +167,7 @@ bool ProtoStreamReader::Skip(int count) {
     size_type size;
     if (fh_.Read(&size, sizeof(size)) != sizeof(size))
       return false;
-    if (size >= fh_.size()) {
+    if (size >= fh_.stat().size()) {
       LOG(WARNING) << "Size in protobuf header is too large";
       FindNextHeader();
       continue;
@@ -193,7 +193,7 @@ bool ProtoStreamReader::Next(google::protobuf::Message *msg) {
     size_type size;
     if (fh_.Read(&size, sizeof(size)) != sizeof(size))
       return false;
-    if (size >= fh_.size()) {
+    if (size >= fh_.stat().size()) {
       // LOG(INFO) << "Corrupted protobuf size at 0x" << std::hex << startpos;
       fh_.SeekAbs(startpos + 1);
       if (FindNextHeader())
@@ -239,7 +239,7 @@ bool ProtoStreamReader::FindNextHeader() {
     size_type size;
     if (fh_.Read(&size, sizeof(size)) != sizeof(size))
       return false;
-    if (size >= fh_.size() - 2) {
+    if (size >= fh_.stat().size() - 2) {
       fh_.SeekAbs(startpos + 1);
       continue;
     }

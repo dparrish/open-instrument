@@ -23,15 +23,15 @@ namespace openinstrument {
 class ProtobufTest : public ::testing::Test {};
 
 void CorruptFile(const string &filename, int num_bytes = 1) {
-  LocalFile fh(filename, "r+");
+  File fh(filename, "r+");
   for (int i = 0; i < num_bytes; i++) {
-    fh.SeekAbs(rand() % fh.size());
+    fh.SeekAbs(rand() % fh.stat().size());
     char randbyte = rand();
     fh.Write(&randbyte, 1);
   }
 }
 
-TEST_F(ProtobufTest, GetAppendBuf) {
+TEST_F(ProtobufTest, WriteCorruptRead) {
   string filename("protobuf_test_output.txt");
   unlink(filename.c_str());
 
@@ -72,7 +72,7 @@ TEST_F(ProtobufTest, Variable) {
     EXPECT_EQ("valu\"e 2", foo.GetLabel("label2"));
     EXPECT_EQ("", foo.GetLabel("label3"));
     EXPECT_EQ(true, foo.HasLabel("label1"));
-    EXPECT_EQ(false, foo.HasLabel("label3"));
+    EXPECT_TRUE(false == foo.HasLabel("label3"));
     EXPECT_EQ("/test/variable/2{label1=value1,label2=\"valu\\\"e 2\"}", foo.ToString());
   }
 }

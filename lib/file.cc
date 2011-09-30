@@ -20,54 +20,18 @@
 
 namespace openinstrument {
 
-MmapFile *MmapFile::Open(const string &filename) {
-  scoped_ptr<MmapFile> fh(new MmapFile(filename));
-  if (stat(filename.c_str(), &fh->sb_) != 0)
-    throw runtime_error(StringPrintf("Could not stat file %s: %s", filename.c_str(), strerror(errno)));
-
-  if (fh->sb_.st_size == 0)
-    return NULL;
-
-  fh->fd = open(filename.c_str(), O_RDONLY);
-  if (fh->fd <= 0)
-    throw runtime_error(StringPrintf("open() failed: %s", strerror(errno)));
-
-  fh->ptr_ = mmap(NULL, fh->size(), PROT_READ, MAP_PRIVATE, fh->fd, 0);
-  if (!fh->ptr_)
-    throw runtime_error(StringPrintf("mmap() failed: %s", strerror(errno)));
-  fh->Ref();
-  return fh.release();
-}
-
-MmapFile::~MmapFile() {
-  if (ptr_)
-    munmap(ptr_, size());
-  if (fd)
-    close(fd);
-}
-
-void MmapFile::Ref() {
-  ++refcount_;
-}
-
-void MmapFile::Deref() {
-  if (--refcount_ <= 0) {
-    delete this;
-  }
-}
-
-
-LocalFile::LocalFile(const string &filename, const char *mode)
-  : File(filename),
+File::File(const string &filename, const char *mode)
+  : stat_(NULL),
+    filename_(filename),
     fd_(0) {
   Open(mode);
 }
 
-LocalFile::~LocalFile() {
+File::~File() {
   Close();
 }
 
-bool LocalFile::Open(const char *mode) {
+bool File::Open(const char *mode) {
   int flags = O_LARGEFILE;
   mode_t modes = 0666;
   if (strcmp(mode, "r") == 0) {
@@ -91,38 +55,38 @@ bool LocalFile::Open(const char *mode) {
   return true;
 }
 
-void LocalFile::Close() {
+void File::Close() {
   if (fd_)
     close(fd_);
 }
 
-int32_t LocalFile::Write(const char *ptr, int32_t size) {
+int32_t File::Write(const char *ptr, int32_t size) {
   if (!fd_)
-    return 0;
+    throw runtime_error("Attempt to write to closed filehandle");
   return write(fd_, ptr, size);
 }
 
-int32_t LocalFile::Write(const string &str) {
+int32_t File::Write(const string &str) {
   if (!fd_)
-    return 0;
+    throw runtime_error("Attempt to write to closed filehandle");
   return Write(str.data(), str.size());
 }
 
-int64_t LocalFile::SeekAbs(int64_t offset) {
+int64_t File::SeekAbs(int64_t offset) {
   if (!fd_)
-    return 0;
+    throw runtime_error("Attempt to seek on closed filehandle");
   return lseek64(fd_, offset, SEEK_SET);
 }
 
-int64_t LocalFile::SeekRel(int64_t offset) {
+int64_t File::SeekRel(int64_t offset) {
   if (!fd_)
-    return 0;
+    throw runtime_error("Attempt to seek on closed filehandle");
   return lseek64(fd_, offset, SEEK_CUR);
 }
 
-int64_t LocalFile::Tell() const {
+int64_t File::Tell() const {
   if (!fd_)
-    return 0;
+    throw runtime_error("Attempt to tell on closed filehandle");
   return lseek64(fd_, 0, SEEK_CUR);
 }
 

@@ -46,7 +46,7 @@ class ProtoStreamReader : private noncopyable {
   bool FindNextHeader();
 
   string buf_;
-  LocalFile fh_;
+  File fh_;
 };
 
 class ProtoStreamWriter : private noncopyable {
@@ -56,7 +56,7 @@ class ProtoStreamWriter : private noncopyable {
 
  private:
   string buf_;
-  LocalFile fh_;
+  File fh_;
 };
 
 // Container for variable names

@@ -55,72 +55,10 @@ class FileStat {
   string error_;
 };
 
-class File : private noncopyable {
+class File {
  public:
-  explicit File(const string &filename) : filename_(filename) {
-    Stat(filename);
-  }
-
-  bool Stat(const string &filename) {
-    if (stat(filename.c_str(), &sb_) != 0)
-      return false;
-    return true;
-  }
-  inline dev_t dev() const { return sb_.st_dev; }
-  inline ino_t ino() const { return sb_.st_ino; }
-  inline mode_t mode() const { return sb_.st_mode; }
-  inline nlink_t nlink() const { return sb_.st_nlink; }
-  inline uid_t uid() const { return sb_.st_uid; }
-  inline gid_t gid() const { return sb_.st_gid; }
-  inline dev_t rdev() const { return sb_.st_rdev; }
-  inline off_t size() const { return sb_.st_size; }
-  inline blksize_t blksize() const { return sb_.st_blksize; }
-  inline blkcnt_t blocks() const { return sb_.st_blocks; }
-  inline time_t atime() const { return sb_.st_atime; }
-  inline time_t mtime() const { return sb_.st_mtime; }
-  inline time_t ctime() const { return sb_.st_ctime; }
-
- protected:
-  struct stat sb_;
-  string filename_;
-};
-
-class MmapFile : public File {
- public:
-  static MmapFile *Open(const string &filename);
-  ~MmapFile();
-  void Ref();
-  void Deref();
-  inline char *data() const { return reinterpret_cast<char *>(ptr_); }
-
- private:
-  explicit MmapFile(const string &filename)
-    : File(filename),
-      ptr_(NULL),
-      refcount_(0) {}
-  void *ptr_;
-  int16_t refcount_;
-  int fd;
-};
-
-class MmapFileRef : private noncopyable {
- public:
-  explicit MmapFileRef(MmapFile *fh) : fh_(fh) {}
-  ~MmapFileRef() {
-    if (fh_)
-      fh_->Deref();
-  }
-  inline MmapFile *operator->() const {
-    return fh_;
-  }
- private:
-  MmapFile *fh_;
-};
-
-class LocalFile : public File {
- public:
-  LocalFile(const string &filename, const char *mode = "r");
-  ~LocalFile();
+  File(const string &filename, const char *mode = "r");
+  ~File();
   bool Open(const char *mode);
   void Close();
 
@@ -147,7 +85,20 @@ class LocalFile : public File {
     return fd_;
   }
 
+  const string &filename() const {
+    return filename_;
+  }
+
+  const FileStat &stat() {
+    if (!stat_.get())
+      stat_.reset(new FileStat(filename_));
+    return *stat_;
+  }
+
+  scoped_ptr<FileStat> stat_;
+
  private:
+  string filename_;
   int fd_;
 };
 

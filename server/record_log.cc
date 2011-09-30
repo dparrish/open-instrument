@@ -92,7 +92,7 @@ void RecordLog::RotateRecordLog() {
       LOG(WARNING) << "Error renaming " << filename() << " to " << newfilename << ": " << strerror(errno);
     }
     // Create a new empty file
-    LocalFile fh(filename(), "w");
+    File fh(filename(), "w");
   }
 }
 

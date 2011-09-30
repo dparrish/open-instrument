@@ -48,7 +48,7 @@ class IndexedStoreFile : private noncopyable {
 
  private:
   string filename_;
-  LocalFile fh_;
+  File fh_;
   MapType log_data_;
   proto::StoreFileHeader file_header_;
 };

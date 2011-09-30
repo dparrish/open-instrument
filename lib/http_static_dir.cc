@@ -12,7 +12,6 @@
 #include <fcntl.h>
 #include <libgen.h>
 #include <sys/mman.h>
-#include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
 #include "lib/common.h"
@@ -52,19 +51,26 @@ void HttpStaticHandler::ServeLocalFile(const string &filename, const HttpRequest
     }
   }
 
-  MmapFile *fh = MmapFile::Open(filename);
-  reply->AddCompleteCallback(bind(&MmapFile::Deref, fh));
+  VLOG(1) << "Serving local file " << filename;
+  File fh(filename, "r");
   reply->SetStatus(HttpReply::OK);
-  reply->SetContentLength(fh->size());
+  reply->SetContentLength(fh.stat().size());
   reply->SetContentType(MimeType(filename).c_str());
-  reply->SetHeader("Last-Modified", Timestamp(fh->mtime() * 1000).GmTime(HttpServer::RFC112Format).c_str());
-  for (int64_t i = 0; i < fh->size(); i += 4096) {
-    int64_t size = 4096;
-    if (i + size > fh->size())
-      size = fh->size() - i;
-    if (size <= 0)
+  reply->SetHeader("Last-Modified", Timestamp(fh.stat().mtime() * 1000).GmTime(HttpServer::RFC112Format).c_str());
+  for (int64_t done = 0; done < fh.stat().size(); ) {
+    uint32_t avail = 4096;
+    char *buf;
+    if (fh.stat().size() - done < 4096)
+      avail = fh.stat().size() - done;
+    reply->mutable_body()->GetAppendBuf(avail, &buf, &avail);
+    if (!avail)
+      continue;
+    int32_t readbytes = fh.Read(buf, avail);
+    if (readbytes < 0)
+      continue;
+    if (readbytes == 0)
       break;
-    reply->mutable_body()->Append(fh->data() + i, size);
+    done += readbytes;
   }
 }
 
@@ -106,7 +112,7 @@ bool HttpStaticDir::HandleGet(const HttpRequest &request, HttpReply *reply) {
   try {
     ServeLocalFile(localfile, request, reply);
   } catch (runtime_error &e) {
-    LOG(INFO) << e.what();
+    LOG(ERROR) << e.what();
     reply->SetStatus(HttpReply::NOT_FOUND);
   }
   return true;
@@ -134,7 +140,7 @@ bool HttpStaticFile::HandleGet(const HttpRequest &request, HttpReply *reply) {
   try {
     ServeLocalFile(local_path_, request, reply);
   } catch (runtime_error &e) {
-    LOG(INFO) << e.what();
+    LOG(ERROR) << e.what();
     reply->SetStatus(HttpReply::NOT_FOUND);
   }
   return true;
