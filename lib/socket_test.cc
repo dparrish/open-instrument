@@ -27,7 +27,7 @@ TEST_F(SocketTest, EmptyAddress) {
 
 TEST_F(SocketTest, StringAddress1) {
   Socket::Address addr("192.168.1.1", 8010);
-  EXPECT_EQ(3232235777, addr.address);
+  EXPECT_EQ(3232235777U, addr.address);
   EXPECT_EQ(8010, addr.port);
   EXPECT_EQ("192.168.1.1", addr.AddressToString());
   EXPECT_EQ("192.168.1.1:8010", addr.ToString());
@@ -35,15 +35,15 @@ TEST_F(SocketTest, StringAddress1) {
 
 TEST_F(SocketTest, StringAddress2) {
   Socket::Address addr("192.168.1.1:8010");
-  EXPECT_EQ(3232235777, addr.address);
+  EXPECT_EQ(3232235777U, addr.address);
   EXPECT_EQ(8010, addr.port);
   EXPECT_EQ("192.168.1.1", addr.AddressToString());
   EXPECT_EQ("192.168.1.1:8010", addr.ToString());
 }
 
 TEST_F(SocketTest, IntAddress) {
-  Socket::Address addr(3232235777, 8010);
-  EXPECT_EQ(3232235777, addr.address);
+  Socket::Address addr(3232235777U, 8010);
+  EXPECT_EQ(3232235777U, addr.address);
   EXPECT_EQ(8010, addr.port);
   EXPECT_EQ("192.168.1.1", addr.AddressToString());
   EXPECT_EQ("192.168.1.1:8010", addr.ToString());

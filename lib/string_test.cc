@@ -32,7 +32,7 @@ TEST_F(StringTest, StringPieceTest) {
   string emptystring;
   StringPiece sp1(teststr1), sp2(sp1.data(), sp1.size()), sp3(teststr2), sp4(emptystring), sp5(sp1);
   EXPECT_TRUE(sp1 == sp2);
-  EXPECT_EQ(21, teststr1.size());
+  EXPECT_EQ(21U, teststr1.size());
   EXPECT_EQ(0, strncmp("This is a test string", sp1.data(), teststr1.size()));
   EXPECT_EQ("This is a test string", sp1.ToString());
   EXPECT_EQ("This is a test string", sp5.ToString());
