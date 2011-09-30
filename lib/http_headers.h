@@ -69,6 +69,16 @@ class HttpHeaders {
     return false;
   }
 
+  void RemoveHeader(const string &name) {
+    for (vector<HttpHeader>::iterator i = headers_.begin(); i != headers_.end(); ++i) {
+      if (i->name == name) {
+        headers_.erase(i);
+        i = headers_.begin();
+        continue;
+      }
+    }
+  }
+
   // Gets the first value of a header from the set.
   const string &GetHeader(const string &name) const {
     static string emptystring;
