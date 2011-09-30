@@ -9,6 +9,7 @@
 
 #include <string>
 #include "lib/common.h"
+#include "lib/string.h"
 #include "lib/uri.h"
 
 namespace openinstrument {
@@ -131,11 +132,10 @@ bool Uri::UrlDecode(const string &in, string &out) {
       }
 
       // Read the next 2 characters as a hexadecimal number and convert it
-      string ch(in.substr(i + 1, 2));
-      int value = 0;
-      if (sscanf(ch.c_str(), "%2x", &value) != 1)
-        return false;
-      out += static_cast<char>(value);
+      string ch = in.substr(i + 1, 2);
+      unsigned char value = HexToChar(ch);
+      VLOG(3) << "Got hex character " << ch << " converted to " << value;
+      out += value;
       i += 2;
     } else if (in[i] == '+') {
       out += ' ';
