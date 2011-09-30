@@ -22,7 +22,11 @@ endif
 	@echo "Linking test $@"
 	@$(LD) -o $@ $< $(LDFLAGS) $(LIBS) $(TEST_LIBS) $(EXTRA_LIBS_$@)
 	@echo "Running $@"
-	./$@ 2>&1 || (rm -f $@ && exit 1)
+	@if test -f /`which valgrind 2>/dev/null`; then \
+		valgrind -q ./$@ || (rm -f $@ && exit 1) \
+	else \
+		./$@ || (rm -f $@ && exit 1) \
+	fi
 
 %.a:
 	@echo "Creating library $@"
