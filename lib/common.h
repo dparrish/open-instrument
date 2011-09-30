@@ -179,6 +179,11 @@ class Notification : private noncopyable {
   mutable Mutex mutex_;
 };
 
+// Write the supplied uint32_t to a buffer as a hex string.
+// The buffer must be supplied pre-allocated with 21 bytes.
+// Returns a pointer to the first character in the hex string.
+char *HexToBuffer(uint32_t i, char *buffer);
+string HexToBuffer(uint32_t i);
 
 }  // namespace
 

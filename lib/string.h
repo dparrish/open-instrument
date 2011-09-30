@@ -87,6 +87,35 @@ string StringTrim(const string &str);
 // Consume and return the first word in the supplied string.
 string ConsumeFirstWord(string *input);
 
+inline char HexToChar(const string &in) {
+  char out;
+  if (sscanf(in.c_str(), "%02hhx", &out) != 1)
+    throw std::out_of_range("Invalid hex character");
+  return out;
+}
+
+inline uint16_t HexToUint16(const string &in) {
+  uint16_t out;
+  if (sscanf(in.c_str(), "%04hx", &out) != 1)
+    throw std::out_of_range("Invalid hex character");
+  return out;
+}
+
+inline uint32_t HexToUint32(const string &in) {
+  unsigned long out;
+  if (sscanf(in.c_str(), "%08lx", &out) != 1)
+    throw std::out_of_range("Invalid hex character");
+  return out;
+}
+
+inline uint64_t HexToUint64(const string &in) {
+  unsigned long long out;
+  if (sscanf(in.c_str(), "%02llx", &out) != 1)
+    throw std::out_of_range("Invalid hex uint64");
+  return out;
+}
+
+
 }  // namespace openinstrument
 
 #endif  // _OPENINSTRUMENT_LIB_STRING_
