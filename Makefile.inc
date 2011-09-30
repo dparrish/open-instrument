@@ -1,4 +1,4 @@
-#vim: noet sw=8
+# vim:noet sw=8
 
 all: subdirs_all $(TARGETS)
 
@@ -12,7 +12,7 @@ endif
 
 %: %.o $(EXTRA_DEPS) $(EXTRA_DEPS_$@)
 	@echo "Linking $@"
-	$(LD) -o $@ $< $(LDFLAGS) $(LIBS) $(EXTRA_LIBS) $(EXTRA_LIBS_$@)
+	@$(LD) -o $@ $< $(LDFLAGS) $(LIBS) $(EXTRA_LIBS) $(EXTRA_LIBS_$@)
 
 %.o: %.cc
 	@echo "Compiling $@"
@@ -22,7 +22,7 @@ endif
 	@echo "Linking test $@"
 	@$(LD) -o $@ $< $(LDFLAGS) $(LIBS) $(TEST_LIBS) $(EXTRA_LIBS_$@)
 	@echo "Running $@"
-	@HEAPCHECK=normal ./$@ 2>&1 || exit 1
+	./$@ 2>&1 || (rm -f $@ && exit 1)
 
 %.a:
 	@echo "Creating library $@"

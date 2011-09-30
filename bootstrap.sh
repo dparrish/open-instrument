@@ -1,16 +1,26 @@
 #!/bin/bash
 
+# Download and compile protojs
 if [ ! -d static/protojs ]; then
-  pushd static
-  git clone https://github.com/sirikata/protojs.git protojs
+  cd static
+  git clone https://github.com/sirikata/protojs.git protojs || exit $?
   cd protojs
-  ./bootstrap.sh
+  ./bootstrap.sh || exit $?
   make
-  popd
+  cd ..
 fi
+cd static/protojs
+git pull
+make
+cd ../..
 
+
+# Download flot (javascript graphing library)
 if [ ! -d static/flot ]; then
-  pushd static
-  svn checkout http://flot.googlecode.com/svn/trunk/ flot
-  popd
+  cd static
+  svn checkout http://flot.googlecode.com/svn/trunk/ flot || exit $?
+  cd ..
 fi
+cd static/flot
+svn update
+cd ../..
