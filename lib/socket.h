@@ -78,6 +78,12 @@ class Socket : private noncopyable {
     Read(0);
   }
 
+  inline void Write(const StringPiece &str) {
+    write_buffer_.CopyFrom(str.data(), str.size());
+    AttemptFlush();
+    Read(0);
+  }
+
   inline void Write(const Cord &cord) {
     write_buffer_.CopyFrom(cord);
     AttemptFlush();

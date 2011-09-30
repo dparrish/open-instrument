@@ -50,7 +50,6 @@ class RequestHandler : private noncopyable {
 
       // Run the callback
       reply->SetStatus(HttpReply::OK);
-      reply->SetHeader("X-Frame-Options", "SAMEORIGIN");
       try {
         if (!handlers_[i].callback(req, reply)) {
           LOG(WARNING) << "Callback for " << req.uri.path << " returned false";

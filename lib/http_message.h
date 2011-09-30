@@ -27,7 +27,8 @@ class HttpMessage {
   HttpMessage()
     : method_("GET"),
       header_written_(false),
-      status_written_(false) {}
+      status_written_(false),
+      chunked_encoding_(false) {}
   virtual ~HttpMessage() {}
 
   void WriteHeader(Socket *sock);
@@ -58,18 +59,30 @@ class HttpMessage {
     method_ = method;
   }
 
+  bool chunked_encoding() const {
+    return chunked_encoding_;
+  }
+
+  void set_chunked_encoding(bool newval = true) {
+    chunked_encoding_ = newval;
+  }
+
  protected:
   string method_;
   uint8_t version_major_;
   uint8_t version_minor_;
   bool header_written_;
   bool status_written_;
+  bool chunked_encoding_;
   HttpHeaders headers_;
 
   Cord body_;
 
   // Override this for subclasses. This is the first line that is written.
   virtual void WriteFirstline(Socket *sock) = 0;
+
+  void WriteChunk(Socket *sock, const StringPiece &chunk);
+  void WriteLastChunk(Socket *sock);
 
   inline HttpHeaders *mutable_headers() {
     return &headers_;

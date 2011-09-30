@@ -54,6 +54,7 @@ record_log.o: record_log.cc \
  $(BASEDIR)/lib/cord.h \
  $(BASEDIR)/lib/file.h \
  $(BASEDIR)/lib/timer.h \
+ $(BASEDIR)/lib/trie.h \
  $(BASEDIR)/server/record_log.h
 store.o: store.cc $(BASEDIR)/lib/atomic.h \
  $(BASEDIR)/lib/common.h \

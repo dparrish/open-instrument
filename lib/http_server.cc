@@ -131,12 +131,23 @@ void HttpServer::HandleClient(Socket *sock) {
     HttpReply reply;
     reply.set_http_version(request.http_version());
 
+    if (request.http_version() == "HTTP/1.1" ||
+        request.headers().GetHeader("Accept-Encoding").find("chunked") != string::npos) {
+      reply.set_chunked_encoding(true);
+    }
+
     request_handler_->HandleRequest(request, &reply);
 
     try {
       // Set default required headers in the reply
-      if (!reply.headers().HeaderExists("Content-Length"))
-        reply.SetContentLength(reply.body().size());
+      if (reply.chunked_encoding()) {
+        reply.mutable_headers()->RemoveHeader("Content-Length");
+        reply.mutable_headers()->AddHeader("Transfer-Encoding", "chunked");
+      } else {
+        if (!reply.headers().HeaderExists("Content-Length"))
+          reply.SetContentLength(reply.body().size());
+        reply.mutable_headers()->RemoveHeader("Transfer-Encoding");
+      }
       if (!reply.headers().HeaderExists("Content-Type"))
         reply.SetContentType("text/html; charset=UTF-8");
       if (!reply.headers().HeaderExists("Date"))

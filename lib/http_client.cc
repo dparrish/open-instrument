@@ -58,7 +58,46 @@ HttpReply *HttpClient::SendRequest(HttpRequest &request) {
 
     reply->ReadAndParseHeaders(&sock, deadline);
 
-    if (reply->GetContentLength()) {
+    if (reply->chunked_encoding()) {
+      VLOG(2) << "Reading chunked encoding response";
+      while (true) {
+        try {
+          string str;
+          // Chunk header should be a hex length then \r\n
+          sock.read_buffer()->ConsumeLine(&str);
+          VLOG(2) << "  read length (" << str << ")";
+          uint32_t len = 0;
+          try {
+            len = HexToUint32(str);
+          } catch (std::out_of_range) {
+            throw runtime_error(StringPrintf("Invalid chunk header reading HTTP response: %s", str.c_str()));
+          }
+          if (len == 0) {
+            // Last chunk
+            VLOG(2) << "  last chunk";
+            sock.read_buffer()->ConsumeLine(&str);
+            break;
+          }
+          // Body is terminated by a newline
+          while (sock.read_buffer()->size() < len + 2) {
+            try {
+              sock.Read(deadline);
+            } catch (exception) {
+              throw runtime_error(StringPrintf("No response received from %s", sock.remote().ToString().c_str()));
+            }
+          }
+          string tmp;
+          sock.read_buffer()->Consume(len, &tmp);
+          reply->mutable_body()->CopyFrom(tmp);
+          VLOG(2) << "  got " << len << " bytes of body, total body size is now " << reply->body().size();
+          // Throw away the next newline
+          sock.read_buffer()->ConsumeLine(NULL);
+        } catch (std::out_of_range) {
+          sock.Read(deadline);
+        }
+      }
+    } else if (reply->GetContentLength()) {
+      VLOG(2) << "Reading response with content-length";
       while (sock.read_buffer()->size() < reply->GetContentLength()) {
         try {
           sock.Read(deadline);
@@ -66,18 +105,20 @@ HttpReply *HttpClient::SendRequest(HttpRequest &request) {
           throw runtime_error(StringPrintf("No response received from %s", sock.remote().ToString().c_str()));
         }
       }
+      reply->mutable_body()->CopyFrom(*(sock.read_buffer()));
     } else {
+      VLOG(2) << "Reading entire response";
       try {
         while (sock.Read(deadline) > 0);
       } catch (exception) {
         throw runtime_error(StringPrintf("No response received from %s", sock.remote().ToString().c_str()));
       }
-      reply->mutable_headers()->SetHeader("Content-Length", sock.read_buffer()->size());
+      reply->mutable_body()->CopyFrom(*(sock.read_buffer()));
     }
-    reply->mutable_body()->CopyFrom(*(sock.read_buffer()));
   } catch (exception& e) {
     LOG(ERROR) << "Exception: " << e.what() << "\n";
   }
+  reply->mutable_headers()->SetHeader("Content-Length", reply->body().size());
 
   return reply.release();
 }

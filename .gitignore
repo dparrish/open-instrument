@@ -1,6 +1,3 @@
 *_test
 *.o
 .*.swp
-*.passed
-.sconsign.dblite
-.test_passed*

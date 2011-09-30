@@ -20,11 +20,12 @@ const char *HttpMessage::header_sep_ = ": ";
 const char *HttpMessage::crlf_ = "\r\n";
 
 void HttpMessage::WriteHeader(Socket *sock) {
-  VLOG(2) << "Write HTTP message";
   if (!status_written_)
     WriteFirstline(sock);
   if (!header_written_) {
     for (size_t i = 0; i < headers_.size(); ++i) {
+      if (chunked_encoding() && headers_[i].name == "Content-Length")
+        continue;
       sock->Write(headers_[i].name);
       sock->Write(header_sep_);
       sock->Write(headers_[i].value);
@@ -87,8 +88,28 @@ const string &HttpMessage::GetContentType() {
 
 void HttpMessage::Write(Socket *sock) {
   WriteHeader(sock);
-  if (body_.size())
-    sock->Write(body_);
+  if (chunked_encoding_) {
+    BOOST_FOREACH(CordBuffer &buffer, body_) {
+      WriteChunk(sock, StringPiece(buffer.buffer(), buffer.size()));
+    }
+    WriteLastChunk(sock);
+  } else {
+    if (body_.size())
+      sock->Write(body_);
+  }
+}
+
+void HttpMessage::WriteChunk(Socket *sock, const StringPiece &chunk) {
+  if (chunk.size() == 0)
+    return;
+  sock->Write(HexToBuffer(chunk.size()));
+  sock->Write("\r\n");
+  sock->Write(chunk);
+  sock->Write("\r\n");
+}
+
+void HttpMessage::WriteLastChunk(Socket *sock) {
+  sock->Write("0\r\n\r\n");
 }
 
 void HttpMessage::ReadAndParseHeaders(Socket *sock, Deadline deadline) {
@@ -116,11 +137,17 @@ void HttpMessage::ReadAndParseHeaders(Socket *sock, Deadline deadline) {
       // new output
       string::size_type pos = output.find(":");
       if (pos == string::npos) {
-        LOG(INFO) << "Invalid output line: " << output;
+        LOG(WARNING) << "Invalid output line: " << output;
         continue;
       }
       headers_.AddHeader(output.substr(0, pos), StringTrim(output.substr(pos + 1)));
     }
+  }
+
+  if (headers_.GetHeader("Transfer-Encoding").find("chunked") != string::npos) {
+    set_chunked_encoding(true);
+  } else {
+    set_chunked_encoding(false);
   }
 }
 
