@@ -79,8 +79,12 @@ class DataStoreServer : private noncopyable {
       return true;
     }
     VLOG(2) << ProtobufText(req);
-    if (req.variable().empty())
-      throw runtime_error("No variable specified");
+    if (req.variable().empty()) {
+      reply->SetStatus(HttpReply::BAD_REQUEST);
+      reply->mutable_body()->clear();
+      reply->mutable_body()->CopyFrom("No variable specified\n");
+      return true;
+    }
 
     proto::GetResponse response;
     // Loop through all variables that match the requested variable.
@@ -307,10 +311,18 @@ class DataStoreServer : private noncopyable {
     ScopedExportTimer t(&list_request_timer_);
 
     proto::ListRequest req;
-    if (!UnserializeProtobuf(request.body(), &req))
-      throw runtime_error("Invalid request");
-    if (req.prefix().empty())
-      throw runtime_error("Empty prefix");
+    if (!UnserializeProtobuf(request.body(), &req)) {
+      reply->SetStatus(HttpReply::BAD_REQUEST);
+      reply->mutable_body()->clear();
+      reply->mutable_body()->CopyFrom("Invalid request\n");
+      return true;
+    }
+    if (req.prefix().empty()) {
+      reply->SetStatus(HttpReply::BAD_REQUEST);
+      reply->mutable_body()->clear();
+      reply->mutable_body()->CopyFrom("Empty pretix\n");
+      return true;
+    }
 
     proto::ListResponse response;
     set<Variable> vars = datastore.FindVariables(req.prefix());
@@ -336,10 +348,18 @@ class DataStoreServer : private noncopyable {
     ScopedExportTimer t(&add_request_timer_);
 
     proto::AddRequest req;
-    if (!UnserializeProtobuf(request.body(), &req))
-      throw runtime_error("Invalid request");
-    if (req.stream_size() <= 0)
-      throw runtime_error("Empty proto::ValueStream");
+    if (!UnserializeProtobuf(request.body(), &req)) {
+      reply->SetStatus(HttpReply::BAD_REQUEST);
+      reply->mutable_body()->clear();
+      reply->mutable_body()->CopyFrom("Invalid request\n");
+      return true;
+    }
+    if (req.stream_size() <= 0) {
+      reply->SetStatus(HttpReply::BAD_REQUEST);
+      reply->mutable_body()->clear();
+      reply->mutable_body()->CopyFrom("Empty proto::ValueStream\n");
+      return true;
+    }
 
     proto::AddResponse response;
     Timestamp now;
