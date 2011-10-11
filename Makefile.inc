@@ -32,6 +32,10 @@ endif
 	@echo "Creating library $@"
 	@ar rcs $@ $^
 
+%_pb2.py: %.proto
+	@echo "Generating $@ from $<"
+	@protoc -I`dirname $<` --python_out=`dirname $@` `basename $<`
+
 %.pb.h: %.proto
 	@echo "Generating $@ from $<"
 	@protoc -I. --cpp_out=. `basename $<`
