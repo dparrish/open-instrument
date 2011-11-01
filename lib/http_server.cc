@@ -65,7 +65,6 @@ void HttpServer::Acceptor() {
     } catch (exception &e) {
       LOG(WARNING) << e.what();
     }
-    --stats_["/connections-received"];
     --stats_["/worker-threads-busy"];
   }
 }
