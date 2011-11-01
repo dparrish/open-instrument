@@ -78,7 +78,6 @@ class DataStoreServer : private noncopyable {
       reply->mutable_body()->CopyFrom("Invalid Request\n");
       return true;
     }
-    VLOG(2) << ProtobufText(req);
     if (req.variable().empty()) {
       reply->SetStatus(HttpReply::BAD_REQUEST);
       reply->mutable_body()->clear();
@@ -252,7 +251,7 @@ class DataStoreServer : private noncopyable {
       throw runtime_error("Invalid StreamMutation");
     }
     if (!istream.value_size()) {
-      LOG(WARNING) << "Empty StreamMutation";
+      VLOG(2) << "Empty input stream for mutation";
       return true;
     }
     ostream->set_variable(istream.variable());
