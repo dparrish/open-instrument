@@ -29,18 +29,18 @@ class DiskDatastore : private noncopyable {
   explicit DiskDatastore(const string &basedir);
   ~DiskDatastore();
 
-  void GetRange(const string &variable, const Timestamp &start, const Timestamp &end, proto::ValueStream *outstream);
-  set<Variable> FindVariables(const string &variable);
+  void GetRange(const Variable &variable, const Timestamp &start, const Timestamp &end, proto::ValueStream *outstream);
+  set<Variable> FindVariables(const Variable &variable);
 
   inline bool CompareMessage(const proto::ValueStream &a, const proto::ValueStream &b) {
-    return a.variable() == b.variable();
+    return Variable(a.variable()) == Variable(b.variable());
   }
 
   inline bool CompareMessage(const proto::Value &a, const proto::Value &b) {
     return a.timestamp() == b.timestamp() && a.value() == b.value();
   }
 
-  inline void Record(const string &variable, Timestamp timestamp, double value) {
+  inline void Record(const Variable &variable, Timestamp timestamp, double value) {
     proto::Value *val = RecordNoLog(variable, timestamp, value);
     if (val)
       record_log_.Add(variable, *val);
@@ -51,10 +51,10 @@ class DiskDatastore : private noncopyable {
   }
 
  private:
-  proto::ValueStream &GetOrCreateVariable(const string &variable);
-  proto::ValueStream &GetVariable(const string &variable);
-  proto::ValueStream &CreateVariable(const string &variable);
-  proto::Value *RecordNoLog(const string &variable, Timestamp timestamp, double value);
+  proto::ValueStream &GetOrCreateVariable(const Variable &variable);
+  proto::ValueStream &GetVariable(const Variable &variable);
+  proto::ValueStream &CreateVariable(const Variable &variable);
+  proto::Value *RecordNoLog(const Variable &variable, Timestamp timestamp, double value);
   void ReplayRecordLog();
 
   string basedir_;

@@ -1,8 +1,9 @@
-TARGETS=store
+TARGETS=store dump_store_file
 TESTS=
 EXTRA_DEPS=store.o record_log.o disk_datastore.o datastore.o $(BASEDIR)/lib/libopenstrument.a
 EXTRA_LIBS_store=record_log.o disk_datastore.o datastore.o $(BASEDIR)/lib/libopenstrument.a
-EXTRA_DEPS_store=disk_datastore.o datastore.o record_log.o $(BASEDIR)/lib/libopenstrument.a
+
+store: disk_datastore.o datastore.o record_log.o
 
 include $(BASEDIR)/Makefile.inc
 

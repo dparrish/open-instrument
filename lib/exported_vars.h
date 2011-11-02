@@ -69,6 +69,15 @@ class ExportedInteger : public ExportedVariable {
 };
 
 
+class ExportedCounter : public ExportedInteger {
+ public:
+  explicit ExportedCounter(const string &varname, int64_t initial = 0) : ExportedInteger(varname, initial) {
+    mutable_variable().mutable_proto()->set_value_type(proto::Variable::COUNTER);
+  }
+  virtual ~ExportedCounter() {}
+};
+
+
 // An exported ratio class.
 // This results in three variables being exported:
 //   <your var name>-total      -- the sum of success and failure counts
@@ -81,9 +90,9 @@ class ExportedRatio : private noncopyable {
   void failure();
 
  private:
-  ExportedInteger total_;
-  ExportedInteger success_;
-  ExportedInteger failure_;
+  ExportedCounter total_;
+  ExportedCounter success_;
+  ExportedCounter failure_;
 };
 
 
@@ -101,8 +110,8 @@ class ExportedAverage : private noncopyable {
   int64_t total_count() const;
 
  private:
-  ExportedInteger total_count_;
-  ExportedInteger overall_sum_;
+  ExportedCounter total_count_;
+  ExportedCounter overall_sum_;
 };
 
 
@@ -245,7 +254,7 @@ class ExportedStream : public ExportedVariable {
   }
 
   virtual void ExportToValueStream(proto::ValueStream *stream) const {
-    stream->set_variable(variable().ToString());
+    variable().CopyTo(stream->mutable_value());
     BOOST_FOREACH(proto::Value &value, values_) {
       stream->add_value()->CopyFrom(value);
     }

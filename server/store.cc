@@ -78,7 +78,7 @@ class DataStoreServer : private noncopyable {
       reply->mutable_body()->CopyFrom("Invalid Request\n");
       return true;
     }
-    if (req.variable().empty()) {
+    if (!req.has_variable() || req.variable().name().empty()) {
       reply->SetStatus(HttpReply::BAD_REQUEST);
       reply->mutable_body()->clear();
       reply->mutable_body()->CopyFrom("No variable specified\n");
@@ -88,7 +88,7 @@ class DataStoreServer : private noncopyable {
     proto::GetResponse response;
     // Loop through all variables that match the requested variable.
     set<Variable> vars(datastore.FindVariables(req.variable()));
-    VLOG(1) << "Found " << vars.size() << " variables matching " << req.variable();
+    VLOG(1) << "Found " << vars.size() << " variables matching " << Variable(req.variable()).ToString();
     vector<proto::ValueStream> streams;
     set<string> unique_vars;
 
@@ -113,7 +113,7 @@ class DataStoreServer : private noncopyable {
           streams.push_back(proto::ValueStream());
           datastore.GetRange(var.ToString(), start, end, &streams.back());
         }
-        unique_vars.insert(var.variable());
+        unique_vars.insert(var.name());
       }
 
       // Perform any requested aggregation
@@ -122,7 +122,7 @@ class DataStoreServer : private noncopyable {
           // Get a list of all streams with the same variable name
           vector<proto::ValueStream> aggstreams;
           BOOST_FOREACH(proto::ValueStream &stream, streams) {
-            if (Variable(stream.variable()).variable() == varname) {
+            if (Variable(stream.variable()).name() == varname) {
               aggstreams.push_back(stream);
             }
           }
@@ -134,10 +134,10 @@ class DataStoreServer : private noncopyable {
 
             Variable var;
             if (aggstreams.size())
-              var.SetVariable(Variable(aggstreams[0].variable()).variable());
+              var.CopyFrom(aggstreams[0].variable());
+              //var.SetVariable(Variable(aggstreams[0].variable()).variable());
 
             if (!agg.label_size()) {
-              LOG(INFO) << "Throw away all labels";
               // Aggregate by variable only, throw away all labels
               proto::ValueStream output;
               if (agg.type() == proto::StreamAggregation::AVERAGE) {
@@ -151,7 +151,7 @@ class DataStoreServer : private noncopyable {
               } else if (agg.type() == proto::StreamAggregation::MEDIAN) {
                 ValueStreamMedian(aggstreams, sample_interval, &output);
               }
-              output.set_variable(var.ToString());
+              var.CopyTo(output.mutable_variable());
               response.add_stream()->CopyFrom(output);
             } else {
               for (int i = 0; i < agg.label_size(); i++) {
@@ -173,11 +173,20 @@ class DataStoreServer : private noncopyable {
                     Variable tmpvar(stream.variable());
                     if (tmpvar.GetLabel(label) == output_label) {
                       tmpstreams.push_back(stream);
-                      for (Variable::MapType::const_iterator it = tmpvar.labels().begin(); it != tmpvar.labels().end();
-                           ++it) {
-                        if (other_label_values[it->first] != it->second) {
-                          ++other_label_counts[it->first];
-                          other_label_values[it->first] = it->second;
+                      for (int i = 0; i < tmpvar.proto().label_size(); i++) {
+                        const proto::VariableLabel &label = tmpvar.proto().label(i);
+                        if (other_label_values[label.name()] != label.value()) {
+                          ++other_label_counts[label.name()];
+                          other_label_values[label.name()] = label.value();
+                        }
+
+                      }
+                      vector<string> labelnames = tmpvar.LabelNames();
+                      for (vector<string>::iterator i = labelnames.begin(); i != labelnames.end(); ++i) {
+                        string value = tmpvar.GetLabel(*i);
+                        if (other_label_values[*i] != value) {
+                          ++other_label_counts[*i];
+                          other_label_values[*i] = value;
                         }
                       }
                     }
@@ -211,7 +220,7 @@ class DataStoreServer : private noncopyable {
                   } else if (agg.type() == proto::StreamAggregation::MEDIAN) {
                     ValueStreamMedian(tmpstreams, sample_interval, &output);
                   }
-                  output.set_variable(outputvar.ToString());
+                  outputvar.CopyTo(output.mutable_variable());
                   response.add_stream()->CopyFrom(output);
                 }
               }
@@ -254,7 +263,7 @@ class DataStoreServer : private noncopyable {
       VLOG(2) << "Empty input stream for mutation";
       return true;
     }
-    ostream->set_variable(istream.variable());
+    ostream->mutable_variable()->CopyFrom(istream.variable());
 
     if (mutation.sample_type() == proto::StreamMutation::NONE) {
       ostream->CopyFrom(istream);
@@ -316,7 +325,7 @@ class DataStoreServer : private noncopyable {
       reply->mutable_body()->CopyFrom("Invalid request\n");
       return true;
     }
-    if (req.prefix().empty()) {
+    if (!req.has_prefix() || req.prefix().name().empty()) {
       reply->SetStatus(HttpReply::BAD_REQUEST);
       reply->mutable_body()->clear();
       reply->mutable_body()->CopyFrom("Empty pretix\n");
@@ -331,7 +340,7 @@ class DataStoreServer : private noncopyable {
       if (++varcounter > req.max_variables())
         break;
       proto::ValueStream *stream = response.add_stream();
-      stream->set_variable(var.ToString());
+      var.CopyTo(stream->mutable_variable());
     }
     reply->SetStatus(HttpReply::OK);
     reply->SetContentType("application/base64");
@@ -365,17 +374,12 @@ class DataStoreServer : private noncopyable {
     for (int streamid = 0; streamid < req.stream_size(); streamid++) {
       proto::ValueStream *stream = req.mutable_stream(streamid);
       Variable var(stream->variable());
-      if (var.GetLabel("hostname").empty()) {
-        // Force "hostname" to be set on every value stream
-        var.SetLabel("hostname", request.source.AddressToString());
-      }
       // Canonicalize the variable name
-      stream->set_variable(var.ToString());
-      VLOG(2) << "Adding value for " << var.ToString();
+      var.CopyTo(stream->mutable_variable());
       try {
-        if (var.variable().at(0) != '/' ||
-            var.variable().size() < 2 ||
-            var.variable().find_first_of("\n\t ") != string::npos) {
+        if (var.name().at(0) != '/' ||
+            var.name().size() < 2 ||
+            var.name().find_first_of("\n\t ") != string::npos) {
           throw runtime_error(StringPrintf("Invalid variable name"));
         }
         for (int valueid = 0; valueid < stream->value_size(); valueid++) {
@@ -388,7 +392,7 @@ class DataStoreServer : private noncopyable {
           if (ts.seconds() < now.seconds() - 86400 * 365)
             LOG(WARNING) << "Adding very old data point for " << var.ToString();
 
-          datastore.Record(var.ToString(), ts, value);
+          datastore.Record(var, ts, value);
         }
         response.set_success(true);
       } catch (exception &e) {

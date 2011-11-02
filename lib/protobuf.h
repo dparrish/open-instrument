@@ -10,7 +10,6 @@
 #ifndef _OPENINSTRUMENT_LIB_PROTOBUF_H_
 #define _OPENINSTRUMENT_LIB_PROTOBUF_H_
 
-#include <map>
 #include <string>
 #include <vector>
 #include <google/protobuf/message.h>
@@ -40,7 +39,8 @@ class ProtoStreamReader : private noncopyable {
  public:
   explicit ProtoStreamReader(const string &filename) : fh_(filename, "r") {}
   bool Skip(int count = 1);
-  bool Next(google::protobuf::Message *msg);
+  bool Next(google::protobuf::Message *msg, bool continue_on_error = true);
+  void Reset();
 
  private:
   bool FindNextHeader();
@@ -72,12 +72,14 @@ class ProtoStreamWriter : private noncopyable {
 // Acceptable characters for value are any UTF-8 character except NULL
 class Variable {
  public:
-  typedef std::map<string, string> MapType;
-
   Variable() {}
 
   Variable(const string &input) {
     FromString(input);
+  }
+
+  Variable(const proto::Variable &input) {
+    CopyFrom(input);
   }
 
   void FromString(const string &input);
@@ -87,33 +89,64 @@ class Variable {
     return ToString() < b.ToString();
   }
 
-  inline const string &variable() const {
-    return variable_;
+  inline const string &name() const {
+    return variable_.name();
   }
 
-  inline void SetVariable(const string &variable) {
+  inline void SetVariable(const proto::Variable &variable) {
     variable_ = variable;
   }
 
+  inline void RemoveLabel(const string &label) {
+    proto::Variable newvar(variable_);
+    newvar.clear_label();
+    bool found = false;
+    for (int i = 0; i < variable_.label_size(); i++) {
+      if (variable_.label(i).name() == label)
+        continue;
+      proto::VariableLabel *lab = newvar.add_label();
+      lab->CopyFrom(variable_.label(i));
+      found = true;
+    }
+    if (found)
+      variable_.CopyFrom(newvar);
+  }
+
   inline void SetLabel(const string &label, const string &value) {
-    labels_[label] = value;
+    for (int i = 0; i < variable_.label_size(); i++) {
+      if (variable_.label(i).name() == label) {
+        variable_.mutable_label(i)->set_value(value);
+        return;
+      }
+    }
+    proto::VariableLabel *l = variable_.add_label();
+    l->set_name(label);
+    l->set_value(value);
   }
 
   inline bool HasLabel(const string &label) const {
-    MapType::const_iterator it = labels_.find(label);
-    return it != labels_.end();
+    for (int i = 0; i < variable_.label_size(); i++) {
+      if (variable_.label(i).name() == label)
+        return true;
+    }
+    return false;
   }
 
-  const MapType &labels() const {
-    return labels_;
+  inline void CopyFrom(const proto::Variable &var) {
+    variable_.CopyFrom(var);
+  }
+
+  inline void CopyTo(proto::Variable *var) const {
+    var->CopyFrom(variable_);
   }
 
   inline const string &GetLabel(const string &label) const {
     static string emptystring;
-    MapType::const_iterator it = labels_.find(label);
-    if (it == labels_.end())
-      return emptystring;
-    return it->second;
+    for (int i = 0; i < variable_.label_size(); i++) {
+      if (variable_.label(i).name() == label)
+        return variable_.label(i).value();
+    }
+    return emptystring;
   }
 
   bool Matches(const Variable &search) const;
@@ -134,13 +167,31 @@ class Variable {
     return equals(Variable(search));
   }
 
-  // Used to keep track of how much data is in RAM
-  inline uint64_t RamSize() const {
-    uint64_t size = sizeof(labels_) + variable_.capacity();
-    for (MapType::const_iterator i = labels_.begin(); i != labels_.end(); ++i) {
-      size += i->first.capacity() + i->second.capacity();
+  inline const proto::Variable &proto() const {
+    return variable_;
+  }
+
+  inline proto::Variable *mutable_proto() {
+    return &variable_;
+  }
+
+  inline string ValueTypeString() const {
+    switch (proto().value_type()) {
+      case proto::Variable::GAUGE:
+        return "GAUGE";
+      case proto::Variable::COUNTER:
+        return "COUNTER";
+      default:
+        return "UNKNOWN";
     }
-    return size;
+  }
+
+  vector<string> LabelNames() const {
+    vector<string> labelnames;
+    for (int i = 0; i < variable_.label_size(); i++) {
+      labelnames.push_back(variable_.label(i).name());
+    }
+    return labelnames;
   }
 
  private:
@@ -149,8 +200,7 @@ class Variable {
   bool IsValueChar(const char p) const;
   bool IsValueQuoteChar(const char p) const;
 
-  string variable_;
-  MapType labels_;
+  proto::Variable variable_;
 };
 
 }  // namespace openinstrument

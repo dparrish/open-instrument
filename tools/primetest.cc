@@ -63,8 +63,8 @@ class PrimeCalculator {
   }
 
  private:
-  ExportedInteger num_primes_;
-  ExportedInteger num_checked_;
+  ExportedCounter num_primes_;
+  ExportedCounter num_checked_;
 };
 
 }

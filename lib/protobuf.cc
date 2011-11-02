@@ -52,7 +52,7 @@ void ValueStreamCalculation(const vector<proto::ValueStream> &input, uint64_t sa
   for (size_t i = 0; i < input.size(); i++)
     iterators.push_back(0);
 
-  output->set_variable(input[0].variable());
+  output->mutable_variable()->CopyFrom(input[0].variable());
   vector<double> bucket;
   uint64_t ts = 0;
 
@@ -177,13 +177,15 @@ bool ProtoStreamReader::Skip(int count) {
   return true;
 }
 
-bool ProtoStreamReader::Next(google::protobuf::Message *msg) {
+bool ProtoStreamReader::Next(google::protobuf::Message *msg, bool continue_on_error) {
   while (true) {
     uint64_t startpos = fh_.Tell();
     magic_type magic;
     if (fh_.Read(&magic, sizeof(magic)) != sizeof(magic))
       return false;
     if (magic != protomagic) {
+      if (!continue_on_error)
+        return false;
       // LOG(INFO) << "Corrupted protobuf magic at 0x" << std::hex << startpos;
       fh_.SeekAbs(startpos + 1);
       if (FindNextHeader())
@@ -194,6 +196,8 @@ bool ProtoStreamReader::Next(google::protobuf::Message *msg) {
     if (fh_.Read(&size, sizeof(size)) != sizeof(size))
       return false;
     if (size >= fh_.stat().size()) {
+      if (!continue_on_error)
+        return false;
       // LOG(INFO) << "Corrupted protobuf size at 0x" << std::hex << startpos;
       fh_.SeekAbs(startpos + 1);
       if (FindNextHeader())
@@ -209,6 +213,8 @@ bool ProtoStreamReader::Next(google::protobuf::Message *msg) {
     if (fh_.Read(&crc, sizeof(crc)) != sizeof(crc))
       return false;
     if (crc != Crc(buf_)) {
+      if (!continue_on_error)
+        return false;
       // LOG(INFO) << "Corrupted protobuf crc at 0x" << std::hex << startpos;
       fh_.SeekAbs(startpos + 1);
       if (FindNextHeader())
@@ -217,6 +223,8 @@ bool ProtoStreamReader::Next(google::protobuf::Message *msg) {
     }
 
     if (!msg->ParseFromString(buf_)) {
+      if (!continue_on_error)
+        return false;
       // LOG(INFO) << "Corrupted protobuf at 0x" << std::hex << startpos;
       if (FindNextHeader())
         continue;
@@ -224,6 +232,10 @@ bool ProtoStreamReader::Next(google::protobuf::Message *msg) {
     }
     return true;
   }
+}
+
+void ProtoStreamReader::Reset() {
+  fh_.SeekAbs(0);
 }
 
 bool ProtoStreamReader::FindNextHeader() {
@@ -279,12 +291,12 @@ bool ProtoStreamWriter::Write(const google::protobuf::Message &msg) {
 
 void Variable::FromString(const string &input) {
   size_t pos = input.find('{');
+  variable_.Clear();
   if (pos == string::npos) {
-    variable_ = input;
-    labels_.empty();
+    variable_.set_name(input);
     return;
   }
-  variable_ = input.substr(0, pos);
+  variable_.set_name(input.substr(0, pos));
   string labelstring = input.substr(pos + 1, input.size() - pos - 2);  // Lose the trailing }
 
   typedef boost::tokenizer<boost::escaped_list_separator<char> > Tokenizer;
@@ -303,23 +315,30 @@ void Variable::FromString(const string &input) {
 }
 
 const string Variable::ToString() const {
-  string output = variable_;
-  if (labels_.size()) {
-    output += "{";
-    for (MapType::const_iterator i = labels_.begin(); i != labels_.end(); ++i) {
-      if (i->second.empty())
+  string output = variable_.name();
+  if (variable_.label_size()) {
+    vector<string> labels;
+    for (int i = 0; i < variable_.label_size(); i++) {
+      if (variable_.label(i).value().empty())
         continue;
-      if (i != labels_.begin())
-        output += ",";
-      output += i->first;
-      output += "=";
-      if (ShouldQuoteValue(i->second)) {
-        output += "\"";
-        output += QuoteValue(i->second);
-        output += "\"";
+      string l = variable_.label(i).name();
+      l += "=";
+      if (ShouldQuoteValue(variable_.label(i).value())) {
+        l += "\"";
+        l += QuoteValue(variable_.label(i).value());
+        l += "\"";
       } else {
-        output += i->second;
+        l += variable_.label(i).value();
       }
+      labels.push_back(l);
+    }
+    sort(labels.begin(), labels.end());
+
+    output += "{";
+    for (vector<string>::iterator i = labels.begin(); i < labels.end(); ++i) {
+      if (i != labels.begin())
+        output += ",";
+      output += *i;
     }
     output += "}";
   }
@@ -363,24 +382,26 @@ string Variable::QuoteValue(const string &input) const {
 }
 
 bool Variable::Matches(const Variable &search) const {
-  if (search.variable_[search.variable_.size() - 1] == '*') {
+  if (search.variable_.name()[search.variable_.name().size() - 1] == '*') {
     // Compare up to the trailing *
-    if (variable_.substr(0, search.variable_.size() - 1) != search.variable_.substr(0, search.variable_.size() - 1))
+    if (variable_.name().substr(0, search.variable_.name().size() - 1) !=
+        search.variable_.name().substr(0, search.variable_.name().size() - 1))
       return false;
   } else {
-    if (search.variable_ != variable_)
+    if (search.variable_.name() != variable_.name())
       return false;
   }
-  for (MapType::const_iterator i = search.labels_.begin(); i != search.labels_.end(); ++i) {
-    if (i->second == "*") {
-      if (!HasLabel(i->first))
+  for (int i = 0; i < search.variable_.label_size(); i++) {
+    const proto::VariableLabel &sl = search.variable_.label(i);
+    if (sl.value() == "*") {
+      if (!HasLabel(sl.name()))
         return false;
-    } else if (i->second[0] == '/' && i->second[i->second.size() - 1] == '/') {
+    } else if (sl.value()[0] == '/' && sl.value()[sl.value().size() - 1] == '/') {
       // It's a regex match
-      boost::regex regex(i->second.substr(1, i->second.size() - 2));
-      if (!boost::regex_match(GetLabel(i->first), regex))
+      boost::regex regex(sl.value().substr(1, sl.value().size() - 2));
+      if (!boost::regex_match(GetLabel(sl.name()), regex))
         return false;
-    } else if (i->second != GetLabel(i->first)) {
+    } else if (sl.value() != GetLabel(sl.name())) {
       // Straight string match
       return false;
     }
@@ -389,16 +410,18 @@ bool Variable::Matches(const Variable &search) const {
 }
 
 bool Variable::equals(const Variable &search) const {
-  if (search.variable_ != variable_)
+  if (search.variable_.name() != variable_.name())
     return false;
-  if (search.labels_.size() != labels_.size())
+  if (search.variable_.label_size() != variable_.label_size())
     return false;
-  for (MapType::const_iterator i = search.labels_.begin(); i != search.labels_.end(); ++i) {
-    if (GetLabel(i->first) != i->second)
+  for (int i = 0; i < search.variable_.label_size(); i++) {
+    const proto::VariableLabel &sl = search.variable_.label(i);
+    if (sl.value() != GetLabel(sl.name()))
       return false;
   }
-  for (MapType::const_iterator i = labels_.begin(); i != labels_.end(); ++i) {
-    if (search.GetLabel(i->first) != i->second)
+  for (int i = 0; i < variable_.label_size(); i++) {
+    const proto::VariableLabel &sl = variable_.label(i);
+    if (search.GetLabel(sl.name()) != sl.value())
       return false;
   }
   return true;

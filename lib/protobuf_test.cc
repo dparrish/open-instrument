@@ -36,9 +36,10 @@ TEST_F(ProtobufTest, WriteCorruptRead) {
   unlink(filename.c_str());
 
   ProtoStreamWriter writer(filename);
-  for (int i = 0; i < 1000; i++) {
+  for (int i = 0; i < 200; i++) {
     proto::GetRequest req;
-    req.set_variable(StringPrintf("/openinstrument/variable%d", i));
+    Variable var(StringPrintf("/openinstrument/variable%d", i));
+    var.CopyTo(req.mutable_variable());
     req.set_min_timestamp(12345);
     req.set_max_timestamp(67890);
     writer.Write(req);
@@ -56,7 +57,7 @@ TEST_F(ProtobufTest, WriteCorruptRead) {
     ASSERT_GT(num_res, 0);
     CorruptFile(filename, 10);
   }
-  EXPECT_LT(num_res, 1000);
+  EXPECT_LT(num_res, 200);
   EXPECT_GE(num_res, 1);
 }
 
@@ -67,7 +68,7 @@ TEST_F(ProtobufTest, Variable) {
   }
   {
     Variable foo("/test/variable/2{label2=\"valu\\\"e 2\",label1=value1}");
-    EXPECT_EQ("/test/variable/2", foo.variable());
+    EXPECT_EQ("/test/variable/2", foo.name());
     EXPECT_EQ("value1", foo.GetLabel("label1"));
     EXPECT_EQ("valu\"e 2", foo.GetLabel("label2"));
     EXPECT_EQ("", foo.GetLabel("label3"));

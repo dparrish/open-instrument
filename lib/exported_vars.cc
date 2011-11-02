@@ -66,7 +66,7 @@ void VariableExporter::ExportToStore(StoreClient *client) {
     for (unordered_map<string, string>::iterator j = extra_labels_.begin(); j != extra_labels_.end(); ++j) {
       var.SetLabel(j->first, j->second);
     }
-    stream->set_variable(var.ToString());
+    var.CopyTo(stream->mutable_variable());
   }
   try {
     scoped_ptr<proto::AddResponse> response(client->Add(req));
@@ -147,7 +147,7 @@ void ExportedInteger::ExportToString(string *output) const {
 }
 
 void ExportedInteger::ExportToValueStream(proto::ValueStream *stream) const {
-  stream->set_variable(variable().ToString());
+  variable().CopyTo(stream->mutable_variable());
   proto::Value *value = stream->add_value();
   value->set_timestamp(Timestamp::Now());
   value->set_value(lexical_cast<double>(counter_));

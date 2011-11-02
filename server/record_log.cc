@@ -41,9 +41,9 @@ void RecordLog::Add(const proto::ValueStream &stream) {
 
 // Helper method to add a single Value.
 // This creates a temporary ValueStream and adds it to the log.
-void RecordLog::Add(const string &variable, const proto::Value &value) {
+void RecordLog::Add(const Variable &variable, const proto::Value &value) {
   proto::ValueStream newstream;
-  newstream.set_variable(variable);
+  variable.CopyTo(newstream.mutable_variable());
   proto::Value *val = newstream.add_value();
   val->set_timestamp(value.timestamp());
   val->set_value(value.value());
@@ -152,11 +152,26 @@ void RecordLog::ReindexRecordLog() {
     proto::ValueStream stream;
     while (reader.Next(&stream)) {
       input_streams++;
-      MapType::iterator it = log_data.find(stream.variable());
+
+      Variable search;
+      if (stream.has_old_variable()) {
+        // Old style variable name, convert to new
+        search.FromString(stream.old_variable());
+        if (search.GetLabel("datatype") == "gauge") {
+          search.mutable_proto()->set_value_type(proto::Variable::GAUGE);
+          search.RemoveLabel("datatype");
+        } else if (search.GetLabel("datatype") == "counter") {
+          search.mutable_proto()->set_value_type(proto::Variable::COUNTER);
+          search.RemoveLabel("datatype");
+        }
+      } else {
+        search.CopyFrom(stream.variable());
+      }
+      MapType::iterator it = log_data.find(search.ToString());
       if (it == log_data.end()) {
-        log_data.insert(stream.variable(), proto::ValueStream());
-        it = log_data.find(stream.variable());
-        it->set_variable(stream.variable());
+        log_data.insert(search.ToString(), proto::ValueStream());
+        it = log_data.find(search.ToString());
+        it->mutable_variable()->CopyFrom(stream.variable());
         output_streams++;
       }
       CHECK(it != log_data.end());
@@ -174,7 +189,8 @@ void RecordLog::ReindexRecordLog() {
 
     // Build the output header
     for (MapType::iterator i = log_data.begin(); i != log_data.end(); ++i) {
-      header.add_variable(i.key());
+      proto::Variable *var = header.add_variable();
+      var->CopyFrom(Variable(i.key()).proto());
     }
     string outfile = StringPrintf("%s/datastore.%llu.bin", basedir_.c_str(), header.end_timestamp());
 
@@ -189,9 +205,6 @@ void RecordLog::ReindexRecordLog() {
               << Timestamp(header.end_timestamp()).GmTime();
     ::unlink(filename.c_str());
   }
-}
-
-void RecordLog::LoadIndexedFile(const string &filename) {
 }
 
 }  // namespace openinstrument

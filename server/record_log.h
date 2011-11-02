@@ -56,7 +56,7 @@ class RecordLog : private noncopyable {
 
   // Helper method to add a single Value.
   // This creates a temporary ValueStream and adds it to the log.
-  void Add(const string &variable, const proto::Value &value);
+  void Add(const Variable &variable, const proto::Value &value);
 
   // Flush as many streams as possible to the record log.
   // No attempt is made to re-order or compress the streams so this is a very inefficient (and fast) way of recording
@@ -84,7 +84,6 @@ class RecordLog : private noncopyable {
   void AdminThread();
   void RotateRecordLog();
   void ReindexRecordLog();
-  void LoadIndexedFile(const string &filename);
 
   const string basedir_;
   deque<proto::ValueStream> log_;

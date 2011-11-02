@@ -21,13 +21,14 @@
 #include "lib/string.h"
 
 DEFINE_string(hostname, "", "Hostname to send to the server (source host for the variable)");
+DEFINE_bool(rate, false, "Value is a rate instead of a gauge");
 
 using namespace openinstrument;
 using namespace std;
 
 void usage(char *argv[]) {
   cerr << "\nUsage: \n"
-       << "\t" << argv[0] << " [--hostname=<hostname>] <server:port> <variable>:<value>[@<timestamp>]...\n\n"
+       << "\t" << argv[0] << " [--hostname=<hostname>] [--rate] <server:port> <variable>:<value>[@<timestamp>]...\n\n"
        << "  <variable> must be of the form \"/var/name/here\".\n"
        << "  <value> must be a floating point number.\n"
        << "\n";
@@ -60,9 +61,13 @@ int main(int argc, char *argv[]) {
 
     proto::ValueStream *stream = req.add_stream();
     Variable var(what[1]);
-    if (!var.HasLabel("srchost"))
-      var.SetLabel("srchost", hostname);
-    stream->set_variable(var.ToString());
+    if (!var.HasLabel("hostname"))
+      var.SetLabel("hostname", hostname);
+    var.CopyTo(stream->mutable_variable());
+    if (FLAGS_rate)
+      stream->mutable_variable()->set_value_type(proto::Variable::COUNTER);
+    else
+      stream->mutable_variable()->set_value_type(proto::Variable::GAUGE);
 
     proto::Value *value = stream->add_value();
     try {
