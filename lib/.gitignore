@@ -1,2 +1,4 @@
 libopeninstrument.a
 *.a
+openinstrument.pb.h
+protobuf_test_output.txt
