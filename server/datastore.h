@@ -14,10 +14,11 @@
 #include <string>
 #include "lib/common.h"
 #include "lib/file.h"
+#include "lib/protobuf.h"
 #include "lib/string.h"
 #include "lib/timer.h"
-#include "lib/protobuf.h"
 #include "lib/trie.h"
+#include "lib/variable.h"
 
 namespace openinstrument {
 
@@ -33,17 +34,17 @@ class IndexedStoreFile : private noncopyable {
     Clear();
   }
 
-  static proto::ValueStream &LoadAndGetVar(const string &variable, uint64_t timestamp);
+  static proto::ValueStream &LoadAndGetVar(const Variable &variable, uint64_t timestamp);
   void Clear();
   bool ReadHeader();
-  proto::ValueStream &LoadVariable(const string &variable);
+  proto::ValueStream &LoadVariable(const Variable &variable);
 
   // Return a list of variables contained in this file that match the provided search variable.
   // Supports label searches
-  list<Variable> ListVariables(const string &variable);
+  list<Variable> ListVariables(const Variable &variable);
 
-  inline bool ContainsVariable(const string &variable) {
-    return log_data_.find(variable) != log_data_.end();
+  inline bool ContainsVariable(const Variable &variable) {
+    return log_data_.find(variable.ToString()) != log_data_.end();
   }
 
  private:

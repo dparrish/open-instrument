@@ -16,6 +16,7 @@
 #include "lib/common.h"
 #include "lib/protobuf.h"
 #include "lib/timer.h"
+#include "lib/variable.h"
 
 namespace openinstrument {
 
@@ -26,15 +27,15 @@ class StoreClient;
 // NOTE: Do not use this in your code.
 class ExportedVariable : private noncopyable {
  public:
-  explicit ExportedVariable(const string &varname) : variable_(varname) {}
+  explicit ExportedVariable(const Variable &varname) : variable_(varname) {}
   virtual ~ExportedVariable();
   virtual void ExportToString(string *output) const = 0;
   virtual void ExportToValueStream(proto::ValueStream *stream) const = 0;
   inline const Variable &variable() const {
     return variable_;
   }
-  inline Variable &mutable_variable() {
-    return variable_;
+  inline Variable *mutable_variable() {
+    return &variable_;
   }
 
  private:
@@ -51,7 +52,7 @@ class ExportedVariable : private noncopyable {
 //   LOG(INFO) << "Current value is " << count;
 class ExportedInteger : public ExportedVariable {
  public:
-  explicit ExportedInteger(const string &varname, int64_t initial = 0);
+  ExportedInteger(const Variable &varname, int64_t initial = 0);
   virtual ~ExportedInteger() {}
   void operator=(int64_t value);
   int64_t operator++();
@@ -76,7 +77,7 @@ class ExportedInteger : public ExportedVariable {
 //   <your var name>-failure    -- the count of failures
 class ExportedRatio : private noncopyable {
  public:
-  explicit ExportedRatio(const string &varname);
+  explicit ExportedRatio(const Variable &varname);
   void success();
   void failure();
 
@@ -95,7 +96,7 @@ class ExportedRatio : private noncopyable {
 //   var-overall-sum / var-total-count.
 class ExportedAverage : private noncopyable {
  public:
-  explicit ExportedAverage(const string &varname);
+  explicit ExportedAverage(const Variable &varname);
   void update(int64_t sum, int64_t count = 1);
   int64_t overall_sum() const;
   int64_t total_count() const;
@@ -111,7 +112,7 @@ class ExportedAverage : private noncopyable {
 // incremented.
 class ExportedTimer : public ExportedAverage {
  public:
-  explicit ExportedTimer(const string &varname) : ExportedAverage(varname) {}
+  explicit ExportedTimer(const Variable &varname) : ExportedAverage(varname) {}
   inline void update(const Timer &timer) {
     ExportedAverage::update(timer.ms(), static_cast<int64_t>(1));
   }
@@ -150,7 +151,7 @@ class ScopedExportTimer : private noncopyable {
 
 class ExportedIntegerSet : private noncopyable {
  public:
-  explicit ExportedIntegerSet() {}
+  ExportedIntegerSet() {}
   // Create an ExportedIntegerSet with a prefix that will be prepended to all variables set
   explicit ExportedIntegerSet(const string &prefix);
   ~ExportedIntegerSet();
@@ -218,7 +219,7 @@ class VariableExporter : private noncopyable {
 template<class T = double>
 class ExportedStream : public ExportedVariable {
  public:
-  explicit ExportedStream(const string &varname) : ExportedVariable(varname) {
+  explicit ExportedStream(const Variable &varname) : ExportedVariable(varname) {
     VariableExporter::ExportVar(this);
   }
   virtual ~ExportedStream() {}
@@ -226,7 +227,7 @@ class ExportedStream : public ExportedVariable {
   virtual void Add(const T &value) {
     proto::Value val;
     val.set_timestamp(Timestamp::Now());
-    val.set_value(lexical_cast<double>(value));
+    val.set_double_value(lexical_cast<double>(value));
     values_.push_back(val);
   }
 
@@ -234,7 +235,7 @@ class ExportedStream : public ExportedVariable {
     output->append(variable().ToString());
     output->append("\t");
     BOOST_FOREACH(proto::Value &value, values_) {
-      output->append(lexical_cast<string>(value.value()));
+      output->append(lexical_cast<string>(value.double_value()));
       output->append("@");
       output->append(lexical_cast<string>(value.timestamp()));
       output->append(" ");
@@ -245,7 +246,7 @@ class ExportedStream : public ExportedVariable {
   }
 
   virtual void ExportToValueStream(proto::ValueStream *stream) const {
-    stream->set_variable(variable().ToString());
+    variable().ToProtobuf(stream->mutable_variable());
     BOOST_FOREACH(proto::Value &value, values_) {
       stream->add_value()->CopyFrom(value);
     }

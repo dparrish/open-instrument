@@ -10,7 +10,6 @@
 #ifndef _OPENINSTRUMENT_LIB_PROTOBUF_H_
 #define _OPENINSTRUMENT_LIB_PROTOBUF_H_
 
-#include <map>
 #include <string>
 #include <vector>
 #include <google/protobuf/message.h>
@@ -57,100 +56,6 @@ class ProtoStreamWriter : private noncopyable {
  private:
   string buf_;
   File fh_;
-};
-
-// Container for variable names
-// Acceptable formats are:
-//    <variable>
-//    <variable>{label=value,label2=value2}
-//    <variable>{label="quoted value"}
-//
-// Acceptable characters for variable are:
-//    a-z A-Z 0-9  . _ - / * ,
-// Acceptable characters for label are:
-//    a-z A-Z 0-9  . _ - / *
-// Acceptable characters for value are any UTF-8 character except NULL
-class Variable {
- public:
-  typedef std::map<string, string> MapType;
-
-  Variable() {}
-
-  Variable(const string &input) {
-    FromString(input);
-  }
-
-  void FromString(const string &input);
-  const string ToString() const;
-
-  inline bool operator<(const Variable &b) const {
-    return ToString() < b.ToString();
-  }
-
-  inline const string &variable() const {
-    return variable_;
-  }
-
-  inline void SetVariable(const string &variable) {
-    variable_ = variable;
-  }
-
-  inline void SetLabel(const string &label, const string &value) {
-    labels_[label] = value;
-  }
-
-  inline bool HasLabel(const string &label) const {
-    MapType::const_iterator it = labels_.find(label);
-    return it != labels_.end();
-  }
-
-  const MapType &labels() const {
-    return labels_;
-  }
-
-  inline const string &GetLabel(const string &label) const {
-    static string emptystring;
-    MapType::const_iterator it = labels_.find(label);
-    if (it == labels_.end())
-      return emptystring;
-    return it->second;
-  }
-
-  bool Matches(const Variable &search) const;
-  inline bool Matches(const string &search) const {
-    return Matches(Variable(search));
-  }
-
-  inline bool operator==(const Variable &search) const {
-    return equals(search);
-  }
-
-  inline bool operator==(const string &search) const {
-    return equals(Variable(search));
-  }
-
-  bool equals(const Variable &search) const;
-  inline bool equals(const string &search) const {
-    return equals(Variable(search));
-  }
-
-  // Used to keep track of how much data is in RAM
-  inline uint64_t RamSize() const {
-    uint64_t size = sizeof(labels_) + variable_.capacity();
-    for (MapType::const_iterator i = labels_.begin(); i != labels_.end(); ++i) {
-      size += i->first.capacity() + i->second.capacity();
-    }
-    return size;
-  }
-
- private:
-  bool ShouldQuoteValue(const string &input) const;
-  string QuoteValue(const string &input) const;
-  bool IsValueChar(const char p) const;
-  bool IsValueQuoteChar(const char p) const;
-
-  string variable_;
-  MapType labels_;
 };
 
 }  // namespace openinstrument

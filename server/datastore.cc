@@ -22,7 +22,7 @@ namespace openinstrument {
 
 set<IndexedStoreFile> store_set;
 
-proto::ValueStream &IndexedStoreFile::LoadAndGetVar(const string &variable, uint64_t timestamp) {
+proto::ValueStream &IndexedStoreFile::LoadAndGetVar(const Variable &variable, uint64_t timestamp) {
   vector<string> files = Glob(StringPrintf("%s/datastore.*.bin", FLAGS_datastore.c_str()));
   // Look for the oldest file that may contain the desired timestamp
   for (vector<string>::iterator i = files.begin(); i != files.end(); ++i) {
@@ -68,12 +68,12 @@ bool IndexedStoreFile::ReadHeader() {
     return false;
   }
   for (int i = 0; i< file_header_.variable_size(); i++)
-    log_data_.insert(file_header_.variable(i), proto::ValueStream());
+    log_data_.insert(Variable(file_header_.variable(i)).ToString(), proto::ValueStream());
   return true;
 }
 
-proto::ValueStream &IndexedStoreFile::LoadVariable(const string &variable) {
-  MapType::iterator i = log_data_.find(variable);
+proto::ValueStream &IndexedStoreFile::LoadVariable(const Variable &variable) {
+  MapType::iterator i = log_data_.find(variable.ToString());
   if (i == log_data_.end())
     throw out_of_range("Variable not found");
   if (i->value_size())
@@ -81,28 +81,28 @@ proto::ValueStream &IndexedStoreFile::LoadVariable(const string &variable) {
   ProtoStreamReader reader(filename_);
   for (int i = 0; i < file_header_.variable_size(); i++) {
     reader.Skip(1);
-    if (file_header_.variable(i) == variable) {
-      proto::ValueStream &stream = log_data_[variable];
+    if (Variable(file_header_.variable(i)) == variable) {
+      proto::ValueStream &stream = log_data_[variable.ToString()];
       if (!reader.Next(&stream)) {
         throw runtime_error("Unable to read protobuf from stream");
       }
-      if (stream.variable() != variable) {
-        LOG(WARNING) << "Stream variable " << i << " " << stream.variable() << " in file " << filename_
-                     << " is not correct";
+      if (Variable(stream.variable()) != variable) {
+        LOG(WARNING) << "Stream variable " << i << " " << Variable(stream.variable()).ToString() << " in file "
+                     << filename_ << " is not correct";
         throw out_of_range("Variable unable to be loaded");
       }
-      return log_data_[variable];
+      return log_data_[variable.ToString()];
     }
   }
   throw out_of_range("Variable does not exist in log file");
 }
 
-list<Variable> IndexedStoreFile::ListVariables(const string &variable) {
+list<Variable> IndexedStoreFile::ListVariables(const Variable &variable) {
   list<Variable> vars;
   Variable search(variable);
   for (MapType::iterator i = log_data_.begin(); i != log_data_.end(); ++i) {
     Variable x(i.key());
-    if (x.Matches(search))
+    if (x == search)
       vars.push_back(x);
   }
   return vars;

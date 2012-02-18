@@ -14,6 +14,7 @@
 #include "lib/string.h"
 #include "lib/timer.h"
 #include "lib/trie.h"
+#include "lib/variable.h"
 #include "server/record_log.h"
 
 DEFINE_int32(recordlog_max_log_size, 100, "Size of record log file in mb");
@@ -41,12 +42,12 @@ void RecordLog::Add(const proto::ValueStream &stream) {
 
 // Helper method to add a single Value.
 // This creates a temporary ValueStream and adds it to the log.
-void RecordLog::Add(const string &variable, const proto::Value &value) {
+void RecordLog::Add(const Variable &variable, const proto::Value &value) {
   proto::ValueStream newstream;
-  newstream.set_variable(variable);
+  variable.ToProtobuf(newstream.mutable_variable());
   proto::Value *val = newstream.add_value();
   val->set_timestamp(value.timestamp());
-  val->set_value(value.value());
+  val->set_double_value(value.double_value());
   return Add(newstream);
 }
 
@@ -152,18 +153,18 @@ void RecordLog::ReindexRecordLog() {
     proto::ValueStream stream;
     while (reader.Next(&stream)) {
       input_streams++;
-      MapType::iterator it = log_data.find(stream.variable());
+      MapType::iterator it = log_data.find(Variable(stream.variable()).ToString());
       if (it == log_data.end()) {
-        log_data.insert(stream.variable(), proto::ValueStream());
-        it = log_data.find(stream.variable());
-        it->set_variable(stream.variable());
+        log_data.insert(Variable(stream.variable()).ToString(), proto::ValueStream());
+        it = log_data.find(Variable(stream.variable()).ToString());
+        it->mutable_variable()->CopyFrom(stream.variable());
         output_streams++;
       }
       CHECK(it != log_data.end());
       for (int i = 0; i < stream.value_size(); i++) {
         proto::Value *value = it->add_value();
         value->set_timestamp(stream.value(i).timestamp());
-        value->set_value(stream.value(i).value());
+        value->set_double_value(stream.value(i).double_value());
         if (!header.has_start_timestamp() || value->timestamp() < header.start_timestamp())
           header.set_start_timestamp(value->timestamp());
         if (value->timestamp() > header.end_timestamp())
@@ -174,7 +175,8 @@ void RecordLog::ReindexRecordLog() {
 
     // Build the output header
     for (MapType::iterator i = log_data.begin(); i != log_data.end(); ++i) {
-      header.add_variable(i.key());
+      proto::StreamVariable *var = header.add_variable();
+      var->CopyFrom(i->variable());
     }
     string outfile = StringPrintf("%s/datastore.%llu.bin", basedir_.c_str(), header.end_timestamp());
 

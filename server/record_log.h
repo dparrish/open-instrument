@@ -21,6 +21,7 @@
 #include "lib/openinstrument.pb.h"
 #include "lib/protobuf.h"
 #include "lib/string.h"
+#include "lib/variable.h"
 
 namespace openinstrument {
 
@@ -48,6 +49,12 @@ class RecordLog : private noncopyable {
   // When there are no more logs to replay, NULL will be returned.
   bool ReplayLog(proto::ValueStream *stream);
 
+  // Add a single log file to the replay files.
+  // This file will have no impact on recording, just playback.
+  void AddLogFile(const string &filename) {
+    replayfiles_.push_back(filename);
+  }
+
   // Add a ValueStream to the log.
   // At some point in the future this will be flushed to disk, but a successful return from Add() does not guarantee
   // that it is written to disk.
@@ -56,7 +63,7 @@ class RecordLog : private noncopyable {
 
   // Helper method to add a single Value.
   // This creates a temporary ValueStream and adds it to the log.
-  void Add(const string &variable, const proto::Value &value);
+  void Add(const Variable &variable, const proto::Value &value);
 
   // Flush as many streams as possible to the record log.
   // No attempt is made to re-order or compress the streams so this is a very inefficient (and fast) way of recording

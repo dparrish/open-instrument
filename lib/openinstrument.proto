@@ -1,5 +1,21 @@
 package openinstrument.proto;
 
+message Label {
+  required string label = 1;
+  optional string value = 2;
+}
+
+message StreamVariable {
+  enum ValueType {
+    UNKNOWN = 0;
+    GAUGE = 1;
+    RATE = 2;
+  }
+  required string name = 1;
+  repeated Label label = 2;
+  optional ValueType type = 3;
+}
+
 message StreamMutation {
   enum SampleType {
     // Do not modify the data at all
@@ -49,16 +65,19 @@ message StreamAggregation {
 message Value {
   // Milliseconds since epoch
   required uint64 timestamp = 1;
-  required double value = 2;
+  optional double double_value = 2;
+  optional string string_value = 3;
 }
 
 message ValueStream {
-  optional string variable = 1;
+  optional string DEPRECATED_string_variable = 1;
+  optional StreamVariable variable = 2;
   repeated Value value = 4;
 }
 
 message GetRequest {
-  optional string variable = 1;
+  optional string DEPRECATED_string_variable = 1;
+  optional StreamVariable variable = 9;
 
   // Milliseconds since epoch
   optional uint64 min_timestamp = 2;
@@ -91,7 +110,8 @@ message AddResponse {
 }
 
 message ListRequest {
-  optional string prefix = 1;
+  optional string DEPRECATED_string_prefix = 1;
+  optional StreamVariable prefix = 3;
 
   // Limit to how many variables can be returned in a standard ListRequest. This can be overridden if required.
   optional uint32 max_variables = 2 [ default = 100 ];
@@ -109,6 +129,7 @@ message ListResponse {
 message StoreFileHeader {
   required uint64 start_timestamp = 1;
   required uint64 end_timestamp = 2;
-  repeated string variable = 3;
+  repeated string DEPRECATED_string_variable = 3;
+  repeated StreamVariable variable = 4;
 }
 

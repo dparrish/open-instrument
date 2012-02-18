@@ -20,7 +20,18 @@ die "Specify <host> <community> [interval]" unless $host && $community;
 my $client = new StoreClient("localhost:8020");
 my $localhost = hostname;
 
+my $inode = (stat($0))[1];
+my $mtime = (stat(_))[9];
+
 while (1) {
+  my $newinode = (stat($0))[1];
+  my $newmtime = (stat(_))[9];
+  if ($inode != $newinode || $mtime != $newmtime) {
+    # File has changed, restart
+    print STDERR "File $0 has changed, re-executing\n";
+    exec($0, @ARGV) || die "Can't re-execute: $!";
+  }
+
   my @labels = ( "hostname=$host", "srchost=$localhost" );
   # Network interface stats
   CollectInterfaceStats($host, $community, $client, \@labels);
@@ -46,14 +57,28 @@ sub CollectInterfaceStats {
     ifLastChange => undef,
     ifSpecific => undef,
   });
+  my %datatypes = (
+    ifInDiscards => "counter",
+    ifInErrors => "counter",
+    ifInOctets => "counter",
+    ifInUcastPkts => "counter",
+    ifInUnknownProtos => "counter",
+    ifMtu => "gauge",
+    ifOutDiscards => "counter",
+    ifOutErrors => "counter",
+    ifOutOctets => "counter",
+    ifOutUcastPkts => "counter",
+    ifSpeed => "gauge",
+  );
   my %args;
   while (my($name, $int) = each %$table) {
     next unless $int->{ifMtu} && $int->{ifSpeed} && defined $int->{ifOutOctets};
     next if $int->{ifOperStatus} eq 'down';
     next unless $int->{ifAdminStatus} eq 'up';
-    my $labels = labels(@$all_labels, "interface=$name", "datatype=counter");
     while (my($key, $value) = each %$int) {
       next unless $int->{$key} =~ /^\d+(?:\.\d+)?$/;
+      my $datatype = $datatypes{$key} || "counter";
+      my $labels = labels(@$all_labels, "interface=$name", "datatype=$datatype");
       $args{"/network/interface/stats/${key}{$labels}"} = $value;
     }
   }

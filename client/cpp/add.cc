@@ -62,11 +62,11 @@ int main(int argc, char *argv[]) {
     Variable var(what[1]);
     if (!var.HasLabel("srchost"))
       var.SetLabel("srchost", hostname);
-    stream->set_variable(var.ToString());
+    var.ToProtobuf(stream->mutable_variable());
 
     proto::Value *value = stream->add_value();
     try {
-      value->set_value(lexical_cast<double>(what[2]));
+      value->set_double_value(lexical_cast<double>(what[2]));
     } catch (exception) {
       cerr << "Invalid value " << what[2] << "\n";
       usage(argv);

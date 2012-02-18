@@ -40,7 +40,7 @@ int main(int argc, char *argv[]) {
 
   try {
     proto::ListRequest req;
-    req.set_prefix(argv[2]);
+    Variable(argv[2]).ToProtobuf(req.mutable_prefix());
     StoreClient client(argv[1]);
     scoped_ptr<proto::ListResponse> response(client.List(req));
     set<string> variables;

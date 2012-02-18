@@ -12,7 +12,7 @@ import urlparse
 import openinstrument_pb2 as proto
 
 
-class StoreClient:
+class StoreClient(object):
   address = None
   def __init__(self, address, port=None):
     if address.startswith("http://"):
@@ -46,6 +46,30 @@ class StoreClient:
     response = proto.GetResponse()
     self.SendRequest("/get", req, response)
     return response
+
+
+class Variable(object):
+  def __init__(self, var):
+    self.var = var
+    self.labels = {}
+
+  def __str__(self):
+    out = self.var
+    if len(self.labels):
+      labels = []
+      for key, value in self.labels.items():
+        labels.append('%s="%s"' % (key, value))
+      out += "{%s}" % (",".join(labels))
+    return out
+
+  def SetLabel(self, label, value):
+    self.labels[label] = value
+
+  def GetLabel(self, label):
+    return self.labels[label]
+
+  def ClearLabel(self, label):
+    del self.labels[label]
 
 
 def main(argv):

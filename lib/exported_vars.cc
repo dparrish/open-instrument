@@ -13,6 +13,7 @@
 #include "lib/exported_vars.h"
 #include "lib/protobuf.h"
 #include "lib/store_client.h"
+#include "lib/variable.h"
 
 namespace openinstrument {
 
@@ -66,7 +67,7 @@ void VariableExporter::ExportToStore(StoreClient *client) {
     for (unordered_map<string, string>::iterator j = extra_labels_.begin(); j != extra_labels_.end(); ++j) {
       var.SetLabel(j->first, j->second);
     }
-    stream->set_variable(var.ToString());
+    var.ToProtobuf(stream->mutable_variable());
   }
   try {
     scoped_ptr<proto::AddResponse> response(client->Add(req));
@@ -134,7 +135,7 @@ ExportedVariable::~ExportedVariable() {
 // }}}
 ///////////// ExportedInteger {{{ ////////////////////////////
 
-ExportedInteger::ExportedInteger(const string &varname, int64_t initial)
+ExportedInteger::ExportedInteger(const Variable &varname, int64_t initial)
   : ExportedVariable(varname),
     counter_(initial) {
   VariableExporter::ExportVar(this);
@@ -147,10 +148,10 @@ void ExportedInteger::ExportToString(string *output) const {
 }
 
 void ExportedInteger::ExportToValueStream(proto::ValueStream *stream) const {
-  stream->set_variable(variable().ToString());
+  variable().ToProtobuf(stream->mutable_variable());
   proto::Value *value = stream->add_value();
   value->set_timestamp(Timestamp::Now());
-  value->set_value(lexical_cast<double>(counter_));
+  value->set_double_value(lexical_cast<double>(counter_));
 }
 
 void ExportedInteger::operator=(int64_t value) {
@@ -237,10 +238,10 @@ ExportedInteger &ExportedIntegerSet::operator[](const string &varname) {
 // }}}
 ///////////// ExportedRatio {{{ ////////////////////////////
 
-ExportedRatio::ExportedRatio(const string &varname)
-  : total_(varname + "-total"),
-    success_(varname + "-success"),
-    failure_(varname + "-failure") {}
+ExportedRatio::ExportedRatio(const Variable &varname)
+  : total_(varname.CopyAndAppend("-total")),
+    success_(varname.CopyAndAppend("-success")),
+    failure_(varname.CopyAndAppend("-failure")) {}
 
 void ExportedRatio::success() {
   ++total_;
@@ -255,9 +256,12 @@ void ExportedRatio::failure() {
 // }}}
 ///////////// ExportedAverage {{{ ////////////////////////////
 
-ExportedAverage::ExportedAverage(const string &varname)
-  : total_count_(varname + "-total-count"),
-    overall_sum_(varname + "-overall-sum") {}
+ExportedAverage::ExportedAverage(const Variable &varname)
+  : total_count_(varname.CopyAndAppend("-total-count")),
+    overall_sum_(varname.CopyAndAppend("-overall-sum")) {
+  total_count_.mutable_variable()->set_rate();
+  overall_sum_.mutable_variable()->set_rate();
+}
 
 void ExportedAverage::update(int64_t sum, int64_t count) {
   total_count_ += count;

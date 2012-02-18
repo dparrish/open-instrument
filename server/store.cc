@@ -79,7 +79,7 @@ class DataStoreServer : private noncopyable {
       return true;
     }
     VLOG(2) << ProtobufText(req);
-    if (req.variable().empty()) {
+    if (req.variable().name().empty()) {
       reply->SetStatus(HttpReply::BAD_REQUEST);
       reply->mutable_body()->clear();
       reply->mutable_body()->CopyFrom("No variable specified\n");
@@ -88,8 +88,8 @@ class DataStoreServer : private noncopyable {
 
     proto::GetResponse response;
     // Loop through all variables that match the requested variable.
-    set<Variable> vars(datastore.FindVariables(req.variable()));
-    VLOG(1) << "Found " << vars.size() << " variables matching " << req.variable();
+    set<Variable> vars(datastore.FindVariables(Variable(req.variable())));
+    VLOG(1) << "Found " << vars.size() << " variables matching " << req.variable().name();
     vector<proto::ValueStream> streams;
     set<string> unique_vars;
 
@@ -135,7 +135,7 @@ class DataStoreServer : private noncopyable {
 
             Variable var;
             if (aggstreams.size())
-              var.SetVariable(Variable(aggstreams[0].variable()).variable());
+              var.set_variable(Variable(aggstreams[0].variable()).variable());
 
             if (!agg.label_size()) {
               LOG(INFO) << "Throw away all labels";
@@ -152,7 +152,7 @@ class DataStoreServer : private noncopyable {
               } else if (agg.type() == proto::StreamAggregation::MEDIAN) {
                 ValueStreamMedian(aggstreams, sample_interval, &output);
               }
-              output.set_variable(var.ToString());
+              var.ToValueStream(&output);
               response.add_stream()->CopyFrom(output);
             } else {
               for (int i = 0; i < agg.label_size(); i++) {
@@ -212,7 +212,7 @@ class DataStoreServer : private noncopyable {
                   } else if (agg.type() == proto::StreamAggregation::MEDIAN) {
                     ValueStreamMedian(tmpstreams, sample_interval, &output);
                   }
-                  output.set_variable(outputvar.ToString());
+                  outputvar.ToValueStream(&output);
                   response.add_stream()->CopyFrom(output);
                 }
               }
@@ -255,14 +255,14 @@ class DataStoreServer : private noncopyable {
       LOG(WARNING) << "Empty StreamMutation";
       return true;
     }
-    ostream->set_variable(istream.variable());
+    ostream->mutable_variable()->CopyFrom(istream.variable());
 
     if (mutation.sample_type() == proto::StreamMutation::NONE) {
       ostream->CopyFrom(istream);
     } else if (mutation.sample_type() == proto::StreamMutation::AVERAGE) {
       UniformTimeSeries ts(mutation.sample_frequency());
       for (int i = 0; i < istream.value_size(); i++) {
-        proto::ValueStream tmpstream = ts.AddPoint(istream.value(i).timestamp(), istream.value(i).value());
+        proto::ValueStream tmpstream = ts.AddPoint(istream.value(i).timestamp(), istream.value(i).double_value());
         for (int j = 0; j < tmpstream.value_size(); j++) {
           proto::Value *newvalue = ostream->add_value();
           newvalue->CopyFrom(tmpstream.value(j));
@@ -275,14 +275,14 @@ class DataStoreServer : private noncopyable {
       for (int i = 0; i < istream.value_size(); i++) {
         const proto::Value &oldvalue = istream.value(i);
         if (i > 0) {
-          double rate = (oldvalue.value() - lastval) / ((oldvalue.timestamp() - lastts) / 1000.0);
+          double rate = (oldvalue.double_value() - lastval) / ((oldvalue.timestamp() - lastts) / 1000.0);
           if (rate >= 0 || mutation.sample_type() == proto::StreamMutation::RATE_SIGNED) {
             proto::Value *newvalue = ostream->add_value();
             newvalue->set_timestamp(oldvalue.timestamp());
-            newvalue->set_value(rate);
+            newvalue->set_double_value(rate);
           }
         }
-        lastval = oldvalue.value();
+        lastval = oldvalue.double_value();
         lastts = oldvalue.timestamp();
       }
     } else if (mutation.sample_type() == proto::StreamMutation::DELTA) {
@@ -290,14 +290,14 @@ class DataStoreServer : private noncopyable {
       for (int i = 0; i < istream.value_size(); i++) {
         const proto::Value &oldvalue = istream.value(i);
         if (i > 0) {
-          double delta = oldvalue.value() - lastval;
+          double delta = oldvalue.double_value() - lastval;
           if (delta >= 0) {
             proto::Value *newvalue = ostream->add_value();
             newvalue->set_timestamp(oldvalue.timestamp());
-            newvalue->set_value(delta);
+            newvalue->set_double_value(delta);
           }
         }
-        lastval = oldvalue.value();
+        lastval = oldvalue.double_value();
       }
     } else {
       LOG(ERROR) << "Unsupported mutation type, returning original data";
@@ -317,22 +317,22 @@ class DataStoreServer : private noncopyable {
       reply->mutable_body()->CopyFrom("Invalid request\n");
       return true;
     }
-    if (req.prefix().empty()) {
+    if (req.prefix().name().empty()) {
       reply->SetStatus(HttpReply::BAD_REQUEST);
       reply->mutable_body()->clear();
       reply->mutable_body()->CopyFrom("Empty pretix\n");
       return true;
     }
-
     proto::ListResponse response;
-    set<Variable> vars = datastore.FindVariables(req.prefix());
+    set<Variable> vars = datastore.FindVariables(req.prefix().name());
+
     response.set_success(true);
     uint32_t varcounter = 0;
     BOOST_FOREACH(const Variable &var, vars) {
       if (++varcounter > req.max_variables())
         break;
       proto::ValueStream *stream = response.add_stream();
-      stream->set_variable(var.ToString());
+      var.ToValueStream(stream);
     }
     reply->SetStatus(HttpReply::OK);
     reply->SetContentType("application/base64");
@@ -371,7 +371,7 @@ class DataStoreServer : private noncopyable {
         var.SetLabel("hostname", request.source.AddressToString());
       }
       // Canonicalize the variable name
-      stream->set_variable(var.ToString());
+      var.ToValueStream(stream);
       VLOG(2) << "Adding value for " << var.ToString();
       try {
         if (var.variable().at(0) != '/' ||
@@ -381,8 +381,8 @@ class DataStoreServer : private noncopyable {
         }
         for (int valueid = 0; valueid < stream->value_size(); valueid++) {
           Timestamp ts(stream->value(valueid).timestamp());
-          double value = stream->value(valueid).value();
-          if (ts.seconds() > now.seconds() + 1.0)
+          double value = stream->value(valueid).double_value();
+          if (ts.ms() > now.ms() + 1000)
             // Allow up to 1 second clock drift
             throw runtime_error(StringPrintf("Attempt to set value in the future (t=%0.3f, now=%0.3f)", ts.seconds(),
                                              now.seconds()));

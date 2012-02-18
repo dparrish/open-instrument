@@ -47,7 +47,7 @@ int main(int argc, char *argv[]) {
   }
 
   proto::GetRequest req;
-  req.set_variable(argv[2]);
+  Variable(argv[2]).ToProtobuf(req.mutable_variable());
   req.set_min_timestamp(Timestamp().ms() - Duration::FromString(FLAGS_duration).ms());
 
   if (FLAGS_interval.size()) {
@@ -98,8 +98,13 @@ int main(int argc, char *argv[]) {
     const proto::ValueStream &stream = response->stream(stream_i);
     for (int i = 0; i < stream.value_size(); i++) {
       const proto::Value &value = stream.value(i);
-      cout << StringPrintf("%s\t%s\t%f\n", stream.variable().c_str(),
-                           Timestamp(value.timestamp()).GmTime("%Y-%m-%d %H:%M:%S").c_str(), value.value());
+      cout << StringPrintf("%s\t%s\t", Variable(stream.variable()).ToString().c_str(),
+                           Timestamp(value.timestamp()).GmTime("%Y-%m-%d %H:%M:%S").c_str());
+      if (value.has_double_value()) {
+        cout << StringPrintf("%f\n", value.double_value());
+      } else if (value.has_string_value()) {
+        cout << "<<STRING>>\n" << value.string_value() << "\n";
+      }
     }
   }
 

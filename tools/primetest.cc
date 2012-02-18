@@ -29,6 +29,8 @@ class PrimeCalculator {
       num_checked_("/openinstrument/test/primetest/numbers_tested") {
     VariableExporter::GetGlobalExporter()->SetExportLabel("job", "primecalculator");
     VariableExporter::GetGlobalExporter()->SetExportLabel("hostname", Socket::Hostname());
+    num_primes_.mutable_variable()->set_rate();
+    num_checked_.mutable_variable()->set_rate();
   };
 
   void Run() {

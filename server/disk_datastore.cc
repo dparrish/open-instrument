@@ -30,20 +30,20 @@ DiskDatastore::~DiskDatastore() {
   live_data_.clear();
 }
 
-void DiskDatastore::GetRange(const string &variable, const Timestamp &start, const Timestamp &end,
+void DiskDatastore::GetRange(const Variable &variable, const Timestamp &start, const Timestamp &end,
                              proto::ValueStream *outstream) {
   try {
     proto::ValueStream &instream = GetVariable(variable);
     if (!instream.value_size())
       return;
-    outstream->set_variable(instream.variable());
+    outstream->mutable_variable()->CopyFrom(instream.variable());
     for (int i = 0; i < instream.value_size(); i++) {
       const proto::Value &value = instream.value(i);
       if (value.timestamp() >= static_cast<uint64_t>(start.ms()) &&
           ((end.ms() && value.timestamp() < static_cast<uint64_t>(end.ms())) || !end.ms())) {
         proto::Value *val = outstream->add_value();
         val->set_timestamp(value.timestamp());
-        val->set_value(value.value());
+        val->set_double_value(value.double_value());
       }
     }
   } catch (exception) {
@@ -51,19 +51,16 @@ void DiskDatastore::GetRange(const string &variable, const Timestamp &start, con
   }
 }
 
-set<Variable> DiskDatastore::FindVariables(const string &variable) {
+set<Variable> DiskDatastore::FindVariables(const Variable &variable) {
   set<Variable> vars;
-  Variable search(variable);
-  if (search.variable().empty())
-    return vars;
   for (MapType::iterator i = live_data_.begin(); i != live_data_.end(); ++i) {
-    if (Variable(i->first).Matches(search))
+    if (Variable(i->first).Matches(variable.ToString()))
       vars.insert(Variable(i->first));
   }
   return vars;
 }
 
-proto::ValueStream &DiskDatastore::GetOrCreateVariable(const string &variable) {
+proto::ValueStream &DiskDatastore::GetOrCreateVariable(const Variable &variable) {
   try {
     proto::ValueStream &stream = GetVariable(variable);
     return stream;
@@ -72,25 +69,25 @@ proto::ValueStream &DiskDatastore::GetOrCreateVariable(const string &variable) {
   }
 }
 
-proto::ValueStream &DiskDatastore::GetVariable(const string &variable) {
-  MapType::iterator it = live_data_.find(variable);
+proto::ValueStream &DiskDatastore::GetVariable(const Variable &variable) {
+  MapType::iterator it = live_data_.find(variable.ToString());
   if (it == live_data_.end())
     throw out_of_range("Variable not found");
   return it->second;
 }
 
-proto::ValueStream &DiskDatastore::CreateVariable(const string &variable) {
+proto::ValueStream &DiskDatastore::CreateVariable(const Variable &variable) {
   proto::ValueStream stream;
-  stream.set_variable(variable);
-  live_data_[variable] = stream;
-  return live_data_[variable];
+  variable.ToValueStream(&stream);
+  live_data_[variable.ToString()] = stream;
+  return live_data_[variable.ToString()];
 }
 
-proto::Value *DiskDatastore::RecordNoLog(const string &variable, Timestamp timestamp, double value) {
+proto::Value *DiskDatastore::RecordNoLog(const Variable &variable, Timestamp timestamp, double value) {
   proto::ValueStream &stream = GetOrCreateVariable(variable);
   proto::Value *val = stream.add_value();
   val->set_timestamp(timestamp.ms());
-  val->set_value(value);
+  val->set_double_value(value);
   return val;
 }
 
@@ -101,7 +98,7 @@ void DiskDatastore::ReplayRecordLog() {
     uint64_t num_points = 0, num_streams = 0;
     while (record_log_.ReplayLog(&stream)) {
       for (int i = 0; i < stream.value_size(); i++) {
-        RecordNoLog(stream.variable(), stream.value(i).timestamp(), stream.value(i).value());
+        RecordNoLog(Variable(stream.variable()), stream.value(i).timestamp(), stream.value(i).double_value());
         num_points++;
       }
       num_streams++;

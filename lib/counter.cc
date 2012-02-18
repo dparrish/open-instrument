@@ -36,7 +36,7 @@ proto::ValueStream UniformTimeSeries::AddPoint(uint64_t timestamp, double value)
       points_output_++;
       proto::Value *newval = output.add_value();
       newval->set_timestamp(timestamp);
-      newval->set_value(value);
+      newval->set_double_value(value);
       break;
     } else if (timestamp < next_output_timestamp) {
       VLOG(2) << "  Input timestamp " << timestamp << " is before next output timestamp " << next_output_timestamp;
@@ -50,7 +50,7 @@ proto::ValueStream UniformTimeSeries::AddPoint(uint64_t timestamp, double value)
         VLOG(2) << "    Generated value for " << next_output_timestamp << " = " << newvalue;
         proto::Value *newval = output.add_value();
         newval->set_timestamp(next_output_timestamp);
-        newval->set_value(newvalue);
+        newval->set_double_value(newvalue);
         points_output_++;
         next_output_timestamp = base_timestamp_ + (interval_ * points_output_);
       }
