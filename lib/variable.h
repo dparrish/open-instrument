@@ -36,15 +36,15 @@ class Variable {
 
   Variable() : type_(proto::StreamVariable::UNKNOWN) {}
 
-  Variable(const char *input) {
+  Variable(const char *input) : type_(proto::StreamVariable::UNKNOWN) {
     FromString(string(input));
   }
 
-  Variable(const string &input) {
+  Variable(const string &input) : type_(proto::StreamVariable::UNKNOWN)  {
     FromString(input);
   }
 
-  explicit Variable(const proto::StreamVariable &proto) {
+  explicit Variable(const proto::StreamVariable &proto) : type_(proto::StreamVariable::UNKNOWN)  {
     FromProtobuf(proto);
   }
 

@@ -23,10 +23,10 @@ using namespace std;
 DEFINE_string(duration, "12h", "Duration of data to request");
 DEFINE_string(interval, "", "Interval between output samples. Provide an empty string to get the raw data.");
 DEFINE_string(sum_by, "", "Sum the output values by <sum_by>");
-DEFINE_string(mean_by, "", "Average the output values by <sum_by>");
-DEFINE_string(max_by, "", "Max the output values by <sum_by>");
-DEFINE_string(min_by, "", "Min the output values by <sum_by>");
-DEFINE_string(median_by, "", "Min the output values by <sum_by>");
+DEFINE_string(mean_by, "", "Average the output values by <mean_by>");
+DEFINE_string(max_by, "", "Max the output values by <max_by>");
+DEFINE_string(min_by, "", "Min the output values by <min_by>");
+DEFINE_string(median_by, "", "Min the output values by <median_by>");
 DEFINE_bool(rate, false, "Get the rate of values");
 
 void usage(char *argv[]) {

@@ -148,7 +148,8 @@ bool Variable::equals(const Variable &search) const {
 
 void Variable::FromProtobuf(const proto::StreamVariable &protobuf) {
   variable_ = protobuf.name();
-  type_ = protobuf.type();
+  if (protobuf.has_type())
+    type_ = protobuf.type();
   labels_.clear();
   for (int i = 0; i < protobuf.label_size(); i++) {
     const proto::Label &label = protobuf.label(i);
@@ -159,7 +160,8 @@ void Variable::FromProtobuf(const proto::StreamVariable &protobuf) {
 void Variable::ToProtobuf(proto::StreamVariable *protobuf) const {
   protobuf->set_name(variable_);
   protobuf->clear_label();
-  protobuf->set_type(type_);
+  if (type_ != proto::StreamVariable::UNKNOWN)
+    protobuf->set_type(type_);
   for (MapType::const_iterator it = labels_.begin(); it != labels_.end(); ++it) {
     proto::Label *label = protobuf->add_label();
     label->set_label(it->first);

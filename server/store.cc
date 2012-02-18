@@ -59,7 +59,7 @@ class DataStoreServer : private noncopyable {
     // Export stats every 5 minutes
     VariableExporter::GetGlobalExporter()->SetExportLabel("job", "datastore");
     VariableExporter::GetGlobalExporter()->SetExportLabel("hostname", Socket::Hostname());
-    VariableExporter::GetGlobalExporter()->StartExportThread(StringPrintf("localhost:%lu", FLAGS_port), 300);
+    VariableExporter::GetGlobalExporter()->StartExportThread(StringPrintf("localhost:%lu", FLAGS_port), 120);
   }
 
   bool HandleHealth(const HttpRequest &request, HttpReply *reply) {
@@ -71,6 +71,8 @@ class DataStoreServer : private noncopyable {
   }
 
   bool HandleGet(const HttpRequest &request, HttpReply *reply) {
+    ScopedExportTimer t(&get_request_timer_);
+
     proto::GetRequest req;
     if (!UnserializeProtobuf(request.body(), &req)) {
       reply->SetStatus(HttpReply::BAD_REQUEST);
