@@ -55,7 +55,7 @@ class Timestamp {
   inline static uint64_t Now() {
     struct timeval tv;
     gettimeofday(&tv, NULL);
-    return (tv.tv_sec * 1000) + tv.tv_usec / 1000;
+    return (static_cast<uint64_t>(tv.tv_sec) * 1000) + static_cast<uint64_t>(tv.tv_usec) / 1000;
   }
 
   inline static double MsToSeconds(uint64_t ms) {
