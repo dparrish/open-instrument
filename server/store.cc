@@ -374,7 +374,7 @@ class DataStoreServer : private noncopyable {
       }
       // Canonicalize the variable name
       var.ToValueStream(stream);
-      VLOG(2) << "Adding value for " << var.ToString();
+      VLOG(1) << "Adding value for " << var.ToString();
       try {
         if (var.variable().at(0) != '/' ||
             var.variable().size() < 2 ||

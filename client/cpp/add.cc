@@ -62,7 +62,7 @@ int main(int argc, char *argv[]) {
     Variable var(what[1]);
     if (!var.HasLabel("srchost"))
       var.SetLabel("srchost", hostname);
-    var.ToProtobuf(stream->mutable_variable());
+    var.ToValueStream(stream);
 
     proto::Value *value = stream->add_value();
     try {
