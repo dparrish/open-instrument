@@ -33,14 +33,6 @@ class DiskDatastore : private noncopyable {
   void GetRange(const Variable &variable, const Timestamp &start, const Timestamp &end, proto::ValueStream *outstream);
   set<Variable> FindVariables(const Variable &variable);
 
-  inline bool CompareMessage(const proto::ValueStream &a, const proto::ValueStream &b) {
-    return Variable(a.variable()) == Variable(b.variable());
-  }
-
-  inline bool CompareMessage(const proto::Value &a, const proto::Value &b) {
-    return a.timestamp() == b.timestamp() && a.double_value() == b.double_value();
-  }
-
   inline void Record(const Variable &variable, Timestamp timestamp, const proto::Value &value) {
     proto::Value *val = RecordNoLog(variable, timestamp, value);
     if (val)

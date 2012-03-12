@@ -111,14 +111,14 @@ class DataStoreServer : private noncopyable {
 
         if (req.mutation_size()) {
           proto::ValueStream initial_stream;
-          datastore.GetRange(var.ToString(), start, end, &initial_stream);
+          datastore.GetRange(var, start, end, &initial_stream);
           for (int i = 0; i < req.mutation_size(); i++) {
             streams.push_back(proto::ValueStream());
             ApplyMutation(req.mutation(i), initial_stream, &streams.back());
           }
         } else {
           streams.push_back(proto::ValueStream());
-          datastore.GetRange(var.ToString(), start, end, &streams.back());
+          datastore.GetRange(var, start, end, &streams.back());
         }
         unique_vars.insert(var.variable());
       }
@@ -189,7 +189,7 @@ class DataStoreServer : private noncopyable {
                     }
                   }
 
-                  Variable outputvar(var.ToString());
+                  Variable outputvar(var);
                   outputvar.SetLabel(label, output_label);
 
                   for (unordered_map<string, int>::iterator it = other_label_counts.begin();

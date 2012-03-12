@@ -53,7 +53,7 @@ void DiskDatastore::GetRange(const Variable &variable, const Timestamp &start, c
 set<Variable> DiskDatastore::FindVariables(const Variable &variable) {
   set<Variable> vars;
   for (MapType::iterator i = live_data_.begin(); i != live_data_.end(); ++i) {
-    if (Variable(i->first).Matches(variable.ToString()))
+    if (Variable(i->first).Matches(variable))
       vars.insert(Variable(i->first));
   }
   return vars;
