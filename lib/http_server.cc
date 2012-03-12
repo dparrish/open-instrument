@@ -81,7 +81,7 @@ void HttpServer::HandleClient(Socket *client) {
             return;
           continue;
         } catch (exception) {
-          throw runtime_error(StringPrintf("No response received from %s", sock->remote().ToString().c_str()));
+          return;
         }
       }
 
@@ -90,7 +90,7 @@ void HttpServer::HandleClient(Socket *client) {
         request.uri = Uri(ConsumeFirstWord(&output));
         request.set_http_version(ConsumeFirstWord(&output));
         if (request.http_version() == "HTTP/0.0")
-          throw runtime_error("Invalid HTTP version");
+          return;
         request.ReadAndParseHeaders(sock.get(), deadline);
       } catch (exception &e) {
         LOG(WARNING) << "Invalid HTTP request: " << e.what();
@@ -109,7 +109,7 @@ void HttpServer::HandleClient(Socket *client) {
           if (sock->Read(deadline) == 0)
             return;
         } catch (exception) {
-          throw runtime_error(StringPrintf("No POST received from %s", sock->remote().ToString().c_str()));
+          return;
         }
       }
     } else if (request.method() == "POST") {
