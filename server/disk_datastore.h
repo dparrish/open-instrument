@@ -41,13 +41,13 @@ class DiskDatastore : private noncopyable {
     return a.timestamp() == b.timestamp() && a.double_value() == b.double_value();
   }
 
-  inline void Record(const Variable &variable, Timestamp timestamp, double value) {
+  inline void Record(const Variable &variable, Timestamp timestamp, const proto::Value &value) {
     proto::Value *val = RecordNoLog(variable, timestamp, value);
     if (val)
       record_log_.Add(variable, *val);
   }
 
-  inline void Record(const Variable &variable, double value) {
+  inline void Record(const Variable &variable, const proto::Value &value) {
     Record(variable, Timestamp::Now(), value);
   }
 
@@ -55,7 +55,7 @@ class DiskDatastore : private noncopyable {
   proto::ValueStream &GetOrCreateVariable(const Variable &variable);
   proto::ValueStream &GetVariable(const Variable &variable);
   proto::ValueStream &CreateVariable(const Variable &variable);
-  proto::Value *RecordNoLog(const Variable &variable, Timestamp timestamp, double value);
+  proto::Value *RecordNoLog(const Variable &variable, Timestamp timestamp, const proto::Value &value);
   void ReplayRecordLog();
 
   string basedir_;

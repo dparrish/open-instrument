@@ -47,7 +47,8 @@ void ThreadPool::AddThreadCallback() {
 
 void ThreadPool::DeleteThreadCallback() {
   VLOG(2) << "ThreadPool " << name() << " deleting a thread";
-  ++stats_threads_deleted_;
+  // TODO(dparrish): Implement this
+  //++stats_threads_deleted_;
 }
 
 

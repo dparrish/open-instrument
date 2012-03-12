@@ -55,7 +55,7 @@ class Trie {
       value = NULL;
     }
 
-    inline bool set_double_value(value_type *value) {
+    inline bool set_value(value_type *value) {
       bool ret = false;
       if (this->value) {
         delete this->value;
@@ -181,7 +181,7 @@ class Trie {
     void erase() {
       if (!curr_)
         return;
-      curr_->set_double_value(NULL);
+      curr_->set_value(NULL);
     }
 
     TrieNode *curr_;
@@ -217,7 +217,7 @@ class Trie {
     while (keychars.size() && p) {
       if (keychars.size() == 1) {
         p = p->get_node(keychars.front());
-        if (!p->set_double_value(new value_type(val)))
+        if (!p->set_value(new value_type(val)))
           ++size_;
         return;
       } else {

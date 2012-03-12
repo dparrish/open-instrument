@@ -42,8 +42,7 @@ void DiskDatastore::GetRange(const Variable &variable, const Timestamp &start, c
       if (value.timestamp() >= static_cast<uint64_t>(start.ms()) &&
           ((end.ms() && value.timestamp() < static_cast<uint64_t>(end.ms())) || !end.ms())) {
         proto::Value *val = outstream->add_value();
-        val->set_timestamp(value.timestamp());
-        val->set_double_value(value.double_value());
+        val->CopyFrom(value);
       }
     }
   } catch (exception) {
@@ -83,11 +82,11 @@ proto::ValueStream &DiskDatastore::CreateVariable(const Variable &variable) {
   return live_data_[variable.ToString()];
 }
 
-proto::Value *DiskDatastore::RecordNoLog(const Variable &variable, Timestamp timestamp, double value) {
+proto::Value *DiskDatastore::RecordNoLog(const Variable &variable, Timestamp timestamp, const proto::Value &value) {
   proto::ValueStream &stream = GetOrCreateVariable(variable);
   proto::Value *val = stream.add_value();
+  val->CopyFrom(value);
   val->set_timestamp(timestamp.ms());
-  val->set_double_value(value);
   return val;
 }
 
@@ -98,7 +97,7 @@ void DiskDatastore::ReplayRecordLog() {
     uint64_t num_points = 0, num_streams = 0;
     while (record_log_.ReplayLog(&stream)) {
       for (int i = 0; i < stream.value_size(); i++) {
-        RecordNoLog(Variable(stream.variable()), stream.value(i).timestamp(), stream.value(i).double_value());
+        RecordNoLog(Variable(stream.variable()), stream.value(i).timestamp(), stream.value(i));
         num_points++;
       }
       num_streams++;

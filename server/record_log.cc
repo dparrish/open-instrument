@@ -46,8 +46,7 @@ void RecordLog::Add(const Variable &variable, const proto::Value &value) {
   proto::ValueStream newstream;
   variable.ToProtobuf(newstream.mutable_variable());
   proto::Value *val = newstream.add_value();
-  val->set_timestamp(value.timestamp());
-  val->set_double_value(value.double_value());
+  val->CopyFrom(value);
   return Add(newstream);
 }
 
@@ -161,8 +160,7 @@ void RecordLog::ReindexRecordLog() {
       CHECK(it != log_data.end());
       for (int i = 0; i < stream.value_size(); i++) {
         proto::Value *value = it->add_value();
-        value->set_timestamp(stream.value(i).timestamp());
-        value->set_double_value(stream.value(i).double_value());
+        value->CopyFrom(stream.value(i));
         if (!header.has_start_timestamp() || value->timestamp() < header.start_timestamp())
           header.set_start_timestamp(value->timestamp());
         if (value->timestamp() > header.end_timestamp())

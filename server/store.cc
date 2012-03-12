@@ -60,10 +60,10 @@ class DataStoreServer : private noncopyable {
     server_.request_handler()->AddPath("/get$", &DataStoreServer::HandleGet, this);
     server_.request_handler()->AddPath("/health$", &DataStoreServer::HandleHealth, this);
     server_.AddExportHandler();
-    // Export stats every 5 minutes
+    // Export stats every minute
     VariableExporter::GetGlobalExporter()->SetExportLabel("job", "datastore");
     VariableExporter::GetGlobalExporter()->SetExportLabel("hostname", Socket::Hostname());
-    VariableExporter::GetGlobalExporter()->StartExportThread(StringPrintf("localhost:%lu", FLAGS_port), 120);
+    VariableExporter::GetGlobalExporter()->StartExportThread(StringPrintf("localhost:%lu", FLAGS_port), 60);
   }
 
   bool HandleHealth(const HttpRequest &request, HttpReply *reply) {
@@ -385,8 +385,8 @@ class DataStoreServer : private noncopyable {
           throw runtime_error(StringPrintf("Invalid variable name"));
         }
         for (int valueid = 0; valueid < stream->value_size(); valueid++) {
-          Timestamp ts(stream->value(valueid).timestamp());
-          double value = stream->value(valueid).double_value();
+          const proto::Value &value = stream->value(valueid);
+          Timestamp ts(value.timestamp());
           if (ts.ms() > now.ms() + 1000)
             // Allow up to 1 second clock drift
             throw runtime_error(StringPrintf("Attempt to set value in the future (t=%0.3f, now=%0.3f)", ts.seconds(),
@@ -394,7 +394,7 @@ class DataStoreServer : private noncopyable {
           if (ts.seconds() < now.seconds() - 86400 * 365)
             LOG(WARNING) << "Adding very old data point for " << var.ToString();
 
-          datastore.Record(var.ToString(), ts, value);
+          datastore.Record(var, ts, value);
         }
         response.set_success(true);
       } catch (exception &e) {
