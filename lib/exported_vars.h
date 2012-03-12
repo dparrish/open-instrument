@@ -101,7 +101,7 @@ class ExportedAverage : private noncopyable {
   int64_t overall_sum() const;
   int64_t total_count() const;
 
- private:
+ protected:
   ExportedInteger total_count_;
   ExportedInteger overall_sum_;
 };
@@ -112,7 +112,9 @@ class ExportedAverage : private noncopyable {
 // incremented.
 class ExportedTimer : public ExportedAverage {
  public:
-  explicit ExportedTimer(const Variable &varname) : ExportedAverage(varname) {}
+  explicit ExportedTimer(const Variable &varname) : ExportedAverage(varname) {
+    overall_sum_.mutable_variable()->SetLabel("units", "ms");
+  }
   inline void update(const Timer &timer) {
     ExportedAverage::update(timer.ms(), static_cast<int64_t>(1));
   }
