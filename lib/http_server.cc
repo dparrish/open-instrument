@@ -14,12 +14,27 @@ namespace http {
 
 const char *HttpServer::RFC112Format = "%a, %d %b %Y %H:%M:%S %Z";
 
+HttpServer::HttpServer(const string &address, const uint16_t port, Executor *executor)
+  : address_(address),
+    listen_thread_(NULL),
+    executor_(executor),
+    request_handler_(new RequestHandler()),
+    stats_("/openinstrument/httpserver"),
+    shutdown_(false) {
+  address_.port = port;
+  Listen();
+}
+
 HttpServer::~HttpServer() {
   Stop();
 }
 
-void HttpServer::Start() {
+void HttpServer::Listen() {
+  listen_thread_.reset(new thread(bind(&HttpServer::Start, this)));
   listen_socket_.Listen(address_);
+}
+
+void HttpServer::Start() {
   // Block all signals
   sigset_t new_mask;
   sigfillset(&new_mask);
@@ -28,18 +43,18 @@ void HttpServer::Start() {
 
   LOG(INFO) << "HttpServer listening on " << address_.ToString();
 
-  // Create a pool of threads to run all of the io_services.
-  vector<shared_ptr<thread> > threads;
-  for (size_t i = 0; i < thread_pool_size_; ++i) {
-    threads.push_back(shared_ptr<thread>(new thread(bind(&HttpServer::Acceptor, this))));
+  while (!shutdown_) {
+    scoped_ptr<Socket> client(listen_socket_.Accept(1000));
+    if (!client.get())
+      continue;
+    ++stats_["/connections-received"];
+    VLOG(1) << "Accepted new connection from " << client->remote().ToString();
+    try {
+      executor_->Add(bind(&HttpServer::HandleClient, this, client.release()));
+    } catch (exception &e) {
+      LOG(WARNING) << e.what();
+    }
   }
-
-  stats_["/worker-threads-total"] = thread_pool_size_;
-  stats_["/worker-threads-busy"] = 0;
-
-  // Wait for all threads in the pool to exit.
-  for (size_t i = 0; i < threads.size(); ++i)
-    threads[i]->join();
 }
 
 void HttpServer::Stop() {
@@ -49,28 +64,8 @@ void HttpServer::Stop() {
     listen_thread_->join();
 }
 
-void HttpServer::Acceptor() {
-  while (true) {
-    if (shutdown_)
-      break;
-    scoped_ptr<Socket> client(listen_socket_.Accept(1000));
-    if (!client.get())
-      continue;
-    ++stats_["/connections-received"];
-    ++stats_["/worker-threads-busy"];
-    VLOG(1) << "Accepted new connection from " << client->remote().ToString();
-    try {
-      HandleClient(client.get());
-      client->Flush();
-    } catch (exception &e) {
-      LOG(WARNING) << e.what();
-    }
-    --stats_["/connections-received"];
-    --stats_["/worker-threads-busy"];
-  }
-}
-
-void HttpServer::HandleClient(Socket *sock) {
+void HttpServer::HandleClient(Socket *client) {
+  scoped_ptr<Socket> sock(client);
   bool close_connection = false;
   while (!close_connection) {
     Deadline deadline(30000);
@@ -96,12 +91,12 @@ void HttpServer::HandleClient(Socket *sock) {
         request.set_http_version(ConsumeFirstWord(&output));
         if (request.http_version() == "HTTP/0.0")
           throw runtime_error("Invalid HTTP version");
-        request.ReadAndParseHeaders(sock, deadline);
+        request.ReadAndParseHeaders(sock.get(), deadline);
       } catch (exception &e) {
         LOG(WARNING) << "Invalid HTTP request: " << e.what();
         HttpReply reply;
         reply.StockReply(HttpReply::BAD_REQUEST);
-        reply.Write(sock);
+        reply.Write(sock.get());
         return;
       }
       break;
@@ -175,7 +170,7 @@ void HttpServer::HandleClient(Socket *sock) {
     }
     try {
       // stats_["/total-bytes-write"] += reply.body().size();
-      reply.Write(sock);
+      reply.Write(sock.get());
       sock->Flush();
       if (reply.IsSuccess())
         ++stats_["/request-success"];
@@ -194,18 +189,6 @@ RequestHandler *HttpServer::request_handler() {
 
 thread *HttpServer::listen_thread() const {
   return listen_thread_.get();
-}
-
-HttpServer *HttpServer::NewServer(const string &addr, uint16_t port, size_t num_threads) {
-  try {
-    // Run server in background thread.
-    HttpServer *server = new http::HttpServer(addr, port, num_threads);
-    server->listen_thread_.reset(new thread(bind(&HttpServer::Start, server)));
-    return server;
-  } catch (exception &e) {
-    LOG(ERROR) << "exception: " << e.what();
-    return NULL;
-  }
 }
 
 void HttpServer::AddExportHandler() {

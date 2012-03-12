@@ -23,6 +23,7 @@
 #include "lib/openinstrument.pb.h"
 #include "lib/protobuf.h"
 #include "lib/string.h"
+#include "lib/threadpool.h"
 #include "lib/timer.h"
 #include "server/datastore.h"
 #include "server/disk_datastore.h"
@@ -31,7 +32,8 @@
 DECLARE_int32(v);
 DEFINE_int32(port, 8020, "Port to listen on");
 DEFINE_string(listen_address, "0.0.0.0", "Address to listen on. Use 0.0.0.0 to listen on any address");
-DEFINE_int32(num_threads, 10, "Number of threads to create in the thread pool");
+DEFINE_int32(num_http_threads, 10, "Number of threads to create in the Http Server thread pool");
+DEFINE_int32(max_http_threads, 20, "Max of threads to create in the Http Server thread pool");
 DEFINE_string(datastore, "/home/services/openinstrument", "Base directory for datastore files");
 DEFINE_int32(store_max_ram, 200, "Maximum amount of datastore objects to cache in RAM");
 
@@ -43,19 +45,21 @@ using http::HttpReply;
 
 class DataStoreServer : private noncopyable {
  public:
-  DataStoreServer(const string &addr, uint16_t port, int num_threads)
+  DataStoreServer(const string &addr, uint16_t port)
     : datastore(FLAGS_datastore),
-      server_(HttpServer::NewServer(addr, port, num_threads)),
-      static_dir_("/static", "static", server_.get()),
-      favicon_file_("/favicon.ico", "static/favicon.ico", server_.get()),
+      thread_pool_policy_(FLAGS_num_http_threads, FLAGS_max_http_threads),
+      thread_pool_("datastore_server", thread_pool_policy_),
+      server_(addr, port, &thread_pool_),
+      static_dir_("/static", "static", &server_),
+      favicon_file_("/favicon.ico", "static/favicon.ico", &server_),
       add_request_timer_("/openinstrument/store/add-requests"),
       list_request_timer_("/openinstrument/store/list-requests"),
       get_request_timer_("/openinstrument/store/get-requests") {
-    server_->request_handler()->AddPath("/add$", &DataStoreServer::HandleAdd, this);
-    server_->request_handler()->AddPath("/list$", &DataStoreServer::HandleList, this);
-    server_->request_handler()->AddPath("/get$", &DataStoreServer::HandleGet, this);
-    server_->request_handler()->AddPath("/health$", &DataStoreServer::HandleHealth, this);
-    server_->AddExportHandler();
+    server_.request_handler()->AddPath("/add$", &DataStoreServer::HandleAdd, this);
+    server_.request_handler()->AddPath("/list$", &DataStoreServer::HandleList, this);
+    server_.request_handler()->AddPath("/get$", &DataStoreServer::HandleGet, this);
+    server_.request_handler()->AddPath("/health$", &DataStoreServer::HandleHealth, this);
+    server_.AddExportHandler();
     // Export stats every 5 minutes
     VariableExporter::GetGlobalExporter()->SetExportLabel("job", "datastore");
     VariableExporter::GetGlobalExporter()->SetExportLabel("hostname", Socket::Hostname());
@@ -140,7 +144,6 @@ class DataStoreServer : private noncopyable {
               var.set_variable(Variable(aggstreams[0].variable()).variable());
 
             if (!agg.label_size()) {
-              LOG(INFO) << "Throw away all labels";
               // Aggregate by variable only, throw away all labels
               proto::ValueStream output;
               if (agg.type() == proto::StreamAggregation::AVERAGE) {
@@ -414,11 +417,12 @@ class DataStoreServer : private noncopyable {
 
  private:
   DiskDatastore datastore;
-  scoped_ptr<HttpServer> server_;
+  DefaultThreadPoolPolicy thread_pool_policy_;
+  ThreadPool thread_pool_;
+  HttpServer server_;
   http::HttpStaticDir static_dir_;
   http::HttpStaticFile favicon_file_;
 
-  ExportedIntegerSet stats_;
   ExportedTimer add_request_timer_;
   ExportedTimer list_request_timer_;
   ExportedTimer get_request_timer_;
@@ -432,7 +436,7 @@ int main(int argc, char *argv[]) {
   google::InitGoogleLogging(argv[0]);
 
   // Start the server
-  openinstrument::DataStoreServer server(FLAGS_listen_address, FLAGS_port, FLAGS_num_threads);
+  openinstrument::DataStoreServer server(FLAGS_listen_address, FLAGS_port);
 
   // Wait for signal indicating time to shut down.
   sigset_t wait_mask;

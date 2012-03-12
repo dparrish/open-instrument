@@ -25,22 +25,13 @@ namespace http {
 // The top-level class of the HTTP server.
 class HttpServer : private noncopyable {
  public:
-
-  static const char *RFC112Format;
-
-  // Construct the server to listen on the specified TCP address and port, and
-  // serve up files from the given directory.
-  explicit HttpServer(const string &address, const uint16_t port, size_t thread_pool_size)
-    : address_(address),
-      listen_thread_(NULL),
-      thread_pool_size_(thread_pool_size),
-      request_handler_(new RequestHandler()),
-      stats_("/openinstrument/httpserver"),
-      shutdown_(false) {
-    address_.port = port;
-  }
+  // Construct the server to listen on the specified TCP address and port, with a given thread pool size.
+  explicit HttpServer(const string &address, const uint16_t port, Executor *executor);
 
   ~HttpServer();
+
+  // Start listening on the specified host and port.
+  void Listen();
 
   // Run the event loop.
   void Start();
@@ -48,10 +39,17 @@ class HttpServer : private noncopyable {
   // Stop the server.
   void Stop();
 
+  // Use a given RequestHandler object to handle requests.
+  // This class takes ownership of the handler object.
+  void set_request_handler(RequestHandler *handler) {
+    request_handler_.reset(handler);
+  }
+
   RequestHandler *request_handler();
   thread *listen_thread() const;
-  static HttpServer *NewServer(const string &addr, uint16_t port, size_t num_threads);
   void AddExportHandler();
+
+  static const char *RFC112Format;
 
  private:
   void Acceptor();
@@ -62,8 +60,7 @@ class HttpServer : private noncopyable {
   Socket listen_socket_;
   scoped_ptr<thread> listen_thread_;
 
-  // The number of threads that will call io_service::run().
-  size_t thread_pool_size_;
+  Executor *executor_;
 
   // The handler for all incoming requests.
   scoped_ptr<RequestHandler> request_handler_;

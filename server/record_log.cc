@@ -86,9 +86,7 @@ void RecordLog::RotateRecordLog() {
     return;
   if (stat.size() >= (FLAGS_recordlog_max_log_size * 1024 * 1024)) {
     MutexLock locker(mutex_);
-    LOG(INFO) << "recordlog " << filename() << " should be rotated";
     string newfilename = StringPrintf("%s.%s", filename().c_str(), Timestamp().GmTime("%Y-%m-%d-%H-%M-%S.%.").c_str());
-    LOG(INFO) << "  rename to " << newfilename;
     if (::rename(filename().c_str(), newfilename.c_str()) < 0) {
       LOG(WARNING) << "Error renaming " << filename() << " to " << newfilename << ": " << strerror(errno);
     }
