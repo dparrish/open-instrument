@@ -7,8 +7,16 @@
  *
  */
 
+#include <fstream>
+#include <ios>
+#include <iostream>
 #include <string>
 #include <vector>
+#include <boost/thread/once.hpp>
+#include <sys/resource.h>
+#include <sys/time.h>
+#include <sys/utsname.h>
+#include <unistd.h>
 #include "lib/common.h"
 #include "lib/exported_vars.h"
 #include "lib/protobuf.h"
@@ -22,6 +30,7 @@ DEFINE_string(datastore_address, "", "Host and port of datastore, where all expo
 ///////////// VariableExporter {{{ ////////////////////////////
 
 VariableExporter global_exporter;
+boost::once_flag global_exporter_flag = BOOST_ONCE_INIT;
 
 VariableExporter::~VariableExporter() {
   if (all_exported_vars_.size())
@@ -52,6 +61,7 @@ bool VariableExporter::RemoveVar(ExportedVariable *var) {
 
 void VariableExporter::ExportToString(string *output) {
   SharedLock lock(mutex_);
+  RunCallbacks();
   for (vector<ExportedVariable *>::iterator i = all_exported_vars_.begin(); i != all_exported_vars_.end(); ++i) {
     (*i)->ExportToString(output);
     output->append("\r\n");
@@ -112,6 +122,7 @@ void VariableExporter::ExportThread(const string &server, uint64_t interval) {
       return;
     }
     boost::this_thread::disable_interruption di;
+    RunCallbacks();
     ExportToStore(&client);
   }
 }
@@ -122,6 +133,17 @@ void VariableExporter::SetExportLabel(const string &label, const string &value) 
 
 void VariableExporter::ClearExportLabel(const string &label) {
   extra_labels_.erase(label);
+}
+
+void VariableExporter::AddExportCallback(const Callback &callback) {
+  pre_export_callbacks_.push_back(callback);
+}
+
+void VariableExporter::RunCallbacks() {
+  for (vector<Callback>::const_iterator i = pre_export_callbacks_.begin(); i != pre_export_callbacks_.end();
+       ++i) {
+    (*i)();
+  }
 }
 
 // }}}
@@ -275,6 +297,132 @@ int64_t ExportedAverage::overall_sum() const {
 int64_t ExportedAverage::total_count() const {
   return total_count_;
 }
+
+// }}}
+///////////// ExportedString {{{ ////////////////////////////
+
+ExportedString::ExportedString(const Variable &varname) : ExportedVariable(varname) {
+  VariableExporter::ExportVar(this);
+}
+
+void ExportedString::ExportToString(string *output) const {
+  output->append(variable().ToString());
+  output->append("\t");
+  output->append(value_);
+}
+
+void ExportedString::ExportToValueStream(proto::ValueStream *stream) const {
+  variable().ToProtobuf(stream->mutable_variable());
+  proto::Value *value = stream->add_value();
+  value->set_timestamp(Timestamp::Now());
+  value->set_string_value(value_);
+}
+
+void ExportedString::operator=(string value) {
+  value_ = value;
+}
+
+// }}}
+///////////// Global Exported Stats {{{ ////////////////////////////
+
+// These stats should exist for every process that runs with the OpenInstrument monitoring enabled.
+class GlobalExportedStats {
+ public:
+  GlobalExportedStats()
+    : stats_cpu_usage("/openinstrument/process/cpu-usage{units=ms}"),
+      stats_run_time("/openinstrument/process/uptime{units=ms}"),
+      stats_vm_usage("/openinstrument/process/total-memory"),
+      stats_rss("/openinstrument/process/rss"),
+      stats_nicelevel("/openinstrument/process/nice-level"),
+      stats_pid("/openinstrument/process/pid"),
+      stats_utime("/openinstrument/process/utime{units=ms}"),
+      stats_stime("/openinstrument/process/stime{units=ms}"),
+      stats_num_threads("/openinstrument/process/num-threads"),
+      stats_open_fds("/openinstrument/process/filedescriptor-count"),
+      stats_os_name("/openinstrument/process/os-name"),
+      stats_os_version("/openinstrument/process/os-version"),
+      stats_os_arch("/openinstrument/process/os-arch"),
+      stats_nodename("/openinstrument/process/nodename"),
+      stats_cpuset("/openinstrument/process/cpuset"),
+      start_time(Timestamp::Now()) {
+    VariableExporter::GetGlobalExporter()->AddExportCallback(bind(&GlobalExportedStats::Update, this));
+    cpu_usage.Start();
+  }
+ private:
+  void Update() {
+    stats_cpu_usage = cpu_usage.ms();
+    stats_run_time = Timestamp::Now() - start_time;
+    // Read /proc/self/stat to get process stats
+    std::ifstream stat_stream("/proc/self/stat", std::ios_base::in);
+    string comm, state, ppid, pgrp, session, tty_nr, tpgid, flags, minflt, cminflt, majflt, cmajflt;
+    string cutime, cstime, itrealvalue, starttime;
+    uint64_t pid, vsize, rss, utime, stime, priority, nice, num_threads;
+    stat_stream >> pid >> comm >> state >> ppid >> pgrp >> session >> tty_nr >> tpgid >> flags >> minflt >> cminflt
+                >> majflt >> cmajflt >> utime >> stime >> cutime >> cstime >> priority >> nice >> num_threads
+                >> itrealvalue >> starttime >> vsize >> rss;
+    stat_stream.close();
+    long page_size_kb = sysconf(_SC_PAGE_SIZE) / 1024; // in case x86-64 is configured to use 2MB pages
+    stats_pid = pid;
+    stats_utime = static_cast<uint64_t>(static_cast<double>(utime / sysconf(_SC_CLK_TCK)) * 1000);
+    stats_stime = static_cast<uint64_t>(static_cast<double>(stime / sysconf(_SC_CLK_TCK)) * 1000);
+    stats_nicelevel = nice;
+    stats_num_threads = num_threads;
+    stats_vm_usage = vsize / 1024;
+    stats_rss = rss * page_size_kb;
+
+    // Get uname values
+    struct utsname buf;
+    uname(&buf);
+    stats_os_name = buf.sysname;
+    stats_os_version = buf.release;
+    stats_nodename = buf.nodename;
+    stats_os_arch = buf.machine;
+
+    {
+      // Record current cpuset.
+      // If cpusets are not being used, this will just give '/'
+      File file("/proc/self/cpuset");
+      char buf[64] = {0};
+      file.Read(buf, 63);
+      for (char *p = buf; p && *p; p++) {
+        if (*p == '\n') {
+          *p = 0;
+          break;
+        }
+      }
+      stats_cpuset = buf;
+    }
+
+    {
+      // Count open file descriptors
+      stats_open_fds = 0;
+      struct stat sb;
+      for (int i = 0; i <= getdtablesize(); i++) {
+        fstat(i, &sb);
+        if (errno != EBADF)
+          ++stats_open_fds;
+      }
+    }
+  }
+
+  ExportedInteger stats_cpu_usage;
+  ExportedInteger stats_run_time;
+  ExportedInteger stats_vm_usage;
+  ExportedInteger stats_rss;
+  ExportedInteger stats_nicelevel;
+  ExportedInteger stats_pid;
+  ExportedInteger stats_utime;
+  ExportedInteger stats_stime;
+  ExportedInteger stats_num_threads;
+  ExportedInteger stats_open_fds;
+  ExportedString stats_os_name;
+  ExportedString stats_os_version;
+  ExportedString stats_os_arch;
+  ExportedString stats_nodename;
+  ExportedString stats_cpuset;
+  ProcessCpuTimer cpu_usage;
+  uint64_t start_time;
+} global_exported_stats;
 
 // }}}
 

@@ -66,7 +66,7 @@ class ExportedInteger : public ExportedVariable {
   ExportedInteger(const ExportedInteger &);
   ExportedInteger &operator=(const ExportedInteger &);
 
-  AtomicInt64 counter_;
+  mutable AtomicInt64 counter_;
 };
 
 
@@ -199,14 +199,18 @@ class VariableExporter : private noncopyable {
   void SetExportLabel(const string &label, const string &value);
   void ClearExportLabel(const string &label);
 
+  void AddExportCallback(const Callback &callback);
+
  private:
   void ExportThread(const string &server, uint64_t interval);
   void ExportToStore(StoreClient *client);
+  void RunCallbacks();
 
   vector<ExportedVariable *> all_exported_vars_;
   unordered_map<string, string> extra_labels_;
   thread *export_thread_;
   SharedMutex mutex_;
+  vector<Callback> pre_export_callbacks_;
 };
 
 
@@ -258,7 +262,19 @@ class ExportedStream : public ExportedVariable {
   list<proto::Value> values_;
 };
 
+class ExportedString : public ExportedVariable {
+ public:
+  ExportedString(const Variable &varname);
+  virtual ~ExportedString() {}
+  void operator=(string value);
+  virtual void ExportToString(string *output) const;
+  virtual void ExportToValueStream(proto::ValueStream *stream) const;
 
+ private:
+  ExportedString(const ExportedString &);
+  ExportedString &operator=(const ExportedString &);
+  mutable string value_;
+};
 
 }  // namespace openinstrument
 
