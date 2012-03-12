@@ -29,7 +29,6 @@ class ExportedVariable : private noncopyable {
  public:
   explicit ExportedVariable(const Variable &varname) : variable_(varname) {}
   virtual ~ExportedVariable();
-  virtual void ExportToString(string *output) const = 0;
   virtual void ExportToValueStream(proto::ValueStream *stream) const = 0;
   inline const Variable &variable() const {
     return variable_;
@@ -59,7 +58,6 @@ class ExportedInteger : public ExportedVariable {
   int64_t operator+=(int64_t incby);
   int64_t operator--();
   operator int64_t() const;
-  virtual void ExportToString(string *output) const;
   virtual void ExportToValueStream(proto::ValueStream *stream) const;
 
  private:
@@ -183,8 +181,8 @@ class VariableExporter : private noncopyable {
   // Convenience method that adds a variable to the global exporter.
   static void ExportVar(ExportedVariable *var);
 
-  // Render every contained variable to the passed in string. The output is in the internal OpenInstrument variable
-  // format.
+  // Render every contained variable to the passed in string. The output format is a set of lines like:
+  //   /variasble/name{label=value}  1.00000
   void ExportToString(string *output);
 
   // Send every contained variable in an RPC to the datastore.
@@ -219,7 +217,6 @@ class ExportedString : public ExportedVariable {
   ExportedString(const Variable &varname);
   virtual ~ExportedString() {}
   void operator=(string value);
-  virtual void ExportToString(string *output) const;
   virtual void ExportToValueStream(proto::ValueStream *stream) const;
 
  private:

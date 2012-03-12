@@ -62,14 +62,31 @@ bool VariableExporter::RemoveVar(ExportedVariable *var) {
 void VariableExporter::ExportToString(string *output) {
   SharedLock lock(mutex_);
   RunCallbacks();
-  for (vector<ExportedVariable *>::iterator i = all_exported_vars_.begin(); i != all_exported_vars_.end(); ++i) {
-    (*i)->ExportToString(output);
-    output->append("\r\n");
+  BOOST_FOREACH(ExportedVariable *i, all_exported_vars_) {
+    proto::ValueStream stream;
+    i->ExportToValueStream(&stream);
+    Variable var(stream.variable());
+    for (unordered_map<string, string>::iterator j = extra_labels_.begin(); j != extra_labels_.end(); ++j) {
+      var.SetLabel(j->first, j->second);
+    }
+    output->append(var.ToString());
+    output->append(" ");
+    for (int i = 0; i < stream.value_size(); i++) {
+      const proto::Value &value = stream.value(i);
+      if (i > 0)
+        output->append(" ");
+      if (value.has_double_value())
+        output->append(lexical_cast<string>(value.double_value()));
+      else if (value.has_string_value())
+        output->append(value.string_value());
+    }
+    output->append("\n");
   }
 }
 
 void VariableExporter::ExportToStore(StoreClient *client) {
   proto::AddRequest req;
+  RunCallbacks();
   BOOST_FOREACH(ExportedVariable *i, all_exported_vars_) {
     proto::ValueStream *stream = req.add_stream();
     i->ExportToValueStream(stream);
@@ -122,7 +139,6 @@ void VariableExporter::ExportThread(const string &server, uint64_t interval) {
       return;
     }
     boost::this_thread::disable_interruption di;
-    RunCallbacks();
     ExportToStore(&client);
   }
 }
@@ -161,12 +177,6 @@ ExportedInteger::ExportedInteger(const Variable &varname, int64_t initial)
   : ExportedVariable(varname),
     counter_(initial) {
   VariableExporter::ExportVar(this);
-}
-
-void ExportedInteger::ExportToString(string *output) const {
-  output->append(variable().ToString());
-  output->append("\t");
-  output->append(lexical_cast<string>(counter_));
 }
 
 void ExportedInteger::ExportToValueStream(proto::ValueStream *stream) const {
@@ -303,12 +313,6 @@ int64_t ExportedAverage::total_count() const {
 
 ExportedString::ExportedString(const Variable &varname) : ExportedVariable(varname) {
   VariableExporter::ExportVar(this);
-}
-
-void ExportedString::ExportToString(string *output) const {
-  output->append(variable().ToString());
-  output->append("\t");
-  output->append(value_);
 }
 
 void ExportedString::ExportToValueStream(proto::ValueStream *stream) const {
