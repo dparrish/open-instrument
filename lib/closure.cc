@@ -12,31 +12,4 @@
 
 namespace openinstrument {
 
-/*
-class OnceClosure : public Closure {
- public:
-  OnceClosure(FuncType func) : Closure(func) {}
-  void Run() {
-    func_();
-    delete this;
-  }
-};
-
-class PermanentClosure : public Closure {
- public:
-  PermanentClosure(FuncType func) : Closure(func) {}
-  void Run() {
-    func_();
-  }
-};
-
-Closure *NewCallback(Closure::FuncType fun) {
-  return new OnceClosure(fun);
-}
-
-Closure *NewPermanentCallback(Closure::FuncType fun) {
-  return new PermanentClosure(fun);
-}
-*/
-
 }  // namespace openinstrument

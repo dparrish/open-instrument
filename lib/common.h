@@ -37,7 +37,6 @@
 #include <vector>
 #include "lib/closure.h"
 #include "lib/string.h"
-#include "lib/threadpool.h"
 
 namespace openinstrument {
 
@@ -72,6 +71,7 @@ typedef boost::unique_lock<Mutex> MutexLock;
 typedef boost::shared_mutex SharedMutex;
 typedef boost::unique_lock<SharedMutex> ExclusiveLock;
 typedef boost::shared_lock<SharedMutex> SharedLock;
+typedef boost::mutex::scoped_lock ScopedLock;
 
 // Wrapper around boost::this_thread::sleep, so that threads sleeping become interruptable
 void sleep(uint64_t interval);
@@ -123,43 +123,67 @@ class scoped_ptr : private noncopyable {
 };
 
 template<typename T>
-class Queue {
+class Queue
+{
  public:
-  void push(T *data) {
-    MutexLock lock(mutex_);
+  Queue() : shutdown_(false) {}
+
+  ~Queue() {
+    Shutdown();
+  }
+
+  void Shutdown() {
+    shutdown_ = true;
+    condvar_.notify_all();
+  }
+
+  bool empty() const {
+    ScopedLock lock(mutex_);
+    return queue_.empty();
+  }
+
+  void Push(const T &data) {
+    if (shutdown_)
+      throw std::out_of_range("Queue shut down");
+    ScopedLock lock(mutex_);
     queue_.push(data);
     lock.unlock();
     condvar_.notify_one();
   }
 
-  bool empty() const {
-    MutexLock lock(mutex_);
-    return queue_.empty();
-  }
+  bool TryPop(T &popped_value) {
+    if (shutdown_)
+      throw std::out_of_range("Queue shut down");
+    ScopedLock lock(mutex_);
+    if (!shutdown_ && queue_.empty()) {
+      return false;
+    }
+    if (shutdown_)
+      throw std::out_of_range("Queue shut down");
 
-  T *try_pop() {
-    MutexLock lock(mutex_);
-    if (queue_.empty())
-      return NULL;
-
-    T *popped_value = queue_.front();
+    popped_value = queue_.front();
     queue_.pop();
-    return popped_value;
+    return true;
   }
 
-  T *wait_and_pop() {
-    MutexLock lock(mutex_);
-    while (queue_.empty())
+  void WaitAndPop(T &popped_value) {
+    if (shutdown_)
+      throw std::out_of_range("Queue shut down");
+    ScopedLock lock(mutex_);
+    while (!shutdown_ && queue_.empty()) {
       condvar_.wait(lock);
+    }
+    if (shutdown_)
+      throw std::out_of_range("Queue shut down");
 
-    T *popped_value = queue_.front();
+    popped_value = queue_.front();
     queue_.pop();
-    return popped_value;
   }
 
  private:
-  std::queue<T *> queue_;
-  mutable MutexLock mutex_;
+  bool shutdown_;
+  std::queue<T> queue_;
+  mutable boost::mutex mutex_;
   boost::condition_variable condvar_;
 };
 

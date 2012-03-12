@@ -113,6 +113,7 @@ class Timer {
   // Start the timer. Be sure to call this before stop() or you will get a CHECK failure.
   inline void Start() {
     start_time_ = Timestamp::Now();
+    elapsed_ = 0;
   }
 
   // Stop the counter and increase the elapsed time
