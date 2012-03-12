@@ -157,10 +157,8 @@ string Duration::ToString(bool longformat) {
 }
 
 int64_t ProcessCpuTimer::ms() {
-  if (running_) {
-    CHECK(boost::this_thread::get_id() == tid_);
+  if (running_)
     clock_gettime(clock_, &end_ts_);
-  }
   return ((static_cast<int64_t>(end_ts_.tv_sec - start_ts_.tv_sec) * 1000) +
           (static_cast<int64_t>(end_ts_.tv_nsec - start_ts_.tv_nsec)) / 1000000);
 }
