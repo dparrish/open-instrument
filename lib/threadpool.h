@@ -86,6 +86,8 @@ class ThreadPool : public Executor {
           StringPrintf("/openinstrument/thread-pool/threads-created{thread-pool=%s}", name_.c_str())),
       stats_threads_deleted_(
           StringPrintf("/openinstrument/thread-pool/threads-deleted{thread-pool=%s}", name_.c_str())),
+      stats_queue_size_(
+          StringPrintf("/openinstrument/thread-pool/queue-size{thread-pool=%s}", name_.c_str())),
       stats_work_done_(
           StringPrintf("/openinstrument/thread-pool/work-done{thread-pool=%s}", name_.c_str())),
       stats_cpu_used_(
@@ -126,6 +128,7 @@ class ThreadPool : public Executor {
   ExportedInteger stats_busy_threads_;
   ExportedInteger stats_threads_created_;
   ExportedInteger stats_threads_deleted_;
+  ExportedInteger stats_queue_size_;
   ExportedTimer stats_work_done_;
   ExportedInteger stats_cpu_used_;
 };

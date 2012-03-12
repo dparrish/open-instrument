@@ -34,6 +34,7 @@ void ThreadPool::Add(const Callback &callback) {
   policy_.RunPolicy(threads_.size(), stats_busy_threads_, bind(&ThreadPool::AddThreadCallback, this),
                     bind(&ThreadPool::DeleteThreadCallback, this));
   pcqueue_.Push(callback);
+  ++stats_queue_size_;
 }
 
 void ThreadPool::AddThreadCallback() {
@@ -62,6 +63,7 @@ void ThreadPool::Loop() {
       cpu_timer.Start();
       ScopedExportTimer timer(&stats_work_done_);
       ++stats_busy_threads_;
+      --stats_queue_size_;
       h();
       --stats_busy_threads_;
       cpu_timer.Stop();
