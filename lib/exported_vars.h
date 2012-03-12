@@ -214,54 +214,6 @@ class VariableExporter : private noncopyable {
 };
 
 
-// Exported stream of values
-// This is the base of most of the other exported values, but is quite useful on its own. It exports a single int64
-// value which can be incremented using the standard math operators.
-// Example use:
-//   ExportedStream count("/test/impulse");
-//   count.Add(1);
-//   sleep(10);
-//   count.Add(1);
-template<class T = double>
-class ExportedStream : public ExportedVariable {
- public:
-  explicit ExportedStream(const Variable &varname) : ExportedVariable(varname) {
-    VariableExporter::ExportVar(this);
-  }
-  virtual ~ExportedStream() {}
-
-  virtual void Add(const T &value) {
-    proto::Value val;
-    val.set_timestamp(Timestamp::Now());
-    val.set_double_value(lexical_cast<double>(value));
-    values_.push_back(val);
-  }
-
-  virtual void ExportToString(string *output) const {
-    output->append(variable().ToString());
-    output->append("\t");
-    BOOST_FOREACH(proto::Value &value, values_) {
-      output->append(lexical_cast<string>(value.double_value()));
-      output->append("@");
-      output->append(lexical_cast<string>(value.timestamp()));
-      output->append(" ");
-    }
-    if (values_.size())
-      // Strip off the last space
-      output->resize(output->size() - 1);
-  }
-
-  virtual void ExportToValueStream(proto::ValueStream *stream) const {
-    variable().ToProtobuf(stream->mutable_variable());
-    BOOST_FOREACH(proto::Value &value, values_) {
-      stream->add_value()->CopyFrom(value);
-    }
-  }
-
- private:
-  list<proto::Value> values_;
-};
-
 class ExportedString : public ExportedVariable {
  public:
   ExportedString(const Variable &varname);
