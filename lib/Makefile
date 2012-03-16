@@ -84,7 +84,7 @@ file_test.o: file_test.cc $(BASEDIR)/lib/common.h \
 hash.o: hash.cc $(BASEDIR)/lib/common.h \
  $(BASEDIR)/lib/closure.h \
  $(BASEDIR)/lib/string.h \
- $(BASEDIR)/lib/hash.h
+ $(BASEDIR)/lib/hash.h lookup3.c
 hash_test.o: hash_test.cc $(BASEDIR)/lib/hash.h \
  $(BASEDIR)/lib/common.h \
  $(BASEDIR)/lib/closure.h \

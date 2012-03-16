@@ -133,3 +133,24 @@ message StoreFileHeader {
   repeated StreamVariable variable = 4;
 }
 
+
+message StoreServer {
+  enum State {
+    UNKNOWN = 0;
+    STARTING = 1;
+    LOADING = 2;
+    RUNNING = 3;
+    READONLY = 4;
+    DRAINING = 5;
+    LAMEDUCK = 6;
+    SHUTDOWN = 7;
+  }
+  required string address = 1;
+  optional State state = 2;
+}
+
+message StoreConfig {
+  repeated StoreServer server = 1;
+  required uint64 last_update = 2;
+}
+

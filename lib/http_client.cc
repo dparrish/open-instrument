@@ -19,11 +19,7 @@ HttpReply *HttpClient::SendRequest(HttpRequest &request) {
   VLOG(1) << "Requesting " << request.uri.Assemble();
   Deadline deadline(deadline_time_);
   Socket sock;
-  try {
-    sock.Connect(request.uri.hostname, request.uri.port, deadline);
-  } catch (exception& e) {
-    LOG(ERROR) << "Couldn't connect to " << request.uri.hostname << ":" << request.uri.port << ": " << e.what() << "\n";
-  }
+  sock.Connect(request.uri.hostname, request.uri.port, deadline);
 
   try {
     // Send request

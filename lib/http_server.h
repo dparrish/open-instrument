@@ -45,6 +45,10 @@ class HttpServer : private noncopyable {
     request_handler_.reset(handler);
   }
 
+  const Socket::Address &address() const {
+    return address_;
+  }
+
   RequestHandler *request_handler();
   thread *listen_thread() const;
   void AddExportHandler();

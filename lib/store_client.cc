@@ -50,26 +50,35 @@ void StoreClient::SendRequest(const string &path, const google::protobuf::Messag
 
   if (!UnserializeProtobuf(reply->body(), response))
     throw runtime_error("Invalid response from the server");
-
-  if (!response->success())
-    throw runtime_error(StringPrintf("Server Error: %s", response->errormessage().c_str()));
 }
 
 proto::AddResponse *StoreClient::Add(const proto::AddRequest &req) {
   scoped_ptr<proto::AddResponse> response(new proto::AddResponse());
   SendRequest("/add", req, response.get());
+  if (!response->success())
+    throw runtime_error(StringPrintf("Server Error: %s", response->errormessage().c_str()));
   return response.release();
 }
 
 proto::ListResponse *StoreClient::List(const proto::ListRequest &req) {
   scoped_ptr<proto::ListResponse> response(new proto::ListResponse());
   SendRequest("/list", req, response.get());
+  if (!response->success())
+    throw runtime_error(StringPrintf("Server Error: %s", response->errormessage().c_str()));
   return response.release();
 }
 
 proto::GetResponse *StoreClient::Get(const proto::GetRequest &req) {
   scoped_ptr<proto::GetResponse> response(new proto::GetResponse());
   SendRequest("/get", req, response.get());
+  if (!response->success())
+    throw runtime_error(StringPrintf("Server Error: %s", response->errormessage().c_str()));
+  return response.release();
+}
+
+proto::StoreConfig *StoreClient::PushStoreConfig(const proto::StoreConfig &req) {
+  scoped_ptr<proto::StoreConfig> response(new proto::StoreConfig());
+  SendRequest("/push_config", req, response.get());
   return response.release();
 }
 

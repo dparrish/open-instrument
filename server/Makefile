@@ -83,4 +83,6 @@ store.o: store.cc $(BASEDIR)/lib/atomic.h \
  $(BASEDIR)/lib/threadpool.h \
  $(BASEDIR)/server/datastore.h \
  $(BASEDIR)/server/disk_datastore.h \
- $(BASEDIR)/server/record_log.h
+ $(BASEDIR)/server/record_log.h \
+ $(BASEDIR)/server/store_config.h \
+ $(BASEDIR)/lib/store_client.h

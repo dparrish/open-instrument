@@ -28,6 +28,7 @@
 #include "server/datastore.h"
 #include "server/disk_datastore.h"
 #include "server/record_log.h"
+#include "server/store_config.h"
 
 DECLARE_int32(v);
 DEFINE_int32(port, 8020, "Port to listen on");
@@ -36,6 +37,7 @@ DEFINE_int32(num_http_threads, 10, "Number of threads to create in the Http Serv
 DEFINE_int32(max_http_threads, 20, "Max of threads to create in the Http Server thread pool");
 DEFINE_string(datastore, "/home/services/openinstrument", "Base directory for datastore files");
 DEFINE_int32(store_max_ram, 200, "Maximum amount of datastore objects to cache in RAM");
+DEFINE_string(config_file, "config.txt", "Configuration file to read on startup");
 
 namespace openinstrument {
 
@@ -52,18 +54,40 @@ class DataStoreServer : private noncopyable {
       server_(addr, port, &thread_pool_),
       static_dir_("/static", "static", &server_),
       favicon_file_("/favicon.ico", "static/favicon.ico", &server_),
+      store_config_(StringPrintf("%s/config.txt", FLAGS_datastore.c_str())),
       add_request_timer_("/openinstrument/store/add-requests"),
       list_request_timer_("/openinstrument/store/list-requests"),
       get_request_timer_("/openinstrument/store/get-requests") {
     server_.request_handler()->AddPath("/add$", &DataStoreServer::HandleAdd, this);
     server_.request_handler()->AddPath("/list$", &DataStoreServer::HandleList, this);
     server_.request_handler()->AddPath("/get$", &DataStoreServer::HandleGet, this);
+    server_.request_handler()->AddPath("/push_config$", &DataStoreServer::HandlePushConfig, this);
     server_.request_handler()->AddPath("/health$", &DataStoreServer::HandleHealth, this);
     server_.AddExportHandler();
     // Export stats every minute
     VariableExporter::GetGlobalExporter()->SetExportLabel("job", "datastore");
     VariableExporter::GetGlobalExporter()->SetExportLabel("hostname", Socket::Hostname());
     VariableExporter::GetGlobalExporter()->StartExportThread(StringPrintf("localhost:%lu", FLAGS_port), 60);
+    store_config_.SetServerState(server_.address().ToString(), proto::StoreServer::STARTING);
+  }
+
+  bool HandlePushConfig(const HttpRequest &request, HttpReply *reply) {
+    proto::StoreConfig config;
+    if (!UnserializeProtobuf(request.body(), &config)) {
+      reply->SetStatus(HttpReply::BAD_REQUEST);
+      reply->mutable_body()->clear();
+      reply->mutable_body()->CopyFrom("Invalid Request\n");
+      return true;
+    }
+    reply->SetStatus(HttpReply::OK);
+    reply->SetContentType("application/base64");
+    store_config_.HandleNewConfig(config);
+    if (!SerializeProtobuf(store_config_.config(), reply->mutable_body())) {
+      reply->SetStatus(HttpReply::INTERNAL_SERVER_ERROR);
+      reply->mutable_body()->clear();
+      reply->mutable_body()->CopyFrom("Error serializing protobuf\n");
+    }
+    return true;
   }
 
   bool HandleHealth(const HttpRequest &request, HttpReply *reply) {
@@ -422,6 +446,7 @@ class DataStoreServer : private noncopyable {
   HttpServer server_;
   http::HttpStaticDir static_dir_;
   http::HttpStaticFile favicon_file_;
+  StoreConfig store_config_;
 
   ExportedTimer add_request_timer_;
   ExportedTimer list_request_timer_;

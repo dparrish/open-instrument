@@ -35,6 +35,7 @@ class StoreClient : private noncopyable {
   proto::AddResponse *Add(const proto::AddRequest &req);
   proto::ListResponse *List(const proto::ListRequest &req);
   proto::GetResponse *Get(const proto::GetRequest &req);
+  proto::StoreConfig *PushStoreConfig(const proto::StoreConfig &req);
 
  private:
   Socket::Address address_;
