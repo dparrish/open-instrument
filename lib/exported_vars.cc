@@ -70,11 +70,11 @@ void VariableExporter::ExportToString(string *output) {
       var.SetLabel(j->first, j->second);
     }
     output->append(var.ToString());
-    output->append(" ");
+    output->append("\t");
     for (int i = 0; i < stream.value_size(); i++) {
       const proto::Value &value = stream.value(i);
       if (i > 0)
-        output->append(" ");
+        output->append("\t");
       if (value.has_double_value())
         output->append(lexical_cast<string>(value.double_value()));
       else if (value.has_string_value())

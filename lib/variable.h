@@ -157,4 +157,4 @@ class Variable {
 
 }  // namespace openinstrument
 
-#endif  // _OPENINSTRUMENT_LIB_PROTOBUF_H_
+#endif  // _OPENINSTRUMENT_LIB_VARIABLE_H_

@@ -1,9 +1,9 @@
 TARGETS=libopeninstrument.a $(BASEDIR)/static/openinstrument.pb.js
-TESTS=file_test variable_test string_test timer_test uri_test exported_vars_test cord_test socket_test protobuf_test \
-      counter_test trie_test
-OBJS=openinstrument.pb.o common.o threadpool.o string.o uri.o exported_vars.o base64.o protobuf.o cord.o socket.o \
-     http_message.o http_server.o http_client.o http_reply.o http_request.o store_client.o http_static_dir.o closure.o \
-     mime_types.o file.o counter.o timer.o variable.o
+TESTS=hash_test file_test variable_test string_test timer_test uri_test exported_vars_test cord_test \
+      socket_test protobuf_test counter_test trie_test
+OBJS=openinstrument.pb.o common.o hash.o threadpool.o string.o uri.o exported_vars.o base64.o protobuf.o \
+     cord.o socket.o http_message.o http_server.o http_client.o http_reply.o http_request.o store_client.o \
+     http_static_dir.o closure.o mime_types.o file.o counter.o timer.o variable.o
 TEST_LIBS+=libopeninstrument.a
 TEST_DEPS=libopeninstrument.a
 CLEAN_TARGETS=openinstrument.pb.cc openinstrument.pb.h
@@ -81,6 +81,14 @@ file_test.o: file_test.cc $(BASEDIR)/lib/common.h \
  $(BASEDIR)/lib/closure.h \
  $(BASEDIR)/lib/string.h \
  $(BASEDIR)/lib/file.h
+hash.o: hash.cc $(BASEDIR)/lib/common.h \
+ $(BASEDIR)/lib/closure.h \
+ $(BASEDIR)/lib/string.h \
+ $(BASEDIR)/lib/hash.h
+hash_test.o: hash_test.cc $(BASEDIR)/lib/hash.h \
+ $(BASEDIR)/lib/common.h \
+ $(BASEDIR)/lib/closure.h \
+ $(BASEDIR)/lib/string.h
 http_client.o: http_client.cc \
  $(BASEDIR)/lib/common.h \
  $(BASEDIR)/lib/closure.h \
@@ -173,8 +181,7 @@ mime_types.o: mime_types.cc \
  $(BASEDIR)/lib/string.h \
  $(BASEDIR)/lib/mime_types.h \
  $(BASEDIR)/lib/trie.h
-openinstrument.pb.o: openinstrument.pb.cc \
- $(BASEDIR)/lib/openinstrument.pb.h
+openinstrument.pb.o: openinstrument.pb.cc openinstrument.pb.h
 protobuf.o: protobuf.cc $(BASEDIR)/lib/base64.h \
  $(BASEDIR)/lib/common.h \
  $(BASEDIR)/lib/closure.h \
@@ -192,7 +199,8 @@ protobuf_test.o: protobuf_test.cc \
  $(BASEDIR)/lib/openinstrument.pb.h \
  $(BASEDIR)/lib/protobuf.h \
  $(BASEDIR)/lib/cord.h \
- $(BASEDIR)/lib/timer.h
+ $(BASEDIR)/lib/timer.h \
+ $(BASEDIR)/lib/variable.h
 socket.o: socket.cc $(BASEDIR)/lib/common.h \
  $(BASEDIR)/lib/closure.h \
  $(BASEDIR)/lib/string.h \

@@ -17,6 +17,7 @@
 #include "lib/protobuf.h"
 #include "lib/string.h"
 #include "lib/timer.h"
+#include "lib/variable.h"
 
 namespace openinstrument {
 
@@ -38,7 +39,8 @@ TEST_F(ProtobufTest, WriteCorruptRead) {
   ProtoStreamWriter writer(filename);
   for (int i = 0; i < 1000; i++) {
     proto::GetRequest req;
-    req.set_variable(StringPrintf("/openinstrument/variable%d", i));
+    Variable var(StringPrintf("/openinstrument/variable%d", i));
+    var.ToProtobuf(req.mutable_variable());
     req.set_min_timestamp(12345);
     req.set_max_timestamp(67890);
     writer.Write(req);
