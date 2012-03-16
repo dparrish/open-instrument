@@ -232,7 +232,9 @@ store_client.o: store_client.cc \
  $(BASEDIR)/lib/http_request.h \
  $(BASEDIR)/lib/socket.h \
  $(BASEDIR)/lib/uri.h \
- $(BASEDIR)/lib/store_client.h
+ $(BASEDIR)/lib/store_client.h \
+ $(BASEDIR)/server/store_config.h \
+ $(BASEDIR)/lib/hash.h
 string.o: string.cc $(BASEDIR)/lib/string.h \
  $(BASEDIR)/lib/common.h \
  $(BASEDIR)/lib/closure.h

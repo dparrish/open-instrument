@@ -43,4 +43,6 @@ list.o: list.cc $(BASEDIR)/lib/common.h \
  $(BASEDIR)/lib/atomic.h \
  $(BASEDIR)/lib/timer.h \
  $(BASEDIR)/lib/variable.h \
- $(BASEDIR)/lib/socket.h
+ $(BASEDIR)/lib/socket.h \
+ $(BASEDIR)/server/store_config.h \
+ $(BASEDIR)/lib/hash.h

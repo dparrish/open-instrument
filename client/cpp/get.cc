@@ -16,6 +16,7 @@
 #include "lib/store_client.h"
 #include "lib/string.h"
 #include "lib/timer.h"
+#include "server/store_config.h"
 
 using namespace openinstrument;
 using namespace std;
@@ -91,7 +92,19 @@ int main(int argc, char *argv[]) {
     agg->add_label(FLAGS_median_by);
   }
 
-  StoreClient client(argv[1]);
+  // Retrieve cluster config from the single server specified on the commandline.
+  StoreConfig config;
+  try {
+    StoreClient client(argv[1]);
+    scoped_ptr<proto::StoreConfig> response(client.GetStoreConfig());
+    config.HandleNewConfig(*response);
+  } catch (exception &e) {
+    cerr << "Could not retrieve cluster config from " << argv[1] << ": " << e.what() << "\n";
+    usage(argv);
+    return 1;
+  }
+
+  StoreClient client(&config);
   scoped_ptr<proto::GetResponse> response(client.Get(req));
   LOG(INFO) << "Number of returned streams: " << response->stream_size();
   for (int stream_i = 0; stream_i < response->stream_size(); stream_i++) {
@@ -101,9 +114,9 @@ int main(int argc, char *argv[]) {
       cout << StringPrintf("%s\t%s\t", Variable(stream.variable()).ToString().c_str(),
                            Timestamp(value.timestamp()).GmTime("%Y-%m-%d %H:%M:%S").c_str());
       if (value.has_double_value()) {
-        cout << StringPrintf("%f\n", value.double_value());
+        cout << fixed << value.double_value() << "\n";
       } else if (value.has_string_value()) {
-        cout << "<<STRING>>\n" << value.string_value() << "\n";
+        cout << value.string_value() << "\n";
       }
     }
   }

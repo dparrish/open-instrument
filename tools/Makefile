@@ -33,7 +33,8 @@ dump_store_config.o: dump_store_config.cc \
  $(BASEDIR)/lib/timer.h \
  $(BASEDIR)/lib/variable.h \
  $(BASEDIR)/lib/socket.h \
- $(BASEDIR)/server/store_config.h
+ $(BASEDIR)/server/store_config.h \
+ $(BASEDIR)/lib/hash.h
 primetest.o: primetest.cc $(BASEDIR)/lib/common.h \
  $(BASEDIR)/lib/closure.h \
  $(BASEDIR)/lib/string.h \

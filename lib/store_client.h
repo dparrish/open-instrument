@@ -19,15 +19,25 @@
 
 namespace openinstrument {
 
+class StoreConfig;
+
 class StoreClient : private noncopyable {
  public:
-  explicit StoreClient(const string &address)
-    : address_(address),
-      request_timer_("/openinstrument/client/store/all-requests") {}
+  // Preferred method of connecting to the storage server cluster.
+  // The caller is responsible for deleting the config object.
+  explicit StoreClient(StoreConfig *config);
 
-  explicit StoreClient(const Socket::Address &address)
-    : address_(address),
-      request_timer_("/openinstrument/client/store/all-requests") {}
+  // Connect to a single storage server
+  explicit StoreClient(const string &address);
+  explicit StoreClient(const Socket::Address &address);
+
+  template<typename ResponseType>
+  void SendRequestToCluster(const string &path, const google::protobuf::Message &request,
+                            vector<ResponseType *> *responses);
+
+  template<typename ResponseType>
+  void SendRequest(const Socket::Address &address, const string &path, const google::protobuf::Message &request,
+                   ResponseType *response);
 
   template<typename ResponseType>
   void SendRequest(const string &path, const google::protobuf::Message &request, ResponseType *response);
@@ -38,6 +48,7 @@ class StoreClient : private noncopyable {
   proto::StoreConfig *GetStoreConfig();
 
  private:
+  StoreConfig *store_config_;
   Socket::Address address_;
   ExportedTimer request_timer_;
 };
