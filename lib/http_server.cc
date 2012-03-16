@@ -102,7 +102,7 @@ void HttpServer::HandleClient(Socket *client) {
       break;
     }
 
-    if (request.GetContentLength()) {
+    if (!request.headers().GetHeader("Content-Length").empty()) {
       // There has been some POST data
       while (sock->read_buffer()->size() < request.GetContentLength()) {
         try {
