@@ -76,9 +76,9 @@ proto::GetResponse *StoreClient::Get(const proto::GetRequest &req) {
   return response.release();
 }
 
-proto::StoreConfig *StoreClient::PushStoreConfig(const proto::StoreConfig &req) {
+proto::StoreConfig *StoreClient::GetStoreConfig() {
   scoped_ptr<proto::StoreConfig> response(new proto::StoreConfig());
-  SendRequest("/push_config", req, response.get());
+  SendRequest("/get_config", *response, response.get());
   return response.release();
 }
 

@@ -39,16 +39,13 @@ int main(int argc, char *argv[]) {
   }
 
   proto::StoreConfig config;
-  config.set_last_update(0);
 
   try {
     StoreClient client(argv[1]);
-    scoped_ptr<proto::StoreConfig> response(client.PushStoreConfig(config));
+    scoped_ptr<proto::StoreConfig> response(client.GetStoreConfig());
     StoreConfig config;
     config.HandleNewConfig(*response);
-    string output;
-    config.DumpConfig(&output);
-    cout << output << "\n";
+    cout << config.DumpConfig() << "\n";
 
   } catch (exception &e) {
     cerr << e.what();

@@ -58,30 +58,25 @@ class DataStoreServer : private noncopyable {
       add_request_timer_("/openinstrument/store/add-requests"),
       list_request_timer_("/openinstrument/store/list-requests"),
       get_request_timer_("/openinstrument/store/get-requests") {
+    if (!store_config_.server(MyAddress()))
+      throw runtime_error(StringPrintf("Could not find local address %s in store config", MyAddress().c_str()));
+    store_config_.SetServerState(server_.address().ToString(), proto::StoreServer::STARTING);
     server_.request_handler()->AddPath("/add$", &DataStoreServer::HandleAdd, this);
     server_.request_handler()->AddPath("/list$", &DataStoreServer::HandleList, this);
     server_.request_handler()->AddPath("/get$", &DataStoreServer::HandleGet, this);
-    server_.request_handler()->AddPath("/push_config$", &DataStoreServer::HandlePushConfig, this);
+    server_.request_handler()->AddPath("/get_config$", &DataStoreServer::HandleGetConfig, this);
     server_.request_handler()->AddPath("/health$", &DataStoreServer::HandleHealth, this);
     server_.AddExportHandler();
     // Export stats every minute
     VariableExporter::GetGlobalExporter()->SetExportLabel("job", "datastore");
     VariableExporter::GetGlobalExporter()->SetExportLabel("hostname", Socket::Hostname());
-    VariableExporter::GetGlobalExporter()->StartExportThread(StringPrintf("localhost:%lu", FLAGS_port), 60);
-    store_config_.SetServerState(server_.address().ToString(), proto::StoreServer::STARTING);
+    VariableExporter::GetGlobalExporter()->StartExportThread(MyAddress(), 60);
+    store_config_.SetServerState(MyAddress(), proto::StoreServer::RUNNING);
   }
 
-  bool HandlePushConfig(const HttpRequest &request, HttpReply *reply) {
-    proto::StoreConfig config;
-    if (!UnserializeProtobuf(request.body(), &config)) {
-      reply->SetStatus(HttpReply::BAD_REQUEST);
-      reply->mutable_body()->clear();
-      reply->mutable_body()->CopyFrom("Invalid Request\n");
-      return true;
-    }
+  bool HandleGetConfig(const HttpRequest &request, HttpReply *reply) {
     reply->SetStatus(HttpReply::OK);
     reply->SetContentType("application/base64");
-    store_config_.HandleNewConfig(config);
     if (!SerializeProtobuf(store_config_.config(), reply->mutable_body())) {
       reply->SetStatus(HttpReply::INTERNAL_SERVER_ERROR);
       reply->mutable_body()->clear();
@@ -391,12 +386,15 @@ class DataStoreServer : private noncopyable {
     }
 
     proto::AddResponse response;
+    response.set_success(true);
+    unordered_map<string, proto::AddRequest> forward_requests;
     Timestamp now;
     for (int streamid = 0; streamid < req.stream_size(); streamid++) {
       proto::ValueStream *stream = req.mutable_stream(streamid);
       Variable var(stream->variable());
       if (var.GetLabel("hostname").empty()) {
-        // Force "hostname" to be set on every value stream
+        // Force "hostname" to be set on every value stream. This must be done before forwarding so that the source
+        // address is correct.
         var.SetLabel("hostname", request.source.AddressToString());
       }
       // Canonicalize the variable name
@@ -407,6 +405,15 @@ class DataStoreServer : private noncopyable {
             var.variable().size() < 2 ||
             var.variable().find_first_of("\n\t ") != string::npos) {
           throw runtime_error(StringPrintf("Invalid variable name"));
+        }
+        string node = store_config_.hash_ring().GetNode(var.ToString());
+        if (node != MyAddress() || !req.forwarded()) {
+          // This variable should be stored on another storage server, add it to the list of streams to forward
+          proto::AddRequest &forwardreq = forward_requests[node];
+          forwardreq.set_forwarded(true);
+          proto::ValueStream *forwardstream = forwardreq.add_stream();
+          forwardstream->CopyFrom(*stream);
+          continue;
         }
         for (int valueid = 0; valueid < stream->value_size(); valueid++) {
           const proto::Value &value = stream->value(valueid);
@@ -420,7 +427,6 @@ class DataStoreServer : private noncopyable {
 
           datastore.Record(var, ts, value);
         }
-        response.set_success(true);
       } catch (exception &e) {
         LOG(WARNING) << e.what();
         response.set_success(false);
@@ -428,6 +434,21 @@ class DataStoreServer : private noncopyable {
         break;
       }
     }
+
+    // Forward on any streams that should go to other storage servers.
+    for (unordered_map<string, proto::AddRequest>::iterator i = forward_requests.begin(); i != forward_requests.end();
+         ++i) {
+      try {
+        StoreClient client(i->first);
+        scoped_ptr<proto::AddResponse> response(client.Add(i->second));
+        VLOG(3) << "Forwarded " << i->second.stream_size() << " streams to " << i->first << ", response is "
+                << response->success();
+      } catch (exception e) {
+        LOG(WARNING) << "Attempt to forward " << i->second.stream_size() << " streams to " << i->first
+                     << "failed!";
+      }
+    }
+
 
     reply->SetStatus(HttpReply::OK);
     reply->SetContentType("application/base64");
@@ -440,6 +461,10 @@ class DataStoreServer : private noncopyable {
   }
 
  private:
+  string MyAddress() const {
+    return server_.address().ToString();
+  }
+
   DiskDatastore datastore;
   DefaultThreadPoolPolicy thread_pool_policy_;
   ThreadPool thread_pool_;

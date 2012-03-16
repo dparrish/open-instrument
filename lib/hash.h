@@ -47,6 +47,10 @@ class HashRing {
     }
   }
 
+  void Clear() {
+    ring_.clear();
+  }
+
   void RemoveNode(const Node &node) {
     for (unsigned int r = 0; r < replicas_; r++) {
       uint32_t hash = Hash::Hash32(StringPrintf("%s%s", lexical_cast<string>(node).c_str(), r));

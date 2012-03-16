@@ -89,6 +89,10 @@ message GetRequest {
 
   // Limit to how many variables can be returned in a standard GetRequest. This can be overridden if required.
   optional uint32 max_variables = 8 [ default = 100 ];
+
+  // This request has been forwarded by another store server and should not be forwarded again.
+  // This shouldn't happen but is here as a failsafe.
+  optional bool forwarded = 9 [ default = false ];
 }
 
 message GetResponse {
@@ -102,6 +106,10 @@ message GetResponse {
 
 message AddRequest {
   repeated ValueStream stream = 1;
+
+  // This request has been forwarded by another store server and should not be forwarded again.
+  // This shouldn't happen but is here as a failsafe.
+  optional bool forwarded = 2 [ default = false ];
 }
 
 message AddResponse {
@@ -147,10 +155,10 @@ message StoreServer {
   }
   required string address = 1;
   optional State state = 2;
+  optional uint64 last_updated = 3;
 }
 
 message StoreConfig {
   repeated StoreServer server = 1;
-  required uint64 last_update = 2;
 }
 

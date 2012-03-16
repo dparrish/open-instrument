@@ -13,22 +13,27 @@
 #include <string>
 #include <google/protobuf/text_format.h>
 #include "lib/common.h"
+#include "lib/exported_vars.h"
 #include "lib/file.h"
+#include "lib/hash.h"
 #include "lib/openinstrument.pb.h"
 #include "lib/protobuf.h"
 #include "lib/store_client.h"
-#include "lib/exported_vars.h"
 
 namespace openinstrument {
 
 class StoreConfig : private noncopyable {
  public:
-  StoreConfig() : config_thread_(NULL), shutdown_(false) {}
+  typedef HashRing<string, string> HashRingType;
+
+  StoreConfig() : config_thread_(NULL), shutdown_(false), config_stat_("/dev/null"), ring_(2) {}
 
   explicit StoreConfig(const string &config_file)
     : config_file_(config_file),
       config_thread_(NULL),
-      shutdown_(false) {
+      shutdown_(false),
+      config_stat_("/dev/null"),
+      ring_(2) {
     ReadConfigFile();
     WaitForConfigLoad();
     config_thread_.reset(new thread(bind(&StoreConfig::ConfigThread, this)));
@@ -49,20 +54,19 @@ class StoreConfig : private noncopyable {
   }
 
   void ConfigThread() {
-    FileStat stat("/dev/null");
     while (!shutdown_) {
       FileStat newstat(config_file_);
       if (!newstat.exists()) {
         sleep(1);
         continue;
       }
-      if (stat.ino() != newstat.ino() || stat.mtime() != newstat.mtime() || stat.size() != newstat.size()) {
+      if (config_stat_.ino() != newstat.ino() ||
+          config_stat_.mtime() != newstat.mtime() ||
+          config_stat_.size() != newstat.size()) {
         // Config file has been modified
         VLOG(1) << "Config file modified, reloading";
         ReadConfigFile();
-        DistributeConfig();
-        stat = newstat;
-        continue;
+        config_stat_ = newstat;
       }
       sleep(1);
     }
@@ -75,29 +79,38 @@ class StoreConfig : private noncopyable {
       config_thread_->join();
   }
 
-  bool HandleNewConfig(const proto::StoreConfig &config) {
+  void set_config(const proto::StoreConfig &config) {
+    config_.CopyFrom(config);
+  }
+
+  void HandleNewConfig(const proto::StoreConfig &config) {
+    VLOG(1) << "Loaded new configuration with changes";
     MutexLock lock(mutex_);
-    if (config.last_update() > config_.last_update()) {
-      // Config is newer than current, save it
-      config_.CopyFrom(config);
-      WriteConfigFile();
-      VLOG(1) << "Loaded new configuration";
-      return true;
-    } else if (config.last_update() == config_.last_update()) {
-      return false;
-    } else {
-      LOG(WARNING) << "Discarding new config with older timestamp";
-    }
-    return false;
+    config_.CopyFrom(config);
+    UpdateHashRing();
+    RunCallbacks();
   }
 
   bool ReadConfig(const string &input) {
     proto::StoreConfig new_config;
     if (google::protobuf::TextFormat::MergeFromString(input, &new_config)) {
-      return HandleNewConfig(new_config);
+      HandleNewConfig(new_config);
+      return true;
     }
     LOG(WARNING) << "Error reading new config";
     return false;
+  }
+
+  void UpdateHashRing() {
+    ring_.Clear();
+    for (int i = 0 ; i < config_.server_size(); i++) {
+      const proto::StoreServer &server = config_.server(i);
+      ring_.AddNode(server.address());
+    }
+  }
+
+  const HashRingType &hash_ring() const {
+    return ring_;
   }
 
   proto::StoreServer::State GetServerState(const string &address) const {
@@ -112,20 +125,29 @@ class StoreConfig : private noncopyable {
   }
 
   void SetServerState(const string &address, proto::StoreServer::State state) {
-    MutexLock lock(mutex_);
-    bool found = false;
-    LOG(INFO) << "Setting state for " << address << " to " << state;
+    VLOG(3) << "Setting state for " << address << " to " << state;
+    mutex_.lock();
     for (int i = 0 ; i < config_.server_size(); i++) {
       proto::StoreServer *server = config_.mutable_server(i);
       if (server->address() == address) {
         server->set_state(state);
-        found = true;
+        server->set_last_updated(Timestamp::Now());
+        mutex_.unlock();
+        WriteConfigFile();
+        return;
       }
     }
-    if (found) {
-      SetLastUpdateTime();
-      DistributeConfig();
+    mutex_.unlock();
+    LOG(INFO) << "Done setting server state";
+  }
+
+  proto::StoreServer *server(const string &address) {
+    for (int i = 0 ; i < config_.server_size(); i++) {
+      proto::StoreServer *server = config_.mutable_server(i);
+      if (server->address() == address)
+        return server;
     }
+    return NULL;
   }
 
   bool ReadConfigFile() {
@@ -146,52 +168,32 @@ class StoreConfig : private noncopyable {
   }
 
   void WaitForConfigLoad() {
-    initial_load_notify_.WaitForNotification();
-    sleep(10);
-  }
-
-  void WriteConfigFile() const {
     if (config_file_.empty())
       return;
-    string output;
-    DumpConfig(&output);
+    LOG(INFO) << "Waiting for initial config load";
+    initial_load_notify_.WaitForNotification();
+    LOG(INFO) << "Done waiting for initial config load";
+  }
+
+  void WriteConfigFile() {
+    if (config_file_.empty())
+      return;
     File fh(config_file_, "w");
+    string output = DumpConfig();
     fh.Write(output);
-    LOG(INFO) << "Wrote config file to " << config_file_;
+    fh.Close();
+    config_stat_ = FileStat(config_file_);
   }
 
-  void DumpConfig(string *output) const {
-    google::protobuf::TextFormat::PrintToString(config_, output);
-  }
-
-  void DistributeConfig() {
-    for (int i = 0 ; i < config_.server_size(); i++) {
-      const proto::StoreServer &server = config_.server(i);
-      PushConfig(server.address());
-    }
-  }
-
-  void PushConfig(const string &address) {
-    try {
-      VLOG(3) << "Pushing config to server " << address;
-      StoreClient client(address);
-      scoped_ptr<proto::StoreConfig> response(client.PushStoreConfig(config_));
-      StoreConfig other_config;
-      other_config.HandleNewConfig(*response);
-      if (HandleNewConfig(*response)) {
-        LOG(INFO) << "Pushed config to " << address << " which had a newer config";
-      }
-    } catch (const exception &e) {
-      LOG(WARNING) << "Couldn't push config to " << address << ", trying again later: " << e.what();
-    }
+  string DumpConfig() const {
+    string output;
+    MutexLock lock(mutex_);
+    google::protobuf::TextFormat::PrintToString(config_, &output);
+    return output;
   }
 
   const proto::StoreConfig &config() const {
     return config_;
-  }
-
-  void SetLastUpdateTime() {
-    config_.set_last_update(Timestamp::Now());
   }
 
  private:
@@ -202,6 +204,9 @@ class StoreConfig : private noncopyable {
   bool shutdown_;
   vector<Callback> reload_callbacks_;
   Notification initial_load_notify_;
+  FileStat config_stat_;
+  string my_address_;
+  HashRingType ring_;
 };
 
 }  // namespace openinstrument
