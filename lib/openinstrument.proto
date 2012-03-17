@@ -32,6 +32,8 @@ message StreamMutation {
     RATE_SIGNED = 5;
     // Difference between each point
     DELTA = 6;
+    // Latest point
+    LATEST = 7;
   }
   required SampleType sample_type = 1;
 
@@ -147,7 +149,7 @@ message RetentionPolicyItem {
     KEEP = 1;
     DROP = 2;
   }
-  required StreamVariable variable = 1;
+  repeated StreamVariable variable = 1;
   repeated string comment = 2;
   required Target policy = 3;
 

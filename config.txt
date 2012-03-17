@@ -35,6 +35,18 @@ retention_policy {
     policy: KEEP
   }
   policy {
+    comment: "These strings almost never change, so only keep daily values after a week"
+    variable: { name: "/openinstrument/process/os-name" }
+    variable: { name: "/openinstrument/process/os-arch" }
+    policy: KEEP
+    min_age: 604800000
+    max_age: 157680000000
+    mutation {
+      sample_type: LATEST
+      sample_frequency: 86400000
+    }
+  }
+  policy {
     comment: "Keep everything for 28 days at full resolution."
     comment: "Assuming a poll every 5 minutes, this will store 6912 data points per variable."
     comment: "using a total of 126k of storage."

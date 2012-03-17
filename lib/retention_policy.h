@@ -23,10 +23,6 @@ class RetentionPolicy {
     : config_(config) {
   }
 
-  bool ValidateRetentionPolicy() {
-    return true;
-  }
-
   const proto::RetentionPolicyItem &GetPolicy(const Variable &variable, uint64_t age) const {
     static proto::RetentionPolicyItem default_policy;
     default_policy.set_policy(proto::RetentionPolicyItem::DROP);
@@ -34,22 +30,24 @@ class RetentionPolicy {
             << " old";
     for (int i = 0; i < config_->config().retention_policy().policy_size(); i++) {
       const proto::RetentionPolicyItem &item = config_->config().retention_policy().policy(i);
-      Variable match(item.variable());
-      if (!variable.Matches(match)) {
-        VLOG(3) << "  No match for " << match.ToString();
-        continue;
+      for (int j = 0; j < item.variable_size(); j++) {
+        Variable match(item.variable(j));
+        if (!variable.Matches(match)) {
+          VLOG(4) << "  No match for " << match.ToString();
+          continue;
+        }
+        if (item.min_age() && age < item.min_age()) {
+          VLOG(4) << "  Skipping " << match.ToString() << ", var is too new (" << age << " < " << item.min_age() << ")";
+          continue;
+        }
+        if (item.max_age() && age > item.max_age()) {
+          VLOG(4) << "  Skipping " << match.ToString() << ", var is too old (" << age << " > " << item.max_age() << ")";
+          continue;
+        }
+        VLOG(4) << "  Match for " << match.ToString() << " " << Duration(item.min_age()).ToString() << " < "
+                << Duration(age).ToString() << " < " << Duration(item.max_age()).ToString();
+        return item;
       }
-      if (item.min_age() && age < item.min_age()) {
-        VLOG(4) << "  Skipping " << match.ToString() << ", var is too new (" << age << " < " << item.min_age() << ")";
-        continue;
-      }
-      if (item.max_age() && age > item.max_age()) {
-        VLOG(4) << "  Skipping " << match.ToString() << ", var is too old (" << age << " > " << item.max_age() << ")";
-        continue;
-      }
-      VLOG(4) << "  Match for " << match.ToString() << " " << Duration(item.min_age()).ToString() << " < "
-              << Duration(age).ToString() << " < " << Duration(item.max_age()).ToString();
-      return item;
     }
     return default_policy;
   }

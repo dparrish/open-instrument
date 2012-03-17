@@ -23,9 +23,9 @@ endif
 	@$(LD) -o $@ $< $(LDFLAGS) $(LIBS) $(TEST_LIBS) $(EXTRA_LIBS_$@)
 	@echo "Running $@"
 	@if test -f /`which valgrind 2>/dev/null`; then \
-		valgrind -q ./$@ || (rm -f $@ && exit 1) \
+		valgrind -q ./$@ $(TEST_ARGS) || (rm -f $@ && exit 1) \
 	else \
-		./$@ || (rm -f $@ && exit 1) \
+		./$@ $(TEST_ARGS) || (rm -f $@ && exit 1) \
 	fi
 
 %.a:

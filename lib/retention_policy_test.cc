@@ -34,14 +34,37 @@ TEST_F(RetentionPolicyTest, ShouldDrop) {
   EXPECT_EQ(0, policy.GetPolicy(Variable("/junk/var"), Duration("1d")).mutation_size());
   EXPECT_EQ(1, policy.GetPolicy(Variable("/junk/var"), Duration("2y")).mutation_size());
   EXPECT_EQ(0, policy.GetPolicy(Variable("/junk/var"), Duration("100y")).mutation_size());
-  const proto::StreamMutation &mutation = policy.GetPolicy(Variable("/junk/var{var=foo}"), Duration("2y")).mutation(0);
-  EXPECT_EQ(proto::StreamMutation::AVERAGE, mutation.sample_type());
-  EXPECT_EQ(Duration("1h"), mutation.sample_frequency());
+  {
+    const proto::StreamMutation &mutation = policy.GetPolicy(Variable("/junk/var{var=foo}"), Duration("2y"))
+        .mutation(0);
+    EXPECT_EQ(proto::StreamMutation::AVERAGE, mutation.sample_type());
+    EXPECT_EQ(Duration("1h"), mutation.sample_frequency());
+  }
+
+  {
+    EXPECT_EQ(1, policy.GetPolicy(Variable("/openinstrument/process/os-name"), Duration("2w")).mutation_size());
+    const proto::StreamMutation &mutation = policy.GetPolicy(Variable("/openinstrument/process/os-name"),
+        Duration("2w")).mutation(0);
+    EXPECT_EQ(proto::StreamMutation::LATEST, mutation.sample_type());
+    EXPECT_EQ(Duration("1d"), mutation.sample_frequency());
+  }
+
+  {
+    EXPECT_EQ(1, policy.GetPolicy(Variable("/openinstrument/process/os-arch"), Duration("2w")).mutation_size());
+    const proto::StreamMutation &mutation = policy.GetPolicy(Variable("/openinstrument/process/os-arch"),
+        Duration("2w")).mutation(0);
+    EXPECT_EQ(proto::StreamMutation::LATEST, mutation.sample_type());
+    EXPECT_EQ(Duration("1d"), mutation.sample_frequency());
+  }
+
+  EXPECT_TRUE(policy.ShouldDrop(policy.GetPolicy(Variable("/openinstrument/process/os-name"), Duration("6y"))));
+  EXPECT_TRUE(policy.ShouldDrop(policy.GetPolicy(Variable("/openinstrument/process/os-arch"), Duration("6y"))));
 }
 
 }  // namespace
 
 int main(int argc, char **argv) {
+  google::ParseCommandLineFlags(&argc, &argv, true);
   ::testing::InitGoogleTest(&argc, argv);
   return RUN_ALL_TESTS();
 }

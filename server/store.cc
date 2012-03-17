@@ -56,10 +56,12 @@ class DataStoreServer : private noncopyable {
       static_dir_("/static", "static", &server_),
       favicon_file_("/favicon.ico", "static/favicon.ico", &server_),
       store_config_(StringPrintf("%s/config.txt", FLAGS_datastore.c_str())),
+      retention_policy_(&store_config_),
       add_request_timer_("/openinstrument/store/add-requests"),
       list_request_timer_("/openinstrument/store/list-requests"),
       get_request_timer_("/openinstrument/store/get-requests"),
-      forwarded_streams_ratio_("/openinstrument/store/forwarded-streams") {
+      forwarded_streams_ratio_("/openinstrument/store/forwarded-streams"),
+      retention_policy_drops_("/openinstrument/store/retention-policy/values-dropped") {
     if (!store_config_.server(MyAddress()))
       throw runtime_error(StringPrintf("Could not find local address %s in store config", MyAddress().c_str()));
     store_config_.SetServerState(server_.address().ToString(), proto::StoreServer::STARTING);
@@ -420,6 +422,11 @@ class DataStoreServer : private noncopyable {
         for (int valueid = 0; valueid < stream->value_size(); valueid++) {
           const proto::Value &value = stream->value(valueid);
           Timestamp ts(value.timestamp());
+          if (retention_policy_.ShouldDrop(retention_policy_.GetPolicy(var, now.ms() - ts.ms()))) {
+            // Retention policy says this variable should be dropped, so just ignore it
+            ++retention_policy_drops_;
+            continue;
+          }
           if (ts.ms() > now.ms() + 1000)
             // Allow up to 1 second clock drift
             throw runtime_error(StringPrintf("Attempt to set value in the future (t=%0.3f, now=%0.3f)", ts.seconds(),
@@ -476,11 +483,13 @@ class DataStoreServer : private noncopyable {
   http::HttpStaticDir static_dir_;
   http::HttpStaticFile favicon_file_;
   StoreConfig store_config_;
+  RetentionPolicy retention_policy_;
 
   ExportedTimer add_request_timer_;
   ExportedTimer list_request_timer_;
   ExportedTimer get_request_timer_;
   ExportedRatio forwarded_streams_ratio_;
+  ExportedInteger retention_policy_drops_;
 };
 
 }  // namespace openinstrument
