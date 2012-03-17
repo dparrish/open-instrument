@@ -57,7 +57,8 @@ class DataStoreServer : private noncopyable {
       store_config_(StringPrintf("%s/config.txt", FLAGS_datastore.c_str())),
       add_request_timer_("/openinstrument/store/add-requests"),
       list_request_timer_("/openinstrument/store/list-requests"),
-      get_request_timer_("/openinstrument/store/get-requests") {
+      get_request_timer_("/openinstrument/store/get-requests"),
+      forwarded_streams_ratio_("/openinstrument/store/forwarded-streams") {
     if (!store_config_.server(MyAddress()))
       throw runtime_error(StringPrintf("Could not find local address %s in store config", MyAddress().c_str()));
     store_config_.SetServerState(server_.address().ToString(), proto::StoreServer::STARTING);
@@ -443,9 +444,11 @@ class DataStoreServer : private noncopyable {
         scoped_ptr<proto::AddResponse> response(client.Add(i->second));
         VLOG(3) << "Forwarded " << i->second.stream_size() << " streams to " << i->first << ", response is "
                 << response->success();
+        forwarded_streams_ratio_.success();
       } catch (exception e) {
         LOG(WARNING) << "Attempt to forward " << i->second.stream_size() << " streams to " << i->first
-                     << "failed!";
+                     << " failed!";
+        forwarded_streams_ratio_.failure();
       }
     }
 
@@ -476,6 +479,7 @@ class DataStoreServer : private noncopyable {
   ExportedTimer add_request_timer_;
   ExportedTimer list_request_timer_;
   ExportedTimer get_request_timer_;
+  ExportedRatio forwarded_streams_ratio_;
 };
 
 }  // namespace openinstrument
