@@ -80,10 +80,11 @@ store.o: store.cc $(BASEDIR)/lib/atomic.h \
  $(BASEDIR)/lib/http_static_dir.h \
  $(BASEDIR)/lib/mime_types.h \
  $(BASEDIR)/lib/trie.h \
+ $(BASEDIR)/lib/retention_policy.h \
+ $(BASEDIR)/server/store_config.h \
+ $(BASEDIR)/lib/hash.h \
+ $(BASEDIR)/lib/store_client.h \
  $(BASEDIR)/lib/threadpool.h \
  $(BASEDIR)/server/datastore.h \
  $(BASEDIR)/server/disk_datastore.h \
- $(BASEDIR)/server/record_log.h \
- $(BASEDIR)/server/store_config.h \
- $(BASEDIR)/lib/hash.h \
- $(BASEDIR)/lib/store_client.h
+ $(BASEDIR)/server/record_log.h

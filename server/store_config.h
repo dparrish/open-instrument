@@ -53,32 +53,6 @@ class StoreConfig : private noncopyable {
     }
   }
 
-  void ConfigThread() {
-    while (!shutdown_) {
-      FileStat newstat(config_file_);
-      if (!newstat.exists()) {
-        sleep(1);
-        continue;
-      }
-      if (config_stat_.ino() != newstat.ino() ||
-          config_stat_.mtime() != newstat.mtime() ||
-          config_stat_.size() != newstat.size()) {
-        // Config file has been modified
-        VLOG(1) << "Config file modified, reloading";
-        ReadConfigFile();
-        config_stat_ = newstat;
-      }
-      sleep(1);
-    }
-    LOG(INFO) << "Configuration thread shutting down";
-  }
-
-  void KillConfigThread() {
-    shutdown_ = true;
-    if (config_thread_.get())
-      config_thread_->join();
-  }
-
   void set_config(const proto::StoreConfig &config) {
     config_.CopyFrom(config);
   }
@@ -170,9 +144,7 @@ class StoreConfig : private noncopyable {
   void WaitForConfigLoad() {
     if (config_file_.empty())
       return;
-    LOG(INFO) << "Waiting for initial config load";
     initial_load_notify_.WaitForNotification();
-    LOG(INFO) << "Done waiting for initial config load";
   }
 
   void WriteConfigFile() {
@@ -197,6 +169,32 @@ class StoreConfig : private noncopyable {
   }
 
  private:
+  void ConfigThread() {
+    while (!shutdown_) {
+      FileStat newstat(config_file_);
+      if (!newstat.exists()) {
+        sleep(1);
+        continue;
+      }
+      if (config_stat_.ino() != newstat.ino() ||
+          config_stat_.mtime() != newstat.mtime() ||
+          config_stat_.size() != newstat.size()) {
+        // Config file has been modified
+        VLOG(1) << "Config file modified, reloading";
+        ReadConfigFile();
+        config_stat_ = newstat;
+      }
+      sleep(1);
+    }
+    LOG(INFO) << "Configuration thread shutting down";
+  }
+
+  void KillConfigThread() {
+    shutdown_ = true;
+    if (config_thread_.get())
+      config_thread_->join();
+  }
+
   proto::StoreConfig config_;
   string config_file_;
   mutable Mutex mutex_;

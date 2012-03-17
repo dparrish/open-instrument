@@ -22,6 +22,7 @@
 #include "lib/http_static_dir.h"
 #include "lib/openinstrument.pb.h"
 #include "lib/protobuf.h"
+#include "lib/retention_policy.h"
 #include "lib/string.h"
 #include "lib/threadpool.h"
 #include "lib/timer.h"

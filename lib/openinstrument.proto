@@ -142,6 +142,24 @@ message StoreFileHeader {
 }
 
 
+message RetentionPolicyItem {
+  enum Target {
+    KEEP = 1;
+    DROP = 2;
+  }
+  required StreamVariable variable = 1;
+  repeated string comment = 2;
+  required Target policy = 3;
+
+  repeated StreamMutation mutation = 4;
+  optional uint64 min_age = 5 [ default = 0 ];
+  optional uint64 max_age = 6 [ default = 0 ];
+}
+
+message RetentionPolicy {
+  repeated RetentionPolicyItem policy = 1;
+}
+
 message StoreServer {
   enum State {
     UNKNOWN = 0;
@@ -160,5 +178,5 @@ message StoreServer {
 
 message StoreConfig {
   repeated StoreServer server = 1;
+  optional RetentionPolicy retention_policy = 2;
 }
-

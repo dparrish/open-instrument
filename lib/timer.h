@@ -62,6 +62,10 @@ class Timestamp {
     return static_cast<double>(ms / 1000.0);
   }
 
+  inline operator uint64_t() const {
+    return ms_;
+  }
+
   inline void operator=(const Timestamp &other) {
     ms_ = other.ms();
   }

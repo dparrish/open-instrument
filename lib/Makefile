@@ -1,6 +1,6 @@
 TARGETS=libopeninstrument.a $(BASEDIR)/static/openinstrument.pb.js
-TESTS=hash_test file_test variable_test string_test timer_test uri_test exported_vars_test cord_test \
-      socket_test protobuf_test counter_test trie_test
+TESTS=retention_policy_test hash_test file_test variable_test string_test timer_test uri_test exported_vars_test \
+      cord_test socket_test protobuf_test counter_test trie_test
 OBJS=openinstrument.pb.o common.o hash.o threadpool.o string.o uri.o exported_vars.o base64.o protobuf.o \
      cord.o socket.o http_message.o http_server.o http_client.o http_reply.o http_request.o store_client.o \
      http_static_dir.o closure.o mime_types.o file.o counter.o timer.o variable.o
@@ -201,6 +201,23 @@ protobuf_test.o: protobuf_test.cc \
  $(BASEDIR)/lib/cord.h \
  $(BASEDIR)/lib/timer.h \
  $(BASEDIR)/lib/variable.h
+retention_policy_test.o: retention_policy_test.cc \
+ $(BASEDIR)/lib/retention_policy.h \
+ $(BASEDIR)/lib/common.h \
+ $(BASEDIR)/lib/closure.h \
+ $(BASEDIR)/lib/string.h \
+ $(BASEDIR)/server/store_config.h \
+ $(BASEDIR)/lib/exported_vars.h \
+ $(BASEDIR)/lib/atomic.h \
+ $(BASEDIR)/lib/protobuf.h \
+ $(BASEDIR)/lib/cord.h \
+ $(BASEDIR)/lib/file.h \
+ $(BASEDIR)/lib/openinstrument.pb.h \
+ $(BASEDIR)/lib/timer.h \
+ $(BASEDIR)/lib/variable.h \
+ $(BASEDIR)/lib/hash.h \
+ $(BASEDIR)/lib/store_client.h \
+ $(BASEDIR)/lib/socket.h
 socket.o: socket.cc $(BASEDIR)/lib/common.h \
  $(BASEDIR)/lib/closure.h \
  $(BASEDIR)/lib/string.h \
