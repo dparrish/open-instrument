@@ -1,0 +1,61 @@
+server {
+  address: "192.168.1.5:8020"
+}
+server {
+  address: "192.168.1.6:8020"
+}
+# The retention policy is first-match
+# You can estimate the size of the data store required.
+#   n = number of devices monitored
+#   t = average number of variables per device
+#   s = average value size (bytes)
+#
+# Assume n = 100, t = 1000, s = 16, using the sample retention policy here:
+#   1 month retention for 1 device = t * 28 * 86400 / 300 * s = 123M
+#   5 year retention for 1 device = t * 5 * 365 * 86400 / 3600 * s = 668M
+#   total values = n * t * ((5 * 365 * 86400 / 3600) + (28 * 86400 / 300))
+#                = 5.2 billion
+#   total storage = n * t * s * ((5 * 365 * 86400 / 3600) + (28 * 86400 / 300))
+#                 = 77G
+retention_policy {
+  policy {
+    comment: "We don't use cpusets, always drop this variable"
+    variable { name: "/openinstrument/process/cpuset" }
+    policy: DROP
+  }
+  policy {
+    comment: "Keep everything with the label retain = forever at the original resolution."
+    variable {
+      name: "*"
+      label {
+        label: "retain"
+        value: "forever"
+      }
+    }
+    policy: KEEP
+  }
+  policy {
+    comment: "Keep everything for 28 days at full resolution."
+    comment: "Assuming a poll every 5 minutes, this will store 6912 data points per variable."
+    comment: "using a total of 126k of storage."
+    variable { name: "*" }
+    policy: KEEP
+    min_age: 0
+    max_age: 2419200000
+  }
+  policy {
+    comment: "Keep everything beteen 28 days and 5 years at 1 hour resolution."
+    comment: "This will keep in 43800 data points for each variable."
+    comment: "Assuming each value is a double, this will use around 684k per variable for 5 years of history."
+    comment: "With run-length encoding, this will be much lower for variables that don't change frequently."
+    variable { name: "*" }
+    policy: KEEP
+    min_age: 2419200000
+    max_age: 157680000000
+    mutation {
+      sample_type: AVERAGE
+      sample_frequency: 3600000
+    }
+  }
+  # Default policy is to drop everything else
+}
