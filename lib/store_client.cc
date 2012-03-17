@@ -43,9 +43,8 @@ StoreClient::StoreClient(const Socket::Address &address)
     address_(address),
     request_timer_("/openinstrument/client/store/all-requests") {}
 
-template<typename ResponseType>
-void StoreClient::SendRequest(const Socket::Address &address, const string &path,
-                              const google::protobuf::Message &request, ResponseType *response) {
+void StoreClient::SendRequestToHost(const Socket::Address &address, const string &path,
+                                    const google::protobuf::Message &request, google::protobuf::Message *response) {
   ScopedExportTimer t(&request_timer_);
 
   if (address.address == 0)
@@ -72,23 +71,7 @@ void StoreClient::SendRequest(const Socket::Address &address, const string &path
 
 template<typename ResponseType>
 void StoreClient::SendRequest(const string &path, const google::protobuf::Message &request, ResponseType *response) {
-  return SendRequest(address_, path, request, response);
-}
-
-template<typename ResponseType>
-void StoreClient::SendRequestToCluster(const string &path, const google::protobuf::Message &request,
-                              vector<ResponseType *> *responses) {
-  // Send request to all storage servers
-  for (int i = 0; i < store_config_->config().server_size(); i++) {
-    const proto::StoreServer &server = store_config_->config().server(i);
-    scoped_ptr<ResponseType> response(new ResponseType());
-    SendRequest(Socket::Address(server.address()), path, request, response.get());
-    if (!response->success()) {
-      LOG(WARNING) << "Server Error from " << server.address() << ": %s" <<  response->errormessage();
-    } else {
-      responses->push_back(response.release());
-    }
-  }
+  return SendRequestToHost(address_, path, request, response);
 }
 
 proto::AddResponse *StoreClient::Add(const proto::AddRequest &req) {
@@ -103,7 +86,16 @@ proto::ListResponse *StoreClient::List(const proto::ListRequest &req) {
   if (store_config_) {
     // Send request to all storage servers
     vector<proto::ListResponse *> responses;
-    SendRequestToCluster("/list", req, &responses);
+    BackgroundExecutor executor;
+    for (int i = 0; i < store_config_->config().server_size(); i++) {
+      const proto::StoreServer &server = store_config_->config().server(i);
+      proto::ListResponse *response = new proto::ListResponse();
+      responses.push_back(response);
+      executor.Add(bind(&StoreClient::SendRequestToHost, this, Socket::Address(server.address()), "/list", req,
+                        response));
+    }
+    executor.JoinThreads();
+
     scoped_ptr<proto::ListResponse> output(new proto::ListResponse());
     output->set_success(false);
     output->set_errormessage("No responses");
@@ -138,7 +130,15 @@ proto::GetResponse *StoreClient::Get(const proto::GetRequest &req) {
   if (store_config_) {
     // Send request to all storage servers
     vector<proto::GetResponse *> responses;
-    SendRequestToCluster("/get", req, &responses);
+    BackgroundExecutor executor;
+    for (int i = 0; i < store_config_->config().server_size(); i++) {
+      const proto::StoreServer &server = store_config_->config().server(i);
+      proto::GetResponse *response = new proto::GetResponse();
+      responses.push_back(response);
+      executor.Add(bind(&StoreClient::SendRequestToHost, this, Socket::Address(server.address()), "/get", req,
+                        response));
+    }
+    executor.JoinThreads();
 
     scoped_ptr<proto::GetResponse> output(new proto::GetResponse());
     output->set_success(false);

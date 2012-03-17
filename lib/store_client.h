@@ -31,13 +31,8 @@ class StoreClient : private noncopyable {
   explicit StoreClient(const string &address);
   explicit StoreClient(const Socket::Address &address);
 
-  template<typename ResponseType>
-  void SendRequestToCluster(const string &path, const google::protobuf::Message &request,
-                            vector<ResponseType *> *responses);
-
-  template<typename ResponseType>
-  void SendRequest(const Socket::Address &address, const string &path, const google::protobuf::Message &request,
-                   ResponseType *response);
+  void SendRequestToHost(const Socket::Address &address, const string &path, const google::protobuf::Message &request,
+                         google::protobuf::Message *response);
 
   template<typename ResponseType>
   void SendRequest(const string &path, const google::protobuf::Message &request, ResponseType *response);

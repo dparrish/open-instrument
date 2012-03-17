@@ -33,32 +33,10 @@ class Executor {
 // is destroyed.
 class BackgroundExecutor : public Executor {
  public:
-  ~BackgroundExecutor() {
-    JoinThreads();
-  }
-
-  virtual void Add(const Callback &callback) {
-    threads_.push_back(new boost::thread(callback));
-    TryJoinThreads();
-  }
-
-  void TryJoinThreads() {
-    for (std::vector<boost::thread *>::iterator i = threads_.begin(); i != threads_.end(); ++i) {
-      if ((*i)->timed_join(boost::posix_time::seconds(0))) {
-        delete *i;
-        threads_.erase(i);
-        return TryJoinThreads();
-      }
-    }
-  }
-
-  void JoinThreads() {
-    for (std::vector<boost::thread *>::iterator i = threads_.begin(); i != threads_.end(); ++i) {
-      (*i)->join();
-      delete *i;
-    }
-    threads_.clear();
-  }
+  ~BackgroundExecutor();
+  virtual void Add(const Callback &callback);
+  void TryJoinThreads();
+  void JoinThreads();
 
  private:
   std::vector<boost::thread *> threads_;
