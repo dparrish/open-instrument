@@ -38,6 +38,8 @@ retention_policy {
     comment: "These strings almost never change, so only keep daily values after a week"
     variable: { name: "/openinstrument/process/os-name" }
     variable: { name: "/openinstrument/process/os-arch" }
+    variable: { name: "/openinstrument/process/os-version" }
+    variable: { name: "/openinstrument/process/nodename" }
     policy: KEEP
     min_age: 604800000
     max_age: 157680000000

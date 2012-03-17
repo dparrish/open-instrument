@@ -107,7 +107,6 @@ class StoreConfig : private noncopyable {
         server->set_state(state);
         server->set_last_updated(Timestamp::Now());
         mutex_.unlock();
-        WriteConfigFile();
         return;
       }
     }
