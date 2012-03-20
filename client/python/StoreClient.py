@@ -5,6 +5,7 @@
 __author__ = 'david@dparrish.com (David Parrish)'
 
 import base64
+import shlex
 import sys
 import urllib
 import urllib2
@@ -16,7 +17,7 @@ class StoreClient(object):
   address = None
   def __init__(self, address, port=None):
     if address.startswith("http://"):
-      address.rep("http://", "")
+      address.replace("http://", "")
     if port is not None:
       # Address and port specified separately
       self.address = "http://%s:%d" % (address, port)
@@ -49,9 +50,13 @@ class StoreClient(object):
 
 
 class Variable(object):
+  labels = {}
+  var = ""
   def __init__(self, var):
-    self.var = var
-    self.labels = {}
+    if isinstance(var, proto.StreamVariable):
+      self.FromProtobuf(var)
+    else:
+      self.ParseString(var.strip())
 
   def __str__(self):
     out = self.var
@@ -61,6 +66,36 @@ class Variable(object):
         labels.append('%s="%s"' % (key, value))
       out += "{%s}" % (",".join(labels))
     return out
+
+  def FromProtobuf(self, proto):
+    self.var = proto.name
+    self.labels = {}
+    for i in proto.label:
+      self.SetLabel(i.label, i.value)
+
+  def ToProtobuf(self, proto):
+    proto.name = self.var
+    for key, value in self.labels.items():
+      label = proto.label.add()
+      label.label = key
+      label.value = value
+
+  def ParseString(self, var):
+    index = var.find("{")
+    if index < 0:
+      self.var = var
+      return
+    self.var = var[0:index]
+    splitter = shlex.shlex(var[index + 1:-1], posix=True)
+    splitter.shitespace = ","
+    splitter.whitespace_split = True
+    for label in splitter:
+      try:
+        (key, value) = label.split("=", 1)
+        value = value.strip("\"',");
+        self.SetLabel(key, value)
+      except:
+        continue
 
   def SetLabel(self, label, value):
     self.labels[label] = value
