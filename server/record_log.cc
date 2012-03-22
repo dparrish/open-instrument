@@ -150,17 +150,31 @@ void RecordLog::ReindexRecordLog() {
     proto::ValueStream stream;
     while (reader.Next(&stream)) {
       input_streams++;
-      MapType::iterator it = log_data.find(Variable(stream.variable()).ToString());
+      Variable variable(stream.variable());
+      if (stream.has_deprecated_string_variable())
+        variable.FromString(stream.deprecated_string_variable());
+      MapType::iterator it = log_data.find(variable.ToString());
       if (it == log_data.end()) {
-        log_data.insert(Variable(stream.variable()).ToString(), proto::ValueStream());
-        it = log_data.find(Variable(stream.variable()).ToString());
-        it->mutable_variable()->CopyFrom(stream.variable());
+        log_data.insert(variable.ToString(), proto::ValueStream());
+        it = log_data.find(variable.ToString());
+        variable.ToProtobuf(it->mutable_variable());
         output_streams++;
       }
       CHECK(it != log_data.end());
       for (int i = 0; i < stream.value_size(); i++) {
+        const proto::Value &oldvalue = stream.value(i);
+        try {
+          proto::Value *lastvalue = it->mutable_value(it->value_size() - 1);
+          if ((lastvalue->has_string_value() && lastvalue->string_value() == oldvalue.string_value()) ||
+              (lastvalue->has_double_value() && lastvalue->double_value() == oldvalue.double_value())) {
+            // Candidate for RLE
+            // TODO(dparrish): Implement it
+          }
+        } catch (exception &e) {
+          LOG(INFO) << e.what();
+        }
         proto::Value *value = it->add_value();
-        value->CopyFrom(stream.value(i));
+        value->CopyFrom(oldvalue);
         if (!header.has_start_timestamp() || value->timestamp() < header.start_timestamp())
           header.set_start_timestamp(value->timestamp());
         if (value->timestamp() > header.end_timestamp())
