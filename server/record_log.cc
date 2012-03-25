@@ -165,8 +165,9 @@ void RecordLog::ReindexRecordLog() {
         const proto::Value &oldvalue = stream.value(i);
         try {
           proto::Value *lastvalue = it->mutable_value(it->value_size() - 1);
-          if ((lastvalue->has_string_value() && lastvalue->string_value() == oldvalue.string_value()) ||
-              (lastvalue->has_double_value() && lastvalue->double_value() == oldvalue.double_value())) {
+          if (it->value_size() &&
+              ((lastvalue->has_string_value() && lastvalue->string_value() == oldvalue.string_value()) ||
+              (lastvalue->has_double_value() && lastvalue->double_value() == oldvalue.double_value()))) {
             // Candidate for RLE
             // TODO(dparrish): Implement it
           }
