@@ -30,9 +30,6 @@ class HttpServer : private noncopyable {
 
   ~HttpServer();
 
-  // Start listening on the specified host and port.
-  void Listen();
-
   // Run the event loop.
   void Start();
 

@@ -45,6 +45,7 @@ class StoreClient : private noncopyable {
  private:
   StoreConfig *store_config_;
   Socket::Address address_;
+  string hostname_;
   ExportedTimer request_timer_;
 };
 

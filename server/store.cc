@@ -33,7 +33,7 @@
 
 DECLARE_int32(v);
 DEFINE_int32(port, 8020, "Port to listen on");
-DEFINE_string(listen_address, "0.0.0.0", "Address to listen on. Use 0.0.0.0 to listen on any address");
+DEFINE_string(listen_address, "::", "Address to listen on. Use 0.0.0.0 or :: to listen on any address");
 DEFINE_int32(num_http_threads, 10, "Number of threads to create in the Http Server thread pool");
 DEFINE_int32(max_http_threads, 20, "Max of threads to create in the Http Server thread pool");
 DEFINE_string(datastore, "/home/services/openinstrument", "Base directory for datastore files");
@@ -62,9 +62,10 @@ class DataStoreServer : private noncopyable {
       get_request_timer_("/openinstrument/store/get-requests"),
       forwarded_streams_ratio_("/openinstrument/store/forwarded-streams"),
       retention_policy_drops_("/openinstrument/store/retention-policy/values-dropped") {
+    store_config_.WaitForConfigLoad();
     if (!store_config_.server(MyAddress()))
       throw runtime_error(StringPrintf("Could not find local address %s in store config", MyAddress().c_str()));
-    store_config_.SetServerState(server_.address().ToString(), proto::StoreServer::STARTING);
+    store_config_.SetServerState(MyAddress(), proto::StoreServer::STARTING);
     server_.request_handler()->AddPath("/add$", &DataStoreServer::HandleAdd, this);
     server_.request_handler()->AddPath("/list$", &DataStoreServer::HandleList, this);
     server_.request_handler()->AddPath("/get$", &DataStoreServer::HandleGet, this);
@@ -411,7 +412,7 @@ class DataStoreServer : private noncopyable {
           throw runtime_error(StringPrintf("Invalid variable name"));
         }
         string node = store_config_.hash_ring().GetNode(var.ToString());
-        if (node != MyAddress() || !req.forwarded()) {
+        if (node != MyAddress() && !req.forwarded()) {
           // This variable should be stored on another storage server, add it to the list of streams to forward
           proto::AddRequest &forwardreq = forward_requests[node];
           forwardreq.set_forwarded(true);
@@ -472,8 +473,25 @@ class DataStoreServer : private noncopyable {
   }
 
  private:
-  string MyAddress() const {
-    return server_.address().ToString();
+  const string &MyAddress() const {
+    static string my_address;
+    if (my_address.empty()) {
+      vector<Socket::Address> local_addresses = Socket::LocalAddresses();
+      BOOST_FOREACH(Socket::Address &address, local_addresses) {
+        address.set_port(server_.address().port());
+        for (int i = 0 ; i < store_config_.config().server_size(); i++) {
+          const proto::StoreServer &server = store_config_.config().server(i);
+
+          if (server.address() == address.ToString()) {
+            my_address = address.ToString();
+            return my_address;
+          }
+        }
+      }
+      LOG(WARNING) << "Couldn't find store config address.";
+    }
+
+    return my_address;
   }
 
   DiskDatastore datastore;

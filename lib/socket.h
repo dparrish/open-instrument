@@ -12,6 +12,7 @@
 
 #include <string>
 #include <vector>
+#include <netinet/in.h>
 #include "lib/common.h"
 #include "lib/cord.h"
 #include "lib/string.h"
@@ -22,27 +23,59 @@ class Socket : private noncopyable {
  public:
   class Address {
    public:
-    Address() : address(0), port(0) {}
-    Address(uint32_t address, uint16_t port) : address(address), port(port) {}
-    Address(const string &address, uint16_t port) : address(AddressFromString(address)), port(port) {}
-    Address(const Address &src) : address(src.address), port(src.port) {}
+    Address();
+    Address(uint32_t address, uint16_t port);
+    Address(const string &address, uint16_t port);
     explicit Address(const string &serverport);
+    void FromString(const string &addr);
+    string ToString() const;
+    string AddressToString() const;
+    void Clear();
+    bool valid() const;
 
-    inline string ToString() const {
-      return StringPrintf("%s:%u", AddressToString(address).c_str(), port);
+    inline bool v4() const {
+      return address_.ss_family == AF_INET;
     }
 
-    inline string AddressToString() const {
-      return AddressToString(address);
+    inline bool v6() const {
+      return address_.ss_family == AF_INET6;
     }
 
-    uint32_t AddressFromString(const string &addr);
-    static string AddressToString(uint32_t addr);
+    inline const sockaddr_in *const_sockaddr_v4() const {
+      return reinterpret_cast<const sockaddr_in *>(&address_);
+    }
 
-    // WARNING: Address and port are stored in host byte order and must be converted to network byte order before use by
-    // most starndard library functions.
-    uint32_t address;
-    uint16_t port;
+    inline const sockaddr_in6 *const_sockaddr_v6() const {
+      return reinterpret_cast<const sockaddr_in6 *>(&address_);
+    }
+
+    inline sockaddr_in *sockaddr_v4() {
+      return reinterpret_cast<sockaddr_in *>(&address_);
+    }
+
+    inline sockaddr_in6 *sockaddr_v6() {
+      return reinterpret_cast<sockaddr_in6 *>(&address_);
+    }
+
+    inline void set_port(uint16_t port) {
+      if (v4())
+        sockaddr_v4()->sin_port = htons(port);
+      else if (v6())
+        sockaddr_v6()->sin6_port = htons(port);
+      else
+        throw runtime_error("No address type defined for socket");
+    }
+
+    inline uint16_t port() const {
+      if (v4())
+        return ntohs(const_sockaddr_v4()->sin_port);
+      else if (v6())
+        return ntohs(const_sockaddr_v6()->sin6_port);
+      else
+        throw runtime_error("No address type defined for socket");
+    }
+
+    struct sockaddr_storage address_;
   };
 
   Socket() : fd_(0) {}
@@ -52,14 +85,17 @@ class Socket : private noncopyable {
     Close();
   }
 
+  static vector<Address> Resolve(const char *hostname);
+  static vector<string> ReverseResolve(const Address &address);
+  static vector<Address> LocalAddresses();
+
   void Listen(const Address &addr);
   Socket *Accept(int timeout = -1) const;
   void SetNonblocking(bool nonblocking = true);
-  static vector<Address> Resolve(const char *hostname);
   void AttemptFlush(int timeout = 0);
   uint64_t Read(int timeout = -1);
   void Abort();
-  void Connect(const Address &addr, int timeout = -1);
+  void Connect(Address addr, int timeout = -1);
   void Connect(const string &address, uint16_t port, int timeout = -1);
 
   void Flush() {

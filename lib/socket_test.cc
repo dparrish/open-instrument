@@ -19,32 +19,28 @@ class SocketTest : public ::testing::Test {};
 
 TEST_F(SocketTest, EmptyAddress) {
   Socket::Address addr;
-  EXPECT_EQ(0, addr.address);
-  EXPECT_EQ(0, addr.port);
-  EXPECT_EQ("0.0.0.0", addr.AddressToString());
-  EXPECT_EQ("0.0.0.0:0", addr.ToString());
+  EXPECT_THROW(addr.port(), std::runtime_error);
+  EXPECT_THROW(addr.AddressToString(), std::runtime_error);
+  EXPECT_THROW(addr.ToString(), std::runtime_error);
 }
 
 TEST_F(SocketTest, StringAddress1) {
   Socket::Address addr("192.168.1.1", 8010);
-  EXPECT_EQ(3232235777U, addr.address);
-  EXPECT_EQ(8010, addr.port);
+  EXPECT_EQ(8010, addr.port());
   EXPECT_EQ("192.168.1.1", addr.AddressToString());
   EXPECT_EQ("192.168.1.1:8010", addr.ToString());
 }
 
 TEST_F(SocketTest, StringAddress2) {
   Socket::Address addr("192.168.1.1:8010");
-  EXPECT_EQ(3232235777U, addr.address);
-  EXPECT_EQ(8010, addr.port);
+  EXPECT_EQ(8010, addr.port());
   EXPECT_EQ("192.168.1.1", addr.AddressToString());
   EXPECT_EQ("192.168.1.1:8010", addr.ToString());
 }
 
 TEST_F(SocketTest, IntAddress) {
   Socket::Address addr(3232235777U, 8010);
-  EXPECT_EQ(3232235777U, addr.address);
-  EXPECT_EQ(8010, addr.port);
+  EXPECT_EQ(8010, addr.port());
   EXPECT_EQ("192.168.1.1", addr.AddressToString());
   EXPECT_EQ("192.168.1.1:8010", addr.ToString());
 }
@@ -55,25 +51,61 @@ TEST_F(SocketTest, AddressCopy) {
   EXPECT_EQ("192.168.1.1:8010", addr2.ToString());
 }
 
+TEST_F(SocketTest, V6Address) {
+  Socket::Address addr("2001:44b8::793e", 8010);
+  EXPECT_EQ("[2001:44b8::793e]:8010", addr.ToString());
+  EXPECT_EQ("2001:44b8::793e", addr.AddressToString());
+}
+
+TEST_F(SocketTest, V6Address2) {
+  Socket::Address addr("[2001:44b8::793e]", 8010);
+  EXPECT_EQ("[2001:44b8::793e]:8010", addr.ToString());
+  EXPECT_EQ("2001:44b8::793e", addr.AddressToString());
+}
+
+
+TEST_F(SocketTest, V6AddressPort) {
+  Socket::Address addr("[2001:44b8::793e]:8010");
+  EXPECT_EQ("[2001:44b8::793e]:8010", addr.ToString());
+  EXPECT_EQ("2001:44b8::793e", addr.AddressToString());
+}
+
 TEST_F(SocketTest, Resolve) {
   Socket sock;
   vector<Socket::Address> addrs = sock.Resolve("localhost");
-  bool found = false;
+  int found = 0;
   BOOST_FOREACH(Socket::Address &addr, addrs) {
-    if (addr.AddressToString() == "127.0.0.1") {
+    if (addr.AddressToString() == "127.0.0.1" || addr.AddressToString() == "::1")
+      found++;
+  }
+  EXPECT_GE(found, 2);
+}
+
+TEST_F(SocketTest, ReverseResolve) {
+  vector<string> addrs = Socket::ReverseResolve(Socket::Address("127.0.0.1"));
+  bool found = false;
+  BOOST_FOREACH(string &addr, addrs) {
+    if (addr.find("localhost") != string::npos)
       found = true;
-      break;
-    }
   }
   EXPECT_TRUE(found);
 }
 
+TEST_F(SocketTest, LocalAddrs) {
+  vector<Socket::Address> addrs = Socket::LocalAddresses();
+  int found = 0;
+  BOOST_FOREACH(Socket::Address &addr, addrs) {
+    if (addr.AddressToString() == "127.0.0.1" || addr.AddressToString() == "::1")
+      found++;
+  }
+  EXPECT_GE(found, 2);
+}
+
 TEST_F(SocketTest, Listen) {
   Socket sock;
-  sock.Listen(Socket::Address("0.0.0.0", 8022));
+  sock.Listen(Socket::Address("::", 8022));
   LOG(INFO) << "Listening on " << sock.local().ToString();
-
-  scoped_ptr<Socket> client(sock.Accept(1));
+  scoped_ptr<Socket> client(sock.Accept(0));
   EXPECT_FALSE(client.get());
 }
 

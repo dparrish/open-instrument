@@ -36,7 +36,7 @@ StoreClient::StoreClient(StoreConfig *config)
 // Connect to a single storage server
 StoreClient::StoreClient(const string &address)
   : store_config_(NULL),
-    address_(address),
+    hostname_(address),
     request_timer_("/openinstrument/client/store/all-requests") {}
 StoreClient::StoreClient(const Socket::Address &address)
   : store_config_(NULL),
@@ -47,15 +47,13 @@ void StoreClient::SendRequestToHost(const Socket::Address &address, const string
                                     const google::protobuf::Message &request, google::protobuf::Message *response) {
   ScopedExportTimer t(&request_timer_);
 
-  if (address.address == 0)
-    throw runtime_error("Invalid server host");
-  if (!address.port)
-    throw runtime_error("Invalid server port");
+  if (!address.valid())
+    throw runtime_error("Invalid destination");
 
   Uri uri;
   uri.set_protocol("http");
   uri.set_hostname(address.AddressToString());
-  uri.set_port(address.port);
+  uri.set_port(address.port());
   uri.set_path(path);
 
   HttpClient client;
@@ -71,7 +69,27 @@ void StoreClient::SendRequestToHost(const Socket::Address &address, const string
 
 template<typename ResponseType>
 void StoreClient::SendRequest(const string &path, const google::protobuf::Message &request, ResponseType *response) {
-  return SendRequestToHost(address_, path, request, response);
+  if (address_.valid())
+    return SendRequestToHost(address_, path, request, response);
+
+  int pos = hostname_.find_last_of(':');
+  if (pos < 0)
+    throw runtime_error(StringPrintf("Invalid host:port %s", hostname_.c_str()));
+
+  vector<Socket::Address> addrs = Socket::Resolve(hostname_.substr(0, pos).c_str());
+  if (!addrs.size())
+    throw runtime_error(StringPrintf("No addresses found for %s", hostname_.c_str()));
+
+  BOOST_FOREACH(Socket::Address &addr, addrs) {
+    addr.set_port(lexical_cast<uint16_t>(hostname_.substr(pos + 1)));
+    try {
+      return SendRequestToHost(addr, path, request, response);
+    } catch (runtime_error) {
+      LOG(WARNING) << "Connection to " << addr.ToString() << " failed";
+      continue;
+    }
+  }
+  throw runtime_error(StringPrintf("Unable to connect to %s", hostname_.c_str()));
 }
 
 proto::AddResponse *StoreClient::Add(const proto::AddRequest &req) {
