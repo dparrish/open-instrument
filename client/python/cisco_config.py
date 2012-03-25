@@ -83,10 +83,9 @@ def main(argv):
       return 1
 
     config = ""
-    while True:
-      for line in open(filename):
-        config += line
-      break
+    for line in file(filename):
+      config += line
+
     os.unlink(filename)
   else:
     print "You must specify either -T or -S"
@@ -100,7 +99,7 @@ def main(argv):
     stream = addrequest.stream.add()
     var.ToProtobuf(stream.variable)
     value = stream.value.add()
-    value.string_value = "\n".join(config)
+    value.string_value = "".join(config)
     value.timestamp = int(time.time() * 1000)
     hostname, port = dest.split(":")
     port = int(port)
