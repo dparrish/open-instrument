@@ -2,13 +2,13 @@ TARGETS=primetest dump_recordlog dump_store_config reindex_store_file
 TESTS=
 EXTRA_DEPS=$(BASEDIR)/lib/libopeninstrument.a
 EXTRA_LIBS_dump_recordlog := $(BASEDIR)/server/record_log.o
-EXTRA_LIBS_reindex_store_file := $(BASEDIR)/server/record_log.o
+EXTRA_LIBS_reindex_store_file := $(BASEDIR)/server/record_log.o $(BASEDIR)/server/disk_datastore.o $(BASEDIR)/server/datastore.o
 
 include $(BASEDIR)/Makefile.inc
 
 dump_recordlog: dump_recordlog.o
 
-reindex_store_file: reindex_store_file.o $(BASEDIR)/server/record_log.o
+reindex_store_file: reindex_store_file.o $(BASEDIR)/server/record_log.o $(BASEDIR)/server/disk_datastore.o $(BASEDIR)/server/datastore.o
 
 ## DEPENDENCIES START HERE (do not remove this line)
 dump_recordlog.o: dump_recordlog.cc \
@@ -61,5 +61,7 @@ reindex_store_file.o: reindex_store_file.cc \
  $(BASEDIR)/lib/file.h \
  $(BASEDIR)/lib/timer.h \
  $(BASEDIR)/lib/variable.h \
- $(BASEDIR)/server/record_log.h \
- $(BASEDIR)/lib/trie.h
+ $(BASEDIR)/server/disk_datastore.h \
+ $(BASEDIR)/server/datastore.h \
+ $(BASEDIR)/lib/trie.h \
+ $(BASEDIR)/server/record_log.h

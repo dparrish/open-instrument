@@ -139,11 +139,17 @@ message ListResponse {
   repeated ValueStream stream = 3;
 }
 
+message StoreFileHeaderIndex {
+  required StreamVariable variable = 1;
+  required fixed64 offset = 2;
+}
+
 message StoreFileHeader {
   required uint64 start_timestamp = 1;
   required uint64 end_timestamp = 2;
   repeated string DEPRECATED_string_variable = 3;
   repeated StreamVariable variable = 4;
+  repeated StoreFileHeaderIndex index = 5;
 }
 
 

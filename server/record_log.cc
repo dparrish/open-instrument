@@ -149,22 +149,22 @@ void RecordLog::ReindexRecordLogFile(const string &input, MapType *log_data) con
       continue;
     MapType::iterator it = log_data->find(variable.ToString());
     if (it == log_data->end()) {
-      log_data->insert(variable.ToString(), proto::ValueStream());
+      proto::ValueStream &newstream = (*log_data)[variable.ToString()] = proto::ValueStream();
+      variable.ToProtobuf(newstream.mutable_variable());
       it = log_data->find(variable.ToString());
-      variable.ToProtobuf(it->mutable_variable());
     }
     CHECK(it != log_data->end());
     for (int i = 0; i < stream.value_size(); i++) {
       const proto::Value &oldvalue = stream.value(i);
-      proto::Value *lastvalue = it->mutable_value(it->value_size() - 1);
-      if (it->value_size() &&
+      proto::Value *lastvalue = it->second.mutable_value(it->second.value_size() - 1);
+      if (it->second.value_size() &&
           ((lastvalue->has_string_value() && lastvalue->string_value() == oldvalue.string_value()) ||
           (lastvalue->has_double_value() && lastvalue->double_value() == oldvalue.double_value()))) {
         // Candidate for RLE
         lastvalue->set_end_timestamp(oldvalue.timestamp());
         continue;
       }
-      proto::Value *value = it->add_value();
+      proto::Value *value = it->second.add_value();
       value->CopyFrom(oldvalue);
     }
   }
@@ -174,44 +174,64 @@ void RecordLog::ReindexRecordLog() {
   vector<string> files = Glob(filename() + ".*");
   BOOST_FOREACH(string &filename, files) {
     MapType log_data;
-    uint64_t output_streams = 0, output_values = 0;
-    proto::StoreFileHeader header;
-
     ReindexRecordLogFile(filename, &log_data);
-
-    // Build the output header
-    for (MapType::iterator i = log_data.begin(); i != log_data.end(); ++i) {
-      proto::StreamVariable *var = header.add_variable();
-      var->CopyFrom(i->variable());
-      output_values += i->value_size();
-      output_streams++;
-      if (i->value_size()) {
-        const proto::Value &first_value = i->value(0);
-        if (!header.has_start_timestamp() || first_value.timestamp() < header.start_timestamp())
-          header.set_start_timestamp(first_value.timestamp());
-        const proto::Value &last_value = i->value(i->value_size() - 1);
-        if (last_value.timestamp() > header.end_timestamp())
-          header.set_end_timestamp(last_value.timestamp());
-        if (last_value.end_timestamp() > header.end_timestamp())
-          header.set_end_timestamp(last_value.end_timestamp());
-      }
-    }
-    string outfile = StringPrintf("%s/datastore.%llu.bin", basedir_.c_str(), header.end_timestamp());
-
-    // Write the header and all ValueStreams
-    ProtoStreamWriter writer(outfile);
-    writer.Write(header);
-    for (MapType::iterator i = log_data.begin(); i != log_data.end(); ++i) {
-      writer.Write(*i);
-    }
-    LOG(INFO) << "Created indexed file " << outfile << " containing " << output_streams << " streams and "
-              << output_values << " values, between " << Timestamp(header.start_timestamp()).GmTime() << " and "
-              << Timestamp(header.end_timestamp()).GmTime();
-    ::unlink(filename.c_str());
+    WriteIndexedFile(log_data, filename);
   }
 }
 
-void RecordLog::LoadIndexedFile(const string &filename) {
+void RecordLog::WriteIndexedFile(RecordLog::MapType &log_data, const string &filename) {
+  uint64_t output_streams = 0, output_values = 0;
+  proto::StoreFileHeader header;
+  // Build the output header
+  for (MapType::iterator i = log_data.begin(); i != log_data.end(); ++i) {
+    proto::StreamVariable *var = header.add_variable();
+    var->CopyFrom(i->second.variable());
+
+    proto::StoreFileHeaderIndex *index = header.add_index();
+    index->mutable_variable()->CopyFrom(i->second.variable());
+    index->set_offset(0);
+
+    output_values += i->second.value_size();
+    output_streams++;
+    if (i->second.value_size()) {
+      const proto::Value &first_value = i->second.value(0);
+      if (!header.has_start_timestamp() || first_value.timestamp() < header.start_timestamp())
+        header.set_start_timestamp(first_value.timestamp());
+      const proto::Value &last_value = i->second.value(i->second.value_size() - 1);
+      if (last_value.timestamp() > header.end_timestamp())
+        header.set_end_timestamp(last_value.timestamp());
+      if (last_value.end_timestamp() > header.end_timestamp())
+        header.set_end_timestamp(last_value.end_timestamp());
+    }
+  }
+
+  string outfile = StringPrintf("%s.new", filename.c_str());
+  FileStat stat(outfile);
+  if (stat.exists()) {
+    LOG(ERROR) << "Output file " << outfile << " already exists";
+    return;
+  }
+
+  // Write all ValueStreams
+  ProtoStreamWriter writer(outfile);
+  writer.Write(header);
+
+  int j = 0;
+  for (RecordLog::MapType::iterator i = log_data.begin(); i != log_data.end(); ++i) {
+    proto::StoreFileHeaderIndex *index = header.mutable_index(j++);
+    index->set_offset(writer.fh()->Tell());
+    writer.Write(i->second);
+  }
+
+  // Write the header at the beginning of the file
+  writer.fh()->SeekAbs(0);
+  writer.Write(header);
+
+  LOG(INFO) << "Created indexed file " << outfile << " containing " << output_streams << " streams and "
+            << output_values << " values, between " << Timestamp(header.start_timestamp()).GmTime() << " and "
+            << Timestamp(header.end_timestamp()).GmTime();
+
+  rename(outfile.c_str(), filename.c_str());
 }
 
 }  // namespace openinstrument

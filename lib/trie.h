@@ -302,11 +302,11 @@ class Trie {
     return end();
   }
 
-  iterator begin() {
+  iterator begin() const {
     return TrieIterator(&root_);
   }
 
-  iterator end() {
+  iterator end() const {
     return TrieIterator(NULL);
   }
 

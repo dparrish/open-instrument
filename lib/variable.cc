@@ -117,7 +117,7 @@ bool Variable::Matches(const Variable &search) const {
     if (i->second == "*") {
       if (!HasLabel(i->first))
         return false;
-    } else if (i->second[0] == '/' && i->second[i->second.size() - 1] == '/') {
+    } else if (i->second[0] == '/' && i->second[i->second.size() - 1] == '/' && i->second.size() > 2) {
       // It's a regex match
       boost::regex regex(i->second.substr(1, i->second.size() - 2));
       if (!boost::regex_match(GetLabel(i->first), regex))

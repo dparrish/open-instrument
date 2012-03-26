@@ -88,14 +88,14 @@ class RecordLog : private noncopyable {
     return log_.end();
   }
 
-  typedef Trie<proto::ValueStream> MapType;
+  typedef std::map<string, proto::ValueStream> MapType;
   void ReindexRecordLog();
   void ReindexRecordLogFile(const string &input, MapType *log_data) const;
+  void WriteIndexedFile(MapType &log_data, const string &filename);
 
  private:
   void AdminThread();
   void RotateRecordLog();
-  void LoadIndexedFile(const string &filename);
 
   const string basedir_;
   deque<proto::ValueStream> log_;

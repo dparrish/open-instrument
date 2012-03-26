@@ -40,6 +40,9 @@ class ProtoStreamReader : private noncopyable {
   explicit ProtoStreamReader(const string &filename) : fh_(filename, "r") {}
   bool Skip(int count = 1);
   bool Next(google::protobuf::Message *msg);
+  File *fh() {
+    return &fh_;
+  }
 
  private:
   bool FindNextHeader();
@@ -52,6 +55,9 @@ class ProtoStreamWriter : private noncopyable {
  public:
   explicit ProtoStreamWriter(const string &filename) : fh_(filename, "a") {}
   bool Write(const google::protobuf::Message &msg);
+  File *fh() {
+    return &fh_;
+  }
 
  private:
   string buf_;

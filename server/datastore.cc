@@ -20,92 +20,43 @@ DECLARE_string(datastore);
 
 namespace openinstrument {
 
-set<IndexedStoreFile> store_set;
-
-proto::ValueStream &IndexedStoreFile::LoadAndGetVar(const Variable &variable, uint64_t timestamp) {
-  vector<string> files = Glob(StringPrintf("%s/datastore.*.bin", FLAGS_datastore.c_str()));
-  // Look for the oldest file that may contain the desired timestamp
-  for (vector<string>::iterator i = files.begin(); i != files.end(); ++i) {
-    string filename = *i;
-    size_t timepos = filename.find(".");
-    if (timepos == string::npos)
-      continue;
-    string tmp = filename.substr(timepos + 1);
-    size_t extpos = tmp.find(".");
-    if (extpos == string::npos)
-      continue;
-    uint64_t ts;
-    try {
-      ts = lexical_cast<uint64_t>(tmp.substr(0, extpos));
-      if (timestamp > ts)
-        continue;
-    } catch (exception &e) {
-      continue;
-    }
-    IndexedStoreFile isf(filename);
-    if (!isf.ReadHeader())
-      throw runtime_error("Error reading logfile header");
-    if (isf.file_header_.start_timestamp() > timestamp)
-      throw runtime_error(StringPrintf("Data file %s does not contain old enough data", filename.c_str()));
-    if (!isf.ContainsVariable(variable))
-      throw runtime_error(StringPrintf("Data file %s does not contain variable", filename.c_str()));
-    // Found the correct file, it has a valid index and the variable's stream exists, return it.
-    return isf.LoadVariable(variable);
+IndexedStoreFile::IndexedStoreFile(const string &filename) : filename(filename), reader(filename) {
+  reader.Next(&header);
+  if (!header.start_timestamp() || !header.end_timestamp() || header.end_timestamp() <= header.start_timestamp()) {
+    LOG(ERROR) << "Could not read header from datastore file " << filename;
+  } else {
+    VLOG(2) << "Opened datastore file " << filename << " that has " << header.index_size() << " items";
   }
-  throw out_of_range("Could not find log file containing requested data");
 }
 
-void IndexedStoreFile::Clear() {
-  log_data_.clear();
+vector<proto::ValueStream> IndexedStoreFile::GetVariable(const Variable &variable) {
+  vector<proto::ValueStream> results;
+  GetVariable(variable, &results);
+  return results;
 }
 
-bool IndexedStoreFile::ReadHeader() {
-  Clear();
-  fh_.SeekAbs(0);
-  ProtoStreamReader reader(filename_);
-  if (!reader.Next(&file_header_)) {
-    LOG(ERROR) << "Error reading header from " << filename_;
-    return false;
-  }
-  for (int i = 0; i< file_header_.variable_size(); i++)
-    log_data_.insert(Variable(file_header_.variable(i)).ToString(), proto::ValueStream());
-  return true;
-}
-
-proto::ValueStream &IndexedStoreFile::LoadVariable(const Variable &variable) {
-  MapType::iterator i = log_data_.find(variable.ToString());
-  if (i == log_data_.end())
-    throw out_of_range("Variable not found");
-  if (i->value_size())
-    return *i;
-  ProtoStreamReader reader(filename_);
-  for (int i = 0; i < file_header_.variable_size(); i++) {
-    reader.Skip(1);
-    if (Variable(file_header_.variable(i)) == variable) {
-      proto::ValueStream &stream = log_data_[variable.ToString()];
+bool IndexedStoreFile::GetVariable(const Variable &variable, vector<proto::ValueStream> *results) {
+  for (int i = 0; i < header.index_size(); i++) {
+    const proto::StoreFileHeaderIndex &index = header.index(i);
+    Variable index_var(index.variable());
+    if (index_var.Matches(variable)) {
+      VLOG(3) << "Seeking to " << index.offset();
+      reader.fh()->SeekAbs(index.offset());
+      proto::ValueStream stream;
       if (!reader.Next(&stream)) {
-        throw runtime_error("Unable to read protobuf from stream");
+        LOG(WARNING) << "EOF reading datastore file " << filename << " at " << index.offset();
+        break;
       }
-      if (Variable(stream.variable()) != variable) {
-        LOG(WARNING) << "Stream variable " << i << " " << Variable(stream.variable()).ToString() << " in file "
-                     << filename_ << " is not correct";
-        throw out_of_range("Variable unable to be loaded");
+      Variable stream_var(stream.variable());
+      if (!stream_var.Matches(index_var)) {
+        LOG(WARNING) << "Variable at " << index.offset() << " in " << filename << " does not match header";
+        continue;
       }
-      return log_data_[variable.ToString()];
+      VLOG(3) << "Found item " << index_var.ToString() << " in " << filename;
+      results->push_back(stream);
     }
   }
-  throw out_of_range("Variable does not exist in log file");
-}
-
-list<Variable> IndexedStoreFile::ListVariables(const Variable &variable) {
-  list<Variable> vars;
-  Variable search(variable);
-  for (MapType::iterator i = log_data_.begin(); i != log_data_.end(); ++i) {
-    Variable x(i.key());
-    if (x == search)
-      vars.push_back(x);
-  }
-  return vars;
+  return results->size() > 0;
 }
 
 }  // namespace openinstrument
