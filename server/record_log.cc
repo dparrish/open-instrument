@@ -137,57 +137,64 @@ bool RecordLog::ReplayLog(proto::ValueStream *stream) {
   return false;
 }
 
+void RecordLog::ReindexRecordLogFile(const string &input, MapType *log_data) const {
+  LOG(INFO) << "Reindexing file " << input;
+  ProtoStreamReader reader(input);
+  proto::ValueStream stream;
+  while (reader.Next(&stream)) {
+    Variable variable(stream.variable());
+    if (stream.has_deprecated_string_variable())
+      variable.FromString(stream.deprecated_string_variable());
+    if (variable.ToString().empty())
+      continue;
+    MapType::iterator it = log_data->find(variable.ToString());
+    if (it == log_data->end()) {
+      log_data->insert(variable.ToString(), proto::ValueStream());
+      it = log_data->find(variable.ToString());
+      variable.ToProtobuf(it->mutable_variable());
+    }
+    CHECK(it != log_data->end());
+    for (int i = 0; i < stream.value_size(); i++) {
+      const proto::Value &oldvalue = stream.value(i);
+      proto::Value *lastvalue = it->mutable_value(it->value_size() - 1);
+      if (it->value_size() &&
+          ((lastvalue->has_string_value() && lastvalue->string_value() == oldvalue.string_value()) ||
+          (lastvalue->has_double_value() && lastvalue->double_value() == oldvalue.double_value()))) {
+        // Candidate for RLE
+        lastvalue->set_end_timestamp(oldvalue.timestamp());
+        continue;
+      }
+      proto::Value *value = it->add_value();
+      value->CopyFrom(oldvalue);
+    }
+  }
+}
+
 void RecordLog::ReindexRecordLog() {
   vector<string> files = Glob(filename() + ".*");
-  typedef Trie<proto::ValueStream> MapType;
-  MapType log_data;
   BOOST_FOREACH(string &filename, files) {
+    MapType log_data;
+    uint64_t output_streams = 0, output_values = 0;
     proto::StoreFileHeader header;
-    uint64_t input_streams = 0, input_values = 0;
-    uint64_t output_streams = 0;
-    LOG(INFO) << "Reindexing file " << filename;
-    ProtoStreamReader reader(filename);
-    proto::ValueStream stream;
-    while (reader.Next(&stream)) {
-      input_streams++;
-      Variable variable(stream.variable());
-      if (stream.has_deprecated_string_variable())
-        variable.FromString(stream.deprecated_string_variable());
-      MapType::iterator it = log_data.find(variable.ToString());
-      if (it == log_data.end()) {
-        log_data.insert(variable.ToString(), proto::ValueStream());
-        it = log_data.find(variable.ToString());
-        variable.ToProtobuf(it->mutable_variable());
-        output_streams++;
-      }
-      CHECK(it != log_data.end());
-      for (int i = 0; i < stream.value_size(); i++) {
-        const proto::Value &oldvalue = stream.value(i);
-        try {
-          proto::Value *lastvalue = it->mutable_value(it->value_size() - 1);
-          if (it->value_size() &&
-              ((lastvalue->has_string_value() && lastvalue->string_value() == oldvalue.string_value()) ||
-              (lastvalue->has_double_value() && lastvalue->double_value() == oldvalue.double_value()))) {
-            // Candidate for RLE
-            // TODO(dparrish): Implement it
-          }
-        } catch (exception &e) {
-          LOG(INFO) << e.what();
-        }
-        proto::Value *value = it->add_value();
-        value->CopyFrom(oldvalue);
-        if (!header.has_start_timestamp() || value->timestamp() < header.start_timestamp())
-          header.set_start_timestamp(value->timestamp());
-        if (value->timestamp() > header.end_timestamp())
-          header.set_end_timestamp(value->timestamp());
-        input_values++;
-      }
-    }
+
+    ReindexRecordLogFile(filename, &log_data);
 
     // Build the output header
     for (MapType::iterator i = log_data.begin(); i != log_data.end(); ++i) {
       proto::StreamVariable *var = header.add_variable();
       var->CopyFrom(i->variable());
+      output_values += i->value_size();
+      output_streams++;
+      if (i->value_size()) {
+        const proto::Value &first_value = i->value(0);
+        if (!header.has_start_timestamp() || first_value.timestamp() < header.start_timestamp())
+          header.set_start_timestamp(first_value.timestamp());
+        const proto::Value &last_value = i->value(i->value_size() - 1);
+        if (last_value.timestamp() > header.end_timestamp())
+          header.set_end_timestamp(last_value.timestamp());
+        if (last_value.end_timestamp() > header.end_timestamp())
+          header.set_end_timestamp(last_value.end_timestamp());
+      }
     }
     string outfile = StringPrintf("%s/datastore.%llu.bin", basedir_.c_str(), header.end_timestamp());
 
@@ -198,7 +205,7 @@ void RecordLog::ReindexRecordLog() {
       writer.Write(*i);
     }
     LOG(INFO) << "Created indexed file " << outfile << " containing " << output_streams << " streams and "
-              << input_values << " values, between " << Timestamp(header.start_timestamp()).GmTime() << " and "
+              << output_values << " values, between " << Timestamp(header.start_timestamp()).GmTime() << " and "
               << Timestamp(header.end_timestamp()).GmTime();
     ::unlink(filename.c_str());
   }

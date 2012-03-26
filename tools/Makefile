@@ -1,11 +1,14 @@
-TARGETS=primetest dump_recordlog dump_store_config
+TARGETS=primetest dump_recordlog dump_store_config reindex_store_file
 TESTS=
 EXTRA_DEPS=$(BASEDIR)/lib/libopeninstrument.a
 EXTRA_LIBS_dump_recordlog := $(BASEDIR)/server/record_log.o
+EXTRA_LIBS_reindex_store_file := $(BASEDIR)/server/record_log.o
 
 include $(BASEDIR)/Makefile.inc
 
 dump_recordlog: dump_recordlog.o
+
+reindex_store_file: reindex_store_file.o $(BASEDIR)/server/record_log.o
 
 ## DEPENDENCIES START HERE (do not remove this line)
 dump_recordlog.o: dump_recordlog.cc \
@@ -18,7 +21,8 @@ dump_recordlog.o: dump_recordlog.cc \
  $(BASEDIR)/lib/file.h \
  $(BASEDIR)/lib/timer.h \
  $(BASEDIR)/lib/variable.h \
- $(BASEDIR)/server/record_log.h
+ $(BASEDIR)/server/record_log.h \
+ $(BASEDIR)/lib/trie.h
 dump_store_config.o: dump_store_config.cc \
  $(BASEDIR)/lib/common.h \
  $(BASEDIR)/lib/closure.h \
@@ -47,3 +51,15 @@ primetest.o: primetest.cc $(BASEDIR)/lib/common.h \
  $(BASEDIR)/lib/openinstrument.pb.h \
  $(BASEDIR)/lib/timer.h \
  $(BASEDIR)/lib/variable.h
+reindex_store_file.o: reindex_store_file.cc \
+ $(BASEDIR)/lib/common.h \
+ $(BASEDIR)/lib/closure.h \
+ $(BASEDIR)/lib/string.h \
+ $(BASEDIR)/lib/openinstrument.pb.h \
+ $(BASEDIR)/lib/protobuf.h \
+ $(BASEDIR)/lib/cord.h \
+ $(BASEDIR)/lib/file.h \
+ $(BASEDIR)/lib/timer.h \
+ $(BASEDIR)/lib/variable.h \
+ $(BASEDIR)/server/record_log.h \
+ $(BASEDIR)/lib/trie.h

@@ -21,6 +21,7 @@
 #include "lib/openinstrument.pb.h"
 #include "lib/protobuf.h"
 #include "lib/string.h"
+#include "lib/trie.h"
 #include "lib/variable.h"
 
 namespace openinstrument {
@@ -87,10 +88,13 @@ class RecordLog : private noncopyable {
     return log_.end();
   }
 
+  typedef Trie<proto::ValueStream> MapType;
+  void ReindexRecordLog();
+  void ReindexRecordLogFile(const string &input, MapType *log_data) const;
+
  private:
   void AdminThread();
   void RotateRecordLog();
-  void ReindexRecordLog();
   void LoadIndexedFile(const string &filename);
 
   const string basedir_;

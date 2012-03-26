@@ -42,8 +42,10 @@ int main(int argc, char *argv[]) {
     Variable var;
     var.FromValueStream(stream);
     // TODO(dparrish): Remove this once DEPRECATED_string_variable has been removed
-    if (stream.has_deprecated_string_variable())
+    if (stream.has_deprecated_string_variable()) {
       var.FromString(stream.deprecated_string_variable());
+      cout << "old style variable name\n";
+    }
     if (var.ToString().empty()) {
       cout << "EMPTY VARIABLE\t";
     } else {
@@ -52,6 +54,8 @@ int main(int argc, char *argv[]) {
     for (int i = 0; i < stream.value_size(); i++) {
       const proto::Value &value = stream.value(i);
       cout << StringPrintf("%s\t", Timestamp(value.timestamp()).GmTime().c_str());
+      if (value.end_timestamp())
+        cout << StringPrintf(" - %s\t", Timestamp(value.end_timestamp()).GmTime().c_str());
       if (value.has_double_value()) {
         cout << "DOUBLE:" << fixed << value.double_value();
         if (value.has_string_value())
