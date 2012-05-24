@@ -188,7 +188,7 @@ string Uri::Assemble() const {
 }
 
 void Uri::SetParam(const string &key, const string &value) {
-  BOOST_FOREACH(RequestParam &i, params) {
+  for (auto &i : params) {
     if (i.key == key) {
       i.value = value;
       return;

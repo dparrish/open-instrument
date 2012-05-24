@@ -29,7 +29,7 @@ void Variable::FromString(const string &input) {
   type_ = proto::StreamVariable::UNKNOWN;
   string labelstring = input.substr(pos + 1, input.size() - pos - 2);  // Lose the trailing }
 
-  typedef boost::tokenizer<boost::escaped_list_separator<char> > Tokenizer;
+  typedef boost::tokenizer<boost::escaped_list_separator<char>> Tokenizer;
   Tokenizer tokens(labelstring);
   for (Tokenizer::iterator it = tokens.begin(); it != tokens.end(); ++it) {
     string lv(*it);

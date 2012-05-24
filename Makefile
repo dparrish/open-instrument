@@ -4,8 +4,8 @@ export CXX=g++
 export INCLUDE_DIRS += -I$(BASEDIR)
 export LD=g++
 export LDFLAGS=-g $(LIB_DIRS)
-export LIBS=-lrt -lgflags -lglog -lboost_thread -lopeninstrument -lboost_regex -lboost_system \
-	-lboost_date_time-mt -lprotobuf
+export LIBS=-lopeninstrument -lboost_regex -lboost_system \
+	-lboost_date_time-mt -lprotobuf -lrt -lboost_thread -lgflags -lglog 
 export LDLIBS=$(LIBS) $(EXTRA_LIBS_$@)
 export LIB_DIRS += -L$(BASEDIR)/lib -L/usr/lib
 export TEST_LIBS=-lgtest
@@ -22,6 +22,7 @@ export CXXFLAGS=\
   -fstack-protector \
   -g \
   -march=native \
+  -std=c++0x \
 
 SUBDIRS=lib server client tools
 

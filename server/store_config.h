@@ -77,8 +77,7 @@ class StoreConfig : private noncopyable {
 
   void UpdateHashRing() {
     ring_.Clear();
-    for (int i = 0 ; i < config_.server_size(); i++) {
-      const proto::StoreServer &server = config_.server(i);
+    for (auto &server : config_.server()) {
       ring_.AddNode(server.address());
     }
   }
@@ -89,8 +88,7 @@ class StoreConfig : private noncopyable {
 
   proto::StoreServer::State GetServerState(const string &address) const {
     MutexLock lock(mutex_);
-    for (int i = 0 ; i < config_.server_size(); i++) {
-      const proto::StoreServer &server = config_.server(i);
+    for (auto &server : config_.server()) {
       if (server.address() == address) {
         return server.state();
       }

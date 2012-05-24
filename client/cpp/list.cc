@@ -58,13 +58,12 @@ int main(int argc, char *argv[]) {
     StoreClient client(&config);
     scoped_ptr<proto::ListResponse> response(client.List(req));
     set<string> variables;
-    for (int i = 0; i < response->stream_size(); i++) {
-      Variable var(response->stream(i).variable());
+    for (auto &stream : response->stream()) {
+      Variable var(stream.variable());
       variables.insert(var.ToString());
     }
-    BOOST_FOREACH(string var, variables) {
+    for (string var : variables)
       cout << var << endl;
-    }
   } catch (exception &e) {
     cerr << e.what();
     usage(argv);

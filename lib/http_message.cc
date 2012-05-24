@@ -89,9 +89,8 @@ const string &HttpMessage::GetContentType() {
 void HttpMessage::Write(Socket *sock) {
   WriteHeader(sock);
   if (chunked_encoding_) {
-    BOOST_FOREACH(CordBuffer &buffer, body_) {
+    for (auto &buffer : body_)
       WriteChunk(sock, StringPiece(buffer.buffer(), buffer.size()));
-    }
     WriteLastChunk(sock);
   } else {
     if (body_.size())

@@ -28,8 +28,7 @@ class RetentionPolicy {
     default_policy.set_policy(proto::RetentionPolicyItem::DROP);
     VLOG(4) << "Looking for policy matches for " << variable.ToString() << " that is " << Duration(age).ToString()
             << " old";
-    for (int i = 0; i < config_->config().retention_policy().policy_size(); i++) {
-      const proto::RetentionPolicyItem &item = config_->config().retention_policy().policy(i);
+    for (auto &item : config_->config().retention_policy().policy()) {
       for (int j = 0; j < item.variable_size(); j++) {
         Variable match(item.variable(j));
         if (!variable.Matches(match)) {

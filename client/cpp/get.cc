@@ -107,10 +107,8 @@ int main(int argc, char *argv[]) {
   StoreClient client(&config);
   scoped_ptr<proto::GetResponse> response(client.Get(req));
   LOG(INFO) << "Number of returned streams: " << response->stream_size();
-  for (int stream_i = 0; stream_i < response->stream_size(); stream_i++) {
-    const proto::ValueStream &stream = response->stream(stream_i);
-    for (int i = 0; i < stream.value_size(); i++) {
-      const proto::Value &value = stream.value(i);
+  for (auto &stream : response->stream()) {
+    for (auto &value : stream.value()) {
       cout << StringPrintf("%s\t%s\t", Variable(stream.variable()).ToString().c_str(),
                            Timestamp(value.timestamp()).GmTime("%Y-%m-%d %H:%M:%S").c_str());
       if (value.has_double_value()) {

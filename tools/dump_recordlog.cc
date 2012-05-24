@@ -51,8 +51,7 @@ int main(int argc, char *argv[]) {
     } else {
       cout << var.ToString() << "\t";
     }
-    for (int i = 0; i < stream.value_size(); i++) {
-      const proto::Value &value = stream.value(i);
+    for (auto &value : stream.value()) {
       cout << StringPrintf("%s\t", Timestamp(value.timestamp()).GmTime().c_str());
       if (value.end_timestamp())
         cout << StringPrintf(" - %s\t", Timestamp(value.end_timestamp()).GmTime().c_str());

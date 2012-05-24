@@ -303,7 +303,7 @@ void Socket::Connect(const string &address, uint16_t port, int timeout) {
   if (!addrs.size())
     throw runtime_error(StringPrintf("No addresses found for %s", address.c_str()));
 
-  BOOST_FOREACH(Address &addr, addrs) {
+  for (Address &addr : addrs) {
     addr.set_port(port);
     try {
       Connect(addr, timeout);

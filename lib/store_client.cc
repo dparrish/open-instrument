@@ -80,7 +80,7 @@ void StoreClient::SendRequest(const string &path, const google::protobuf::Messag
   if (!addrs.size())
     throw runtime_error(StringPrintf("No addresses found for %s", hostname_.c_str()));
 
-  BOOST_FOREACH(Socket::Address &addr, addrs) {
+  for (Socket::Address &addr : addrs) {
     addr.set_port(lexical_cast<uint16_t>(hostname_.substr(pos + 1)));
     try {
       return SendRequestToHost(addr, path, request, response);
@@ -105,8 +105,7 @@ proto::ListResponse *StoreClient::List(const proto::ListRequest &req) {
     // Send request to all storage servers
     vector<proto::ListResponse *> responses;
     BackgroundExecutor executor;
-    for (int i = 0; i < store_config_->config().server_size(); i++) {
-      const proto::StoreServer &server = store_config_->config().server(i);
+    for (auto &server : store_config_->config().server()) {
       proto::ListResponse *response = new proto::ListResponse();
       responses.push_back(response);
       executor.Add(bind(&StoreClient::SendRequestToHost, this, Socket::Address(server.address()), "/list", req,
@@ -125,9 +124,9 @@ proto::ListResponse *StoreClient::List(const proto::ListRequest &req) {
         output->set_errormessage(response->errormessage());
       }
       // Copy streams from response
-      for (int j = 0; j < response->stream_size(); j++) {
+      for (auto &istream : response->stream()) {
         proto::ValueStream *stream = output->add_stream();
-        stream->CopyFrom(response->stream(j));
+        stream->CopyFrom(istream);
       }
       delete response;
       if (output->success())

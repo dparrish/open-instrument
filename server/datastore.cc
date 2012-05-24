@@ -36,8 +36,7 @@ vector<proto::ValueStream> IndexedStoreFile::GetVariable(const Variable &variabl
 }
 
 bool IndexedStoreFile::GetVariable(const Variable &variable, vector<proto::ValueStream> *results) {
-  for (int i = 0; i < header.index_size(); i++) {
-    const proto::StoreFileHeaderIndex &index = header.index(i);
+  for (auto &index : header.index()) {
     Variable index_var(index.variable());
     if (index_var.Matches(variable)) {
       VLOG(3) << "Seeking to " << index.offset();

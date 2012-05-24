@@ -99,6 +99,7 @@ class Variable(object):
 
   def SetLabel(self, label, value):
     self.labels[label] = value
+    return self
 
   def GetLabel(self, label):
     return self.labels[label]

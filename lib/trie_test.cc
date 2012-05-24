@@ -48,9 +48,7 @@ TEST_F(TrieTest, Iterator) {
   }
   EXPECT_EQ(10, count);
   count = 0;
-  // BOOST_FOREACH requires a pile of typedefs in the iterator, make sure they work.
-  // This will fail to compile if it doesn't work.
-  BOOST_FOREACH(string str, trie)
+  for (string str : trie)
     count++;
   EXPECT_EQ(10, count);
 }

@@ -47,7 +47,7 @@ class Trie {
     }
 
     void clear() {
-      BOOST_FOREACH(TrieNode *node, child_nodes)
+      for (auto node : child_nodes)
         delete node;
       child_nodes.clear();
       if (value)
@@ -211,7 +211,7 @@ class Trie {
 
   void insert(const key_type &key, const_reference val) {
     list<unsigned char> keychars;
-    BOOST_FOREACH(unsigned char c, key)
+    for (unsigned char c : key)
       keychars.push_back(c);
     TrieNode *p = &root_;
     while (keychars.size() && p) {

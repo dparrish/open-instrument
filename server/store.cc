@@ -75,7 +75,7 @@ class DataStoreServer : private noncopyable {
     // Export stats every minute
     VariableExporter::GetGlobalExporter()->SetExportLabel("job", "datastore");
     VariableExporter::GetGlobalExporter()->SetExportLabel("hostname", Socket::Hostname());
-    VariableExporter::GetGlobalExporter()->StartExportThread(MyAddress(), 60);
+    VariableExporter::GetGlobalExporter()->StartExportThread(MyAddress(), 300);
     store_config_.SetServerState(MyAddress(), proto::StoreServer::RUNNING);
   }
 
@@ -126,7 +126,7 @@ class DataStoreServer : private noncopyable {
     try {
       uint32_t varcounter = 0;
       // Retrieve all the variable streams requested, mutating them on the way
-      BOOST_FOREACH(const Variable &var, vars) {
+      for (auto &var : vars) {
         if (++varcounter > req.max_variables())
           break;
         // Default to retrieving the last day
@@ -136,9 +136,9 @@ class DataStoreServer : private noncopyable {
         if (req.mutation_size()) {
           proto::ValueStream initial_stream;
           datastore.GetRange(var, start, end, &initial_stream);
-          for (int i = 0; i < req.mutation_size(); i++) {
+          for (auto &mutation : req.mutation()) {
             streams.push_back(proto::ValueStream());
-            ApplyMutation(req.mutation(i), initial_stream, &streams.back());
+            ApplyMutation(mutation, initial_stream, &streams.back());
           }
         } else {
           streams.push_back(proto::ValueStream());
@@ -149,16 +149,15 @@ class DataStoreServer : private noncopyable {
 
       // Perform any requested aggregation
       if (req.aggregation_size()) {
-        BOOST_FOREACH(string varname, unique_vars) {
+        for (auto &varname : unique_vars) {
           // Get a list of all streams with the same variable name
           vector<proto::ValueStream> aggstreams;
-          BOOST_FOREACH(proto::ValueStream &stream, streams) {
+          for (auto &stream : streams) {
             if (Variable(stream.variable()).variable() == varname) {
               aggstreams.push_back(stream);
             }
           }
-          for (int agg_i = 0; agg_i < req.aggregation_size(); agg_i++) {
-            const proto::StreamAggregation &agg = req.aggregation(agg_i);
+          for (auto &agg : req.aggregation()) {
             uint64_t sample_interval = agg.sample_interval();
             if (!sample_interval)
               sample_interval = 30000;
@@ -184,22 +183,21 @@ class DataStoreServer : private noncopyable {
               var.ToValueStream(&output);
               response.add_stream()->CopyFrom(output);
             } else {
-              for (int i = 0; i < agg.label_size(); i++) {
-                string label = agg.label(i);
+              for (const string &label : agg.label()) {
                 set<string> distinct_values;
 
-                BOOST_FOREACH(proto::ValueStream &stream, aggstreams) {
+                for (auto &stream : aggstreams) {
                   Variable tmpvar(stream.variable());
                   if (tmpvar.HasLabel(label))
                     distinct_values.insert(tmpvar.GetLabel(label));
                 }
                 VLOG(2) << "Distinct values for " << label << ":";
-                BOOST_FOREACH(string output_label, distinct_values) {
+                for (const string &output_label : distinct_values) {
                   VLOG(2) << "  " << output_label;
                   vector<proto::ValueStream> tmpstreams;
                   unordered_map<string, int> other_label_counts;
                   unordered_map<string, string> other_label_values;
-                  BOOST_FOREACH(proto::ValueStream &stream, aggstreams) {
+                  for (auto &stream : aggstreams) {
                     Variable tmpvar(stream.variable());
                     if (tmpvar.GetLabel(label) == output_label) {
                       tmpstreams.push_back(stream);
@@ -250,9 +248,8 @@ class DataStoreServer : private noncopyable {
         }
       } else {
         // Write the final streams to the response object
-        BOOST_FOREACH(proto::ValueStream &stream, streams) {
+        for (auto &stream : streams)
           response.add_stream()->CopyFrom(stream);
-        }
       }
 
       response.set_success(true);
@@ -290,20 +287,20 @@ class DataStoreServer : private noncopyable {
       ostream->CopyFrom(istream);
     } else if (mutation.sample_type() == proto::StreamMutation::AVERAGE) {
       UniformTimeSeries ts(mutation.sample_frequency());
-      for (int i = 0; i < istream.value_size(); i++) {
-        proto::ValueStream tmpstream = ts.AddPoint(istream.value(i).timestamp(), istream.value(i).double_value());
-        for (int j = 0; j < tmpstream.value_size(); j++) {
+      for (auto &ivalue : istream.value()) {
+        proto::ValueStream tmpstream = ts.AddPoint(ivalue.timestamp(), ivalue.double_value());
+        for (auto &tmpvalue : tmpstream.value()) {
           proto::Value *newvalue = ostream->add_value();
-          newvalue->CopyFrom(tmpstream.value(j));
+          newvalue->CopyFrom(tmpvalue);
         }
       }
     } else if (mutation.sample_type() == proto::StreamMutation::RATE ||
                mutation.sample_type() == proto::StreamMutation::RATE_SIGNED) {
       double lastval = 0;
       uint64_t lastts = 0;
-      for (int i = 0; i < istream.value_size(); i++) {
-        const proto::Value &oldvalue = istream.value(i);
-        if (i > 0) {
+      bool first = true;
+      for (auto &oldvalue : istream.value()) {
+        if (!first) {
           double rate = (oldvalue.double_value() - lastval) / ((oldvalue.timestamp() - lastts) / 1000.0);
           if (rate >= 0 || mutation.sample_type() == proto::StreamMutation::RATE_SIGNED) {
             proto::Value *newvalue = ostream->add_value();
@@ -311,14 +308,15 @@ class DataStoreServer : private noncopyable {
             newvalue->set_double_value(rate);
           }
         }
+        first = false;
         lastval = oldvalue.double_value();
         lastts = oldvalue.timestamp();
       }
     } else if (mutation.sample_type() == proto::StreamMutation::DELTA) {
       double lastval = 0;
-      for (int i = 0; i < istream.value_size(); i++) {
-        const proto::Value &oldvalue = istream.value(i);
-        if (i > 0) {
+      bool first = true;
+      for (auto &oldvalue : istream.value()) {
+        if (!first) {
           double delta = oldvalue.double_value() - lastval;
           if (delta >= 0) {
             proto::Value *newvalue = ostream->add_value();
@@ -326,6 +324,7 @@ class DataStoreServer : private noncopyable {
             newvalue->set_double_value(delta);
           }
         }
+        first = false;
         lastval = oldvalue.double_value();
       }
     } else {
@@ -357,7 +356,7 @@ class DataStoreServer : private noncopyable {
 
     response.set_success(true);
     uint32_t varcounter = 0;
-    BOOST_FOREACH(const Variable &var, vars) {
+    for (auto &var : vars) {
       if (++varcounter > req.max_variables())
         break;
       proto::ValueStream *stream = response.add_stream();
@@ -420,8 +419,7 @@ class DataStoreServer : private noncopyable {
           forwardstream->CopyFrom(*stream);
           continue;
         }
-        for (int valueid = 0; valueid < stream->value_size(); valueid++) {
-          const proto::Value &value = stream->value(valueid);
+        for (auto &value : stream->value()) {
           Timestamp ts(value.timestamp());
           if (retention_policy_.ShouldDrop(retention_policy_.GetPolicy(var, now.ms() - ts.ms()))) {
             // Retention policy says this variable should be dropped, so just ignore it
@@ -477,11 +475,9 @@ class DataStoreServer : private noncopyable {
     static string my_address;
     if (my_address.empty()) {
       vector<Socket::Address> local_addresses = Socket::LocalAddresses();
-      BOOST_FOREACH(Socket::Address &address, local_addresses) {
+      for (auto &address : local_addresses) {
         address.set_port(server_.address().port());
-        for (int i = 0 ; i < store_config_.config().server_size(); i++) {
-          const proto::StoreServer &server = store_config_.config().server(i);
-
+        for (auto &server : store_config_.config().server()) {
           if (server.address() == address.ToString()) {
             my_address = address.ToString();
             return my_address;

@@ -121,7 +121,7 @@ class ThreadPool : public Executor {
 
   string name_;
   int timeout_;
-  vector<shared_ptr<thread> > threads_;
+  vector<shared_ptr<thread>> threads_;
   ThreadPoolPolicy &policy_;
   Queue<Callback> pcqueue_;
   ExportedInteger stats_total_threads_;

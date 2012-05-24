@@ -59,14 +59,14 @@ TEST_F(CounterTest, UniformTimeSeries) {
 
   UniformTimeSeries ts(60);
   vector<TimestampValue> output;
-  BOOST_FOREACH(TimestampValue &val, input) {
+  for (TimestampValue &val : input) {
     proto::ValueStream stream = ts.AddPoint(val.timestamp, val.value);
     for (int i = 0; i < stream.value_size(); i++) {
       output.push_back(TimestampValue(stream.value(i).timestamp(), stream.value(i).double_value()));
     }
   }
 
-  BOOST_FOREACH(TimestampValue &out, output) {
+  for (TimestampValue &out : output) {
     ASSERT_GT(expected.size(), 0);
     TimestampValue exp = expected.front();
     expected.erase(expected.begin());

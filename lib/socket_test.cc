@@ -74,7 +74,7 @@ TEST_F(SocketTest, Resolve) {
   Socket sock;
   vector<Socket::Address> addrs = sock.Resolve("localhost");
   int found = 0;
-  BOOST_FOREACH(Socket::Address &addr, addrs) {
+  for (auto &addr : addrs) {
     if (addr.AddressToString() == "127.0.0.1" || addr.AddressToString() == "::1")
       found++;
   }
@@ -84,7 +84,7 @@ TEST_F(SocketTest, Resolve) {
 TEST_F(SocketTest, ReverseResolve) {
   vector<string> addrs = Socket::ReverseResolve(Socket::Address("127.0.0.1"));
   bool found = false;
-  BOOST_FOREACH(string &addr, addrs) {
+  for (string &addr : addrs) {
     if (addr.find("localhost") != string::npos)
       found = true;
   }
@@ -94,7 +94,7 @@ TEST_F(SocketTest, ReverseResolve) {
 TEST_F(SocketTest, LocalAddrs) {
   vector<Socket::Address> addrs = Socket::LocalAddresses();
   int found = 0;
-  BOOST_FOREACH(Socket::Address &addr, addrs) {
+  for (auto &addr : addrs) {
     if (addr.AddressToString() == "127.0.0.1" || addr.AddressToString() == "::1")
       found++;
   }

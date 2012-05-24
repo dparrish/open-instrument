@@ -53,7 +53,7 @@ void Cord::CopyFrom(const char *buf, uint32_t size) {
 }
 
 void Cord::CopyFrom(const Cord &src) {
-  BOOST_FOREACH(const CordBuffer &i, src.buffers_) {
+  for (const CordBuffer &i : src.buffers_) {
     if (i.dealloc()) {
       // Duplicate the block
       for (uint32_t start = 0; start < i.size(); ) {
@@ -94,9 +94,8 @@ void Cord::GetAppendBuf(uint32_t reqsize, char **buffer, uint32_t *realsize) {
 }
 
 void Cord::AppendTo(string *str) const {
-  BOOST_FOREACH(const CordBuffer &i, buffers_) {
+  for (const CordBuffer &i : buffers_)
     str->append(i.buffer(), i.size());
-  }
 }
 
 string Cord::ToString() const {
@@ -108,7 +107,7 @@ string Cord::ToString() const {
 char Cord::at(uint64_t start) const {
   if (start >= size_)
     throw out_of_range("Out of range");
-  BOOST_FOREACH(const CordBuffer &i, buffers_) {
+  for (const CordBuffer &i : buffers_) {
     if (start > i.size()) {
       // Start position is not inside this block
       start -= i.size();
@@ -125,7 +124,7 @@ void Cord::Substr(uint64_t start, uint64_t len, string *out) const {
     throw out_of_range("Out of range");
   uint64_t reallen = std::min(size_ - start, len);
   out->reserve(out->size() + reallen);
-  BOOST_FOREACH(const CordBuffer &i, buffers_) {
+  for (const CordBuffer &i : buffers_) {
     if (start > i.size()) {
       // Start position is not inside this block
       start -= i.size();
@@ -162,7 +161,7 @@ void Cord::ConsumeLine(string *output) {
     throw out_of_range("Empty Cord");
   uint64_t bytes_used = 0;
   bool found_newline = 0;
-  BOOST_FOREACH(CordBuffer &buf, buffers_) {
+  for (CordBuffer &buf : buffers_) {
     if (!buf.size()) {
       buffers_.pop_front();
       continue;
@@ -218,7 +217,7 @@ void Cord::Consume(uint64_t bytes, string *output) {
   uint64_t bytes_left = bytes;
   if (output)
     output->reserve(output->size() + bytes);
-  BOOST_FOREACH(CordBuffer &buf, buffers_) {
+  for (CordBuffer &buf : buffers_) {
     if (bytes_left == 0 || bytes_left > bytes)
       break;
     if (buf.size() >= bytes_left) {

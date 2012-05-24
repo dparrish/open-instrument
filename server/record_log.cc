@@ -61,7 +61,7 @@ bool RecordLog::Flush() {
   try {
     ProtoStreamWriter writer(filename());
     uint64_t done_streams = 0;
-    BOOST_FOREACH(proto::ValueStream &stream, log_) {
+    for (proto::ValueStream &stream : log_) {
       if (!writer.Write(stream)) {
         LOG(ERROR) << "Couldn't write stream to recordlog";
         break;
@@ -154,8 +154,7 @@ void RecordLog::ReindexRecordLogFile(const string &input, MapType *log_data) con
       it = log_data->find(variable.ToString());
     }
     CHECK(it != log_data->end());
-    for (int i = 0; i < stream.value_size(); i++) {
-      const proto::Value &oldvalue = stream.value(i);
+    for (auto &oldvalue : stream.value()) {
       proto::Value *lastvalue = it->second.mutable_value(it->second.value_size() - 1);
       if (it->second.value_size() &&
           ((lastvalue->has_string_value() && lastvalue->string_value() == oldvalue.string_value()) ||
@@ -172,10 +171,11 @@ void RecordLog::ReindexRecordLogFile(const string &input, MapType *log_data) con
 
 void RecordLog::ReindexRecordLog() {
   vector<string> files = Glob(filename() + ".*");
-  BOOST_FOREACH(string &filename, files) {
+  for (string &filename : files) {
     MapType log_data;
     ReindexRecordLogFile(filename, &log_data);
     WriteIndexedFile(log_data, filename);
+    unlink(filename.c_str());
   }
 }
 

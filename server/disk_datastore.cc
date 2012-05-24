@@ -37,8 +37,7 @@ void DiskDatastore::GetRange(const Variable &variable, const Timestamp &start, c
     if (!instream.value_size())
       return;
     outstream->mutable_variable()->CopyFrom(instream.variable());
-    for (int i = 0; i < instream.value_size(); i++) {
-      const proto::Value &value = instream.value(i);
+    for (auto &value : instream.value()) {
       if (value.timestamp() >= static_cast<uint64_t>(start.ms()) &&
           ((end.ms() && value.timestamp() < static_cast<uint64_t>(end.ms())) || !end.ms())) {
         proto::Value *val = outstream->add_value();
@@ -96,8 +95,8 @@ void DiskDatastore::ReplayRecordLog() {
     proto::ValueStream stream;
     uint64_t num_points = 0, num_streams = 0;
     while (record_log_.ReplayLog(&stream)) {
-      for (int i = 0; i < stream.value_size(); i++) {
-        RecordNoLog(Variable(stream.variable()), stream.value(i).timestamp(), stream.value(i));
+      for (auto &value : stream.value()) {
+        RecordNoLog(Variable(stream.variable()), value.timestamp(), value);
         num_points++;
       }
       num_streams++;

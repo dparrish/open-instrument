@@ -86,9 +86,8 @@ void ValueStreamCalculation(const vector<proto::ValueStream> &input, uint64_t sa
 
 double _DoAverage(vector<double> bucket) {
   double total = 0;
-  BOOST_FOREACH(double i, bucket) {
+  for (auto i : bucket)
     total += i;
-  }
   return total / bucket.size();
 }
 
@@ -98,9 +97,8 @@ void ValueStreamAverage(const vector<proto::ValueStream> &input, uint64_t sample
 
 double _DoSum(vector<double> bucket) {
   double total = 0;
-  BOOST_FOREACH(double i, bucket) {
+  for (auto i : bucket)
     total += i;
-  }
   return total;
 }
 

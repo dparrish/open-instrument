@@ -13,6 +13,7 @@
 #include <string>
 #include <vector>
 #include <boost/thread/once.hpp>
+#include <boost/thread.hpp>
 #include <sys/resource.h>
 #include <sys/time.h>
 #include <sys/utsname.h>
@@ -62,7 +63,7 @@ bool VariableExporter::RemoveVar(ExportedVariable *var) {
 void VariableExporter::ExportToString(string *output) {
   SharedLock lock(mutex_);
   RunCallbacks();
-  BOOST_FOREACH(ExportedVariable *i, all_exported_vars_) {
+  for (ExportedVariable *i : all_exported_vars_) {
     proto::ValueStream stream;
     i->ExportToValueStream(&stream);
     Variable var(stream.variable());
@@ -71,8 +72,7 @@ void VariableExporter::ExportToString(string *output) {
     }
     output->append(var.ToString());
     output->append("\t");
-    for (int i = 0; i < stream.value_size(); i++) {
-      const proto::Value &value = stream.value(i);
+    for (auto &value : stream.value()) {
       if (i > 0)
         output->append("\t");
       if (value.has_double_value())
@@ -87,7 +87,7 @@ void VariableExporter::ExportToString(string *output) {
 void VariableExporter::ExportToStore(StoreClient *client) {
   proto::AddRequest req;
   RunCallbacks();
-  BOOST_FOREACH(ExportedVariable *i, all_exported_vars_) {
+  for (ExportedVariable *i : all_exported_vars_) {
     proto::ValueStream *stream = req.add_stream();
     i->ExportToValueStream(stream);
     Variable var(stream->variable());
