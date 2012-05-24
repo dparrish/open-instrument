@@ -408,7 +408,7 @@ class DataStoreServer : private noncopyable {
         if (var.variable().at(0) != '/' ||
             var.variable().size() < 2 ||
             var.variable().find_first_of("\n\t ") != string::npos) {
-          throw runtime_error(StringPrintf("Invalid variable name"));
+          throw runtime_error(StringPrintf("Invalid variable name %s", var.ToString().c_str()));
         }
         string node = store_config_.hash_ring().GetNode(var.ToString());
         if (node != MyAddress() && !req.forwarded()) {
@@ -434,6 +434,7 @@ class DataStoreServer : private noncopyable {
             LOG(WARNING) << "Adding very old data point for " << var.ToString();
 
           datastore.Record(var, ts, value);
+          VLOG(1) << "Adding value for " << var.ToString() << " = " << std::fixed << value.double_value();
         }
       } catch (exception &e) {
         LOG(WARNING) << e.what();

@@ -50,9 +50,10 @@ class StoreClient(object):
 
 
 class Variable(object):
-  labels = {}
+  labels = None
   var = ""
   def __init__(self, var):
+    self.labels = {}
     if isinstance(var, proto.StreamVariable):
       self.FromProtobuf(var)
     else:

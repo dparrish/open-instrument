@@ -448,7 +448,7 @@ string Socket::Address::ToString() const {
 string Socket::Address::AddressToString() const {
   char str[INET6_ADDRSTRLEN + 1] = {0};
   if (v4())
-    return inet_ntop(address_.ss_family, &const_sockaddr_v4()->sin_addr, str, INET6_ADDRSTRLEN);
+    return inet_ntop(address_.ss_family, &const_sockaddr_v4()->sin_addr, str, INET_ADDRSTRLEN);
   else if (v6())
     return inet_ntop(address_.ss_family, &const_sockaddr_v6()->sin6_addr, str, INET6_ADDRSTRLEN);
   else
