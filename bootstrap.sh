@@ -36,7 +36,7 @@ fi
 if [ ! -d static/glog ]; then
   cd static
   svn checkout http://google-glog.googlecode.com/svn/trunk/ glog || exit $?
-  cd gflags
+  cd glog
   ./configure && make && sudo make install || exit $?
   cd ../..
 fi
