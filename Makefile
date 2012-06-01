@@ -1,7 +1,7 @@
 include Makefile.inc
 
 export CXX=g++-4.7
-export INCLUDE_DIRS += -I$(BASEDIR) -I$(BASEDIR)/static
+export INCLUDE_DIRS += -I$(BASEDIR)
 export LD=g++-4.7
 export LDFLAGS=-g $(LIB_DIRS)
 export LIBS=-lopeninstrument -lboost_regex -lboost_system \

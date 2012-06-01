@@ -29,6 +29,6 @@ if [ ! -d static/gflags ]; then
   cd static
   svn checkout http://gflags.googlecode.com/svn/trunk/ gflags || exit $?
   cd gflags
-  ./configure && make || exit $?
+  ./configure && make && sudo make install || exit $?
   cd ../..
 fi
