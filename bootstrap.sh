@@ -24,3 +24,11 @@ fi
 cd static/flot
 svn update
 cd ../..
+
+if [ ! -d static/gflags ]; then
+  cd static
+  svn checkout http://gflags.googlecode.com/svn/trunk/ gflags || exit $?
+  cd gflags
+  ./configure && make || exit $?
+  cd ../..
+fi

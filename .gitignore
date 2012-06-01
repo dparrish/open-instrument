@@ -1,3 +1,6 @@
 *_test
 *.o
 .*.swp
+gflags static/gflags
+gflags static/protojs
+gflags static/openinstrument.pb.js
