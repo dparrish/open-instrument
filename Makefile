@@ -1,8 +1,8 @@
 include Makefile.inc
 
-export CXX=g++
+export CXX=g++-4.7
 export INCLUDE_DIRS += -I$(BASEDIR)
-export LD=g++
+export LD=g++-4.7
 export LDFLAGS=-g $(LIB_DIRS)
 export LIBS=-lopeninstrument -lboost_regex -lboost_system \
 	-lboost_date_time-mt -lprotobuf -lrt -lboost_thread -lgflags -lglog 
