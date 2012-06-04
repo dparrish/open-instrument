@@ -372,7 +372,6 @@ bool Socket::Address::valid() const {
         return false;
       return true;
     default:
-      LOG(ERROR) << "No address type defined for socket";
       return false;
   }
 }
