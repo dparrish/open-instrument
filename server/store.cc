@@ -352,7 +352,7 @@ class DataStoreServer : private noncopyable {
       return true;
     }
     proto::ListResponse response;
-    set<Variable> vars = datastore.FindVariables(req.prefix().name());
+    set<Variable> vars = datastore.FindVariables(Variable(req.prefix()));
 
     response.set_success(true);
     uint32_t varcounter = 0;
