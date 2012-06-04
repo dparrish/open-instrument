@@ -22,6 +22,8 @@
 using namespace openinstrument;
 using namespace std;
 
+DEFINE_int32(max_variables, 100, "Maximum number of variables to return");
+
 void usage(char *argv[]) {
   cerr << "\nUsage: \n"
        << "\t" << argv[0] << " <server:port> <prefix>\n\n"
@@ -54,6 +56,7 @@ int main(int argc, char *argv[]) {
   // Build the List request and send it to the entire cluster.
   try {
     proto::ListRequest req;
+    req.set_max_variables(FLAGS_max_variables);
     Variable(argv[2]).ToProtobuf(req.mutable_prefix());
     StoreClient client(&config);
     scoped_ptr<proto::ListResponse> response(client.List(req));
