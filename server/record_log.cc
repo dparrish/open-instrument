@@ -8,6 +8,7 @@
  */
 
 #include <string>
+#include <libgen.h>
 #include "lib/common.h"
 #include "lib/openinstrument.pb.h"
 #include "lib/protobuf.h"
@@ -137,7 +138,7 @@ bool RecordLog::ReplayLog(proto::ValueStream *stream) {
   return false;
 }
 
-void RecordLog::ReindexRecordLogFile(const string &input, MapType *log_data) const {
+bool RecordLog::ReindexRecordLogFile(const string &input, MapType *log_data) const {
   LOG(INFO) << "Reindexing file " << input;
   ProtoStreamReader reader(input);
   proto::ValueStream stream;
@@ -167,20 +168,27 @@ void RecordLog::ReindexRecordLogFile(const string &input, MapType *log_data) con
       value->CopyFrom(oldvalue);
     }
   }
+  return true;
 }
 
-void RecordLog::ReindexRecordLog() {
+bool RecordLog::ReindexRecordLog() {
+  bool success = true;
   vector<string> files = Glob(filename() + ".*");
   for (string &filename : files) {
     MapType log_data;
-    ReindexRecordLogFile(filename, &log_data);
-    WriteIndexedFile(log_data, filename);
-    unlink(filename.c_str());
+    if (!ReindexRecordLogFile(filename, &log_data) || !WriteIndexedFile(log_data, filename)) {
+      string newfile = StringPrintf("failed-%s", filename.c_str());
+      LOG(ERROR) << "Failed to reindex record log file, renamed it to " << newfile;
+      rename(filename.c_str(), newfile.c_str());
+      success = false;
+    }
   }
+  return success;
 }
 
-void RecordLog::WriteIndexedFile(RecordLog::MapType &log_data, const string &filename) {
+bool RecordLog::WriteIndexedFile(RecordLog::MapType &log_data, const string &filename) {
   uint64_t output_streams = 0, output_values = 0;
+  uint64_t newest_timestamp = 0;
   proto::StoreFileHeader header;
   // Build the output header
   for (MapType::iterator i = log_data.begin(); i != log_data.end(); ++i) {
@@ -209,29 +217,59 @@ void RecordLog::WriteIndexedFile(RecordLog::MapType &log_data, const string &fil
   FileStat stat(outfile);
   if (stat.exists()) {
     LOG(ERROR) << "Output file " << outfile << " already exists";
-    return;
+    return false;
   }
 
   // Write all ValueStreams
   ProtoStreamWriter writer(outfile);
-  writer.Write(header);
+  if (!writer.fh()) {
+    LOG(ERROR) << "Can't write reindexed record log to " << outfile;
+    return false;
+  }
+  if (!writer.Write(header)) {
+    LOG(ERROR) << "Can't write reindexed record log header to " << outfile;
+    return false;
+  }
 
   int j = 0;
   for (RecordLog::MapType::iterator i = log_data.begin(); i != log_data.end(); ++i) {
     proto::StoreFileHeaderIndex *index = header.mutable_index(j++);
     index->set_offset(writer.fh()->Tell());
-    writer.Write(i->second);
+    if (!writer.Write(i->second)) {
+      LOG(ERROR) << "Can't write reindexed record log row to " << outfile;
+      return false;
+    }
+    for (auto value : i->second.value()) {
+      if (value.timestamp() > newest_timestamp)
+        newest_timestamp = value.timestamp();
+    }
   }
 
   // Write the header at the beginning of the file
-  writer.fh()->SeekAbs(0);
-  writer.Write(header);
+  if (writer.fh()->SeekAbs(0) != 0) {
+    LOG(ERROR) << "Can't seek to the beginning of " << outfile << " to re-write header: " << strerror(errno);
+    return false;
+  }
+  if (!writer.Write(header)) {
+    LOG(ERROR) << "Can't re-write reindexed record log header to " << outfile;
+    return false;
+  }
 
-  LOG(INFO) << "Created indexed file " << outfile << " containing " << output_streams << " streams and "
+  if (unlink(filename.c_str())) {
+    LOG(ERROR) << "Can't remove original file " << filename << ": " << strerror(errno);
+    return false;
+  }
+  char *dir = dirname(strdup(outfile.c_str()));
+  string finalfile = StringPrintf("%s/datastore.%lu.bin", dir, newest_timestamp);
+  free(dir);
+  if (::rename(outfile.c_str(), finalfile.c_str()) < 0) {
+    LOG(ERROR) << "Can't rename " << outfile << " to " << finalfile << ": " << strerror(errno);
+    return false;
+  }
+  LOG(INFO) << "Created indexed file " << finalfile << " containing " << output_streams << " streams and "
             << output_values << " values, between " << Timestamp(header.start_timestamp()).GmTime() << " and "
             << Timestamp(header.end_timestamp()).GmTime();
-
-  rename(outfile.c_str(), filename.c_str());
+  return true;
 }
 
 }  // namespace openinstrument

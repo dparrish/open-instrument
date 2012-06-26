@@ -89,9 +89,9 @@ class RecordLog : private noncopyable {
   }
 
   typedef std::map<string, proto::ValueStream> MapType;
-  void ReindexRecordLog();
-  void ReindexRecordLogFile(const string &input, MapType *log_data) const;
-  void WriteIndexedFile(MapType &log_data, const string &filename);
+  bool ReindexRecordLog();
+  bool ReindexRecordLogFile(const string &input, MapType *log_data) const;
+  bool WriteIndexedFile(MapType &log_data, const string &filename);
 
  private:
   void AdminThread();
