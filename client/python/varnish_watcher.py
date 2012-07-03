@@ -60,7 +60,7 @@ def main(argv):
 
   counters = {}
   logger = VarnishLog(counters, options.instance)
-  interval = 20
+  interval = 60
   while True:
     time.sleep(interval)
     timestamp = int(time.time() * 1000)
