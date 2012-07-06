@@ -5,14 +5,16 @@ __author__ = 'david@dparrish.com (David Parrish)'
 import os, sys
 sys.path.append('/home/open-instrument/client/python')
 
+import StoreClient
+import openinstrument_pb2 as proto
 import optparse
 import re
+import signal
 import socket
-import StoreClient
 import subprocess
-import time
-import openinstrument_pb2 as proto
 import thread
+import time
+import urllib2
 
 
 class VarnishLog(object):
@@ -35,6 +37,19 @@ class VarnishLog(object):
           return False
         if not child or not child.pid:
           break
+
+        try:
+          def killit(signal, rc):
+            if child.pid:
+              os.kill(child.pid, 15)
+          signal.signal(signal.SIGABRT, killit)
+          signal.signal(signal.SIGINT, killit)
+          signal.signal(signal.SIGPIPE, killit)
+          signal.signal(signal.SIGQUIT, killit)
+          signal.signal(signal.SIGTERM, killit)
+        except Exception as e:
+          print e
+
         for line in child.stdout:
           matches = re.match(r"\s*(\d+)\s+TxStatus\s+[a-z]\s(\d+)", line)
           if not matches:
@@ -91,9 +106,13 @@ def main(argv):
       hostname, port = dest.split(":")
       port = int(port)
       client = StoreClient.StoreClient(hostname, port)
-      response = client.Add(addrequest)
-      if not response.success:
-        print "Error sending status to datastore: ", response
+      try:
+        response = client.Add(addrequest)
+        if not response.success:
+          print "Error sending status to datastore: ", response
+      except urllib2.HTTPError as e:
+        print "Exception sending request to store:", e
+        print addrequest
     except Exception as e:
       print "Exception in write thread:", e
 
