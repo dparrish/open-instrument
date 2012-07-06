@@ -22,8 +22,8 @@ class VarnishLog(object):
     self.counters = counters
 
   def LogWatcher(self):
-    try:
-      while True:
+    while True:
+      try:
         cmdline = [ "/usr/bin/varnishlog", "-c", "-i", "TxStatus" ]
         if self.instance:
           cmdline.extend(["-n", self.instance])
@@ -43,8 +43,11 @@ class VarnishLog(object):
             self.counters[matches.group(2)] = self.counters.get(matches.group(2), 0) + 1
           except Queue.Full:
             pass
-    except Exception:
-      sys.exit(1)
+        if child:
+          os.kill(child.pid, 15)
+      except:
+        if child:
+          os.kill(child.pid, 15)
 
 
 def main(argv):
