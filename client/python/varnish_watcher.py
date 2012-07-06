@@ -65,34 +65,37 @@ def main(argv):
   logger = VarnishLog(counters, options.instance)
   interval = 60
   while True:
-    time.sleep(interval)
-    timestamp = int(time.time() * 1000)
-    addrequest = proto.AddRequest()
+    try:
+      time.sleep(interval)
+      timestamp = int(time.time() * 1000)
+      addrequest = proto.AddRequest()
 
-    for code, counter in counters.items():
-      print "%s: %d" % (code, counter)
-      var = StoreClient.Variable("/varnish/response_code")
-      var.SetLabel("code", code)
-      floatvalue = 0.0
-      try:
-        floatvalue = float(counter)
-      except ValueError as e:
-        print str(e)
-        continue
-      var.SetLabel("hostname", socket.gethostname())
-      stream = addrequest.stream.add()
-      var.ToProtobuf(stream.variable)
-      value = stream.value.add()
-      value.double_value = floatvalue
-      value.timestamp = timestamp
+      for code, counter in counters.items():
+        print "%s: %d" % (code, counter)
+        var = StoreClient.Variable("/varnish/response_code")
+        var.SetLabel("code", code)
+        floatvalue = 0.0
+        try:
+          floatvalue = float(counter)
+        except ValueError as e:
+          print str(e)
+          continue
+        var.SetLabel("hostname", socket.gethostname())
+        stream = addrequest.stream.add()
+        var.ToProtobuf(stream.variable)
+        value = stream.value.add()
+        value.double_value = floatvalue
+        value.timestamp = timestamp
 
-    # Send the config to the data store
-    hostname, port = dest.split(":")
-    port = int(port)
-    client = StoreClient.StoreClient(hostname, port)
-    response = client.Add(addrequest)
-    if not response.success:
-      print "Error sending status to datastore: ", response
+      # Send the config to the data store
+      hostname, port = dest.split(":")
+      port = int(port)
+      client = StoreClient.StoreClient(hostname, port)
+      response = client.Add(addrequest)
+      if not response.success:
+        print "Error sending status to datastore: ", response
+    except Exception as e:
+      print "Exception in write thread:", e
 
 
 if __name__ == '__main__':
