@@ -1,11 +1,11 @@
 include Makefile.inc
 
-export CXX=g++-4.7
+export CXX=g++-4.6
 export INCLUDE_DIRS += -I$(BASEDIR)
-export LD=g++-4.7
+export LD=g++-4.6
 export LDFLAGS=-g $(LIB_DIRS)
 export LIBS=-lopeninstrument -lboost_regex -lboost_system \
-	-lboost_date_time-mt -lprotobuf -lrt -lboost_thread -lgflags -lglog 
+	-lboost_date_time-mt -lprotobuf -lrt -lboost_thread -lgflags -lglog
 export LDLIBS=$(LIBS) $(EXTRA_LIBS_$@)
 export LIB_DIRS += -L$(BASEDIR)/lib -L/usr/lib
 export TEST_LIBS=-lgtest

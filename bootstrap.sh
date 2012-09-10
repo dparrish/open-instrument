@@ -1,5 +1,8 @@
 #!/bin/bash
 
+mkdir -p deps
+mkdir -p static
+
 # Download and compile protojs
 if [ ! -d static/protojs ]; then
   cd static
@@ -25,18 +28,26 @@ cd static/flot
 svn update
 cd ../..
 
-if [ ! -d static/gflags ]; then
-  cd static
+if [ ! -d deps/gflags ]; then
+  cd deps
   svn checkout http://gflags.googlecode.com/svn/trunk/ gflags || exit $?
   cd gflags
   ./configure && make && sudo make install || exit $?
   cd ../..
 fi
 
-if [ ! -d static/glog ]; then
-  cd static
+if [ ! -d deps/glog ]; then
+  cd deps
   svn checkout http://google-glog.googlecode.com/svn/trunk/ glog || exit $?
   cd glog
   ./configure && make && sudo make install || exit $?
+  cd ../..
+fi
+
+if [ ! -d deps/sympy ]; then
+  cd deps
+  git clone git://github.com/sympy/sympy.git || exit $?
+  cd sympy
+  sudo python setup.py install
   cd ../..
 fi
