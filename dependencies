@@ -6,6 +6,7 @@
 * googletest  http://code.google.com/p/googletest/  ubuntu:libgtest0
 * google-perftools  http://code.google.com/p/google-perftools/  ubuntu:libgoogle-perftools0
 * protojs  https://github.com/sirikata/protojs
+* ctemplate  https://code.google.com/p/ctemplate  ubuntu:libctemplate-dev
 
 For the python client and tools:
 * pysnmp4

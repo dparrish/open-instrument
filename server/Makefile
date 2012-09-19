@@ -1,6 +1,6 @@
 TARGETS=store
 TESTS=
-EXTRA_LIBS_store=record_log.o disk_datastore.o indexed_store_file.o $(BASEDIR)/lib/libopeninstrument.a
+EXTRA_LIBS_store=record_log.o disk_datastore.o indexed_store_file.o $(BASEDIR)/lib/libopeninstrument.a -lctemplate
 EXTRA_DEPS_store=disk_datastore.o indexed_store_file.o record_log.o $(BASEDIR)/lib/libopeninstrument.a
 
 include $(BASEDIR)/Makefile.inc

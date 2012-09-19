@@ -93,39 +93,39 @@ int64_t File::Tell() const {
 }
 
 MmapFile::MmapFile(const string &filename)
-  : fh_(NULL),
+  : File(filename, "r"),
     size_(0),
-    ptr_(NULL) {
-  fh_.reset(new File(filename, "r"));
-  if (!fh_.get()) {
-    LOG(ERROR) << "open() failed: " << strerror(errno);
-    return;
-  }
-  size_ = fh_->stat().size();
-  if (!size_) {
-    LOG(ERROR) << "empty file: " << strerror(errno);
-    fh_->Close();
-    return;
-  }
-  ptr_ = static_cast<char *>(mmap(NULL, size_, PROT_READ, MAP_SHARED, fh_->fd(), 0));
-  if (ptr_ <= 0) {
-    LOG(ERROR) << "mmap() failed: " << strerror(errno);
-    ptr_ = NULL;
-    Close();
-  }
+    ptr_(NULL),
+    pos_(0) {
+  Open("r");
 }
 
 MmapFile::~MmapFile() {
   Close();
 }
 
+bool MmapFile::Open(const char *mode) {
+  File::Open(mode);
+  size_ = stat().size();
+  if (!size_) {
+    LOG(ERROR) << "empty file: " << strerror(errno);
+    File::Close();
+    return false;
+  }
+  ptr_ = static_cast<char *>(mmap(NULL, size_, PROT_READ, MAP_SHARED, fd(), 0));
+  if (ptr_ <= 0) {
+    LOG(ERROR) << "mmap() failed: " << strerror(errno);
+    ptr_ = NULL;
+    File::Close();
+    return false;
+  }
+  return true;
+}
+
 void MmapFile::Close() {
   if (ptr_ && size_)
     munmap(ptr_, size_);
-  if (fh_.get()) {
-    fh_->Close();
-    fh_.reset(NULL);
-  }
+  File::Close();
   ptr_ = NULL;
   size_ = 0;
 }

@@ -95,24 +95,47 @@ class File {
     return *stat_;
   }
 
- private:
+ protected:
   scoped_ptr<FileStat> stat_;
   string filename_;
   int fd_;
 };
 
-class MmapFile {
+class MmapFile : public File {
  public:
   MmapFile(const string &filename);
   ~MmapFile();
+  bool Open(const char *mode);
   void Close();
-  size_t Read(size_t start, size_t len, char *buf);
+  size_t Read(size_t start, size_t size, char *buf);
+
+  template<typename T> int32_t Read(T *ptr, int32_t size) {
+    int32_t ret = Read(pos_, size, reinterpret_cast<char *>(ptr));
+    if (ret > 0)
+      pos_ += ret;
+    return ret;
+  }
+
   StringPiece Read(size_t start, size_t len);
 
+  size_t SeekAbs(size_t offset) {
+    pos_ = offset;
+    return pos_;
+  }
+
+  size_t SeekRel(size_t offset) {
+    pos_ += offset;
+    return pos_;
+  }
+
+  size_t Tell() const {
+    return pos_;
+  }
+
  private:
-  scoped_ptr<File> fh_;
   size_t size_;
   char *ptr_;
+  size_t pos_;
 };
 
 vector<string> Glob(const string &pattern);

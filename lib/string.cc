@@ -102,5 +102,20 @@ string ConsumeFirstWord(string *input) {
   return ret;
 }
 
+const string SiUnits(uint64_t value, uint8_t precision, const char *suffix) {
+  if (value >= 1152921504606846976ULL)
+    return StringPrintf("%0.*fE%s", precision, value / 1152921504606846976.0, suffix);
+  if (value >= 1125899906842624ULL)
+    return StringPrintf("%0.*fP%s", precision, value / 1125899906842624.0, suffix);
+  if (value >= 1099511627776ULL)
+    return StringPrintf("%0.*fT%s", precision, value / 1099511627776.0, suffix);
+  if (value >= 1024 * 1024 * 1024)
+    return StringPrintf("%0.*fG%s", precision, value / 1024.0 / 1024.0 / 1024.0, suffix);
+  if (value >= 1024 * 1024)
+    return StringPrintf("%0.*fM%s", precision, value / 1024.0 / 1024.0, suffix);
+  if (value >= 1024)
+    return StringPrintf("%0.*fK%s", precision, value / 1024.0, suffix);
+  return StringPrintf("%llu%s", value, suffix);
+}
 
 }  // namespace

@@ -37,7 +37,7 @@ void ValueStreamSum(const vector<proto::ValueStream> &input, uint64_t sample_int
 
 class ProtoStreamReader : private noncopyable {
  public:
-  explicit ProtoStreamReader(const string &filename) : fh_(filename, "r") {}
+  explicit ProtoStreamReader(const string &filename) : fh_(filename) {}
   bool Skip(int count = 1);
   bool Next(google::protobuf::Message *msg);
   File *fh() {
@@ -48,7 +48,7 @@ class ProtoStreamReader : private noncopyable {
   bool FindNextHeader();
 
   string buf_;
-  File fh_;
+  MmapFile fh_;
 };
 
 class ProtoStreamWriter : private noncopyable {

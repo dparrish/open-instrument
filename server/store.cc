@@ -13,6 +13,7 @@
 #include <string>
 #include <typeinfo>
 #include <vector>
+#include <ctemplate/template.h>
 #include <gflags/gflags.h>
 #include <glog/logging.h>
 #include "lib/atomic.h"
@@ -62,6 +63,7 @@ class DataStoreServer : private noncopyable {
       get_request_timer_("/openinstrument/store/get-requests"),
       forwarded_streams_ratio_("/openinstrument/store/forwarded-streams"),
       retention_policy_drops_("/openinstrument/store/retention-policy/values-dropped") {
+    run_timer_.Start();
     store_config_.WaitForConfigLoad();
     if (!store_config_.server(MyAddress()))
       throw runtime_error(StringPrintf("Could not find local address %s in store config", MyAddress().c_str()));
@@ -71,6 +73,7 @@ class DataStoreServer : private noncopyable {
     server_.request_handler()->AddPath("/get$", &DataStoreServer::HandleGet, this);
     server_.request_handler()->AddPath("/get_config$", &DataStoreServer::HandleGetConfig, this);
     server_.request_handler()->AddPath("/health$", &DataStoreServer::HandleHealth, this);
+    server_.request_handler()->AddPath("/status$", &DataStoreServer::HandleStatus, this);
     server_.AddExportHandler();
     // Export stats every minute
     VariableExporter::GetGlobalExporter()->SetExportLabel("job", "datastore");
@@ -471,6 +474,47 @@ class DataStoreServer : private noncopyable {
     return true;
   }
 
+  bool HandleStatus(const HttpRequest &request, HttpReply *reply) {
+    // Default health check, just return "OK"
+    reply->SetStatus(HttpReply::OK);
+    reply->SetContentType("text/html");
+    ctemplate::TemplateDictionary dict("status");
+    dict.SetValue("RUNTIME", Duration(run_timer_.ms()).ToString());
+
+    uint32_t total_variables = 0, total_values = 0;
+
+    for (auto &variable : datastore.FindVariables(Variable("*"))) {
+      const auto &stream = datastore.GetVariable(variable);
+      auto vdict = dict.AddSectionDictionary("LIVE_VARIABLE");
+      uint32_t data_size = 0;
+      vdict->SetValue("VARIABLE", variable.ToString());
+      vdict->SetIntValue("COUNTER", stream.value_size());
+      total_variables++;
+      total_values += stream.value_size();
+      if (stream.value_size()) {
+        const auto &front = stream.value(0);
+        const auto &back = stream.value(stream.value_size() - 1);
+        vdict->SetValue("FIRST", Timestamp(front.timestamp()).GmTime());
+        vdict->SetValue("LAST", Timestamp(back.timestamp()).GmTime());
+      }
+      for (const auto &value : stream.value()) {
+        if (value.has_double_value())
+          data_size += sizeof(value.double_value());
+        if (value.has_string_value())
+          data_size += value.string_value().size();
+      }
+      vdict->SetValue("DATA_SIZE", SiUnits(data_size, 1));
+    }
+
+    dict.SetIntValue("TOTAL_RECORDLOG_VARIABLES", total_variables);
+    dict.SetIntValue("TOTAL_RECORDLOG_VALUES", total_values);
+
+    string output;
+    ctemplate::ExpandTemplate("server/status_template.html", ctemplate::DO_NOT_STRIP, &dict, &output);
+    reply->mutable_body()->CopyFrom(output);
+    return true;
+  }
+
  private:
   const string &MyAddress() const {
     static string my_address;
@@ -505,6 +549,7 @@ class DataStoreServer : private noncopyable {
   ExportedTimer get_request_timer_;
   ExportedRatio forwarded_streams_ratio_;
   ExportedInteger retention_policy_drops_;
+  Timer run_timer_;
 };
 
 }  // namespace openinstrument

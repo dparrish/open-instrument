@@ -43,25 +43,10 @@ class DiskDatastore : private noncopyable {
     Record(variable, Timestamp::Now(), value);
   }
 
-  class IndexedFile : private noncopyable {
-   public:
-    IndexedFile(const string &filename);
-    vector<proto::ValueStream> GetVariable(const Variable &variable);
-    bool GetVariable(const Variable &variable, vector<proto::ValueStream> *results);
-
-    string filename;
-    ProtoStreamReader reader;
-    MapType log_data;
-    proto::StoreFileHeader header;
-  };
-
-  IndexedFile *OpenIndexedFile(const string &filename) {
-    return new IndexedFile(filename);
-  }
+  proto::ValueStream &GetVariable(const Variable &variable);
 
  private:
   proto::ValueStream &GetOrCreateVariable(const Variable &variable);
-  proto::ValueStream &GetVariable(const Variable &variable);
   proto::ValueStream &CreateVariable(const Variable &variable);
   proto::Value *RecordNoLog(const Variable &variable, Timestamp timestamp, const proto::Value &value);
   void ReplayRecordLog();

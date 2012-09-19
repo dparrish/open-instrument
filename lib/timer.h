@@ -129,7 +129,9 @@ class Timer {
   // Return the current timer duration in milliseconds
   inline int64_t ms() const {
     CHECK(start_time_) << ": Timer.Start() was not called";
-    return elapsed_;
+    if (elapsed_)
+      return elapsed_;
+    return Timestamp::Now() - start_time_;
   }
 
   // This is an approximation of seconds, and should not be used for any calculations. This is suitable for user

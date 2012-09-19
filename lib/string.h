@@ -115,6 +115,8 @@ inline uint64_t HexToUint64(const string &in) {
   return out;
 }
 
+const string SiUnits(uint64_t value, uint8_t precision=0, const char *suffix="b");
+
 
 }  // namespace openinstrument
 
