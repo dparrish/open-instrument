@@ -7,8 +7,8 @@
  *
  */
 
-#ifndef _OPENINSTRUMENT_LIB_DATASTORE_H_
-#define _OPENINSTRUMENT_LIB_DATASTORE_H_
+#ifndef _OPENINSTRUMENT_LIB_INDEXED_STORE_FILE_H_
+#define _OPENINSTRUMENT_LIB_INDEXED_STORE_FILE_H_
 
 #include <list>
 #include <string>
@@ -37,4 +37,4 @@ class IndexedStoreFile : private noncopyable {
 
 }  // namespace
 
-#endif  // _OPENINSTRUMENT_LIB_DATASTORE_H_
+#endif  // _OPENINSTRUMENT_LIB_INDEXED_STORE_FILE_H_

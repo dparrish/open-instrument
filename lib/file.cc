@@ -17,6 +17,7 @@
 #include <unistd.h>
 #include "lib/common.h"
 #include "lib/file.h"
+#include "lib/string.h"
 
 namespace openinstrument {
 
@@ -58,6 +59,7 @@ bool File::Open(const char *mode) {
 void File::Close() {
   if (fd_)
     close(fd_);
+  fd_ = 0;
 }
 
 int32_t File::Write(const char *ptr, int32_t size) {
@@ -89,6 +91,68 @@ int64_t File::Tell() const {
     throw runtime_error("Attempt to tell on closed filehandle");
   return lseek64(fd_, 0, SEEK_CUR);
 }
+
+MmapFile::MmapFile(const string &filename)
+  : fh_(NULL),
+    size_(0),
+    ptr_(NULL) {
+  fh_.reset(new File(filename, "r"));
+  if (!fh_.get()) {
+    LOG(ERROR) << "open() failed: " << strerror(errno);
+    return;
+  }
+  size_ = fh_->stat().size();
+  if (!size_) {
+    LOG(ERROR) << "empty file: " << strerror(errno);
+    fh_->Close();
+    return;
+  }
+  ptr_ = static_cast<char *>(mmap(NULL, size_, PROT_READ, MAP_SHARED, fh_->fd(), 0));
+  if (ptr_ <= 0) {
+    LOG(ERROR) << "mmap() failed: " << strerror(errno);
+    ptr_ = NULL;
+    Close();
+  }
+}
+
+MmapFile::~MmapFile() {
+  Close();
+}
+
+void MmapFile::Close() {
+  if (ptr_ && size_)
+    munmap(ptr_, size_);
+  if (fh_.get()) {
+    fh_->Close();
+    fh_.reset(NULL);
+  }
+  ptr_ = NULL;
+  size_ = 0;
+}
+
+size_t MmapFile::Read(size_t start, size_t len, char *buf) {
+  StringPiece piece = Read(start, len);
+  if (piece.size())
+    memcpy(buf, piece.data(), piece.size());
+  return piece.size();
+}
+
+StringPiece MmapFile::Read(size_t start, size_t len) {
+  if (!ptr_)
+    return StringPiece(NULL, 0);
+  if (start > size_)
+    return StringPiece(NULL, 0);
+  if (len > size_)
+    len = size_;
+  if (len == 0)
+    return StringPiece(NULL, 0);
+  if (start + len > size_)
+    len = size_ - start;
+  if (len <= 0)
+    return StringPiece(NULL, 0);
+  return StringPiece(ptr_ + start, len);
+}
+
 
 vector<string> Glob(const string &pattern) {
   vector<string> files;

@@ -14,7 +14,7 @@
 #include "lib/file.h"
 #include "lib/string.h"
 #include "lib/timer.h"
-#include "server/datastore.h"
+#include "server/indexed_store_file.h"
 
 DECLARE_string(datastore);
 

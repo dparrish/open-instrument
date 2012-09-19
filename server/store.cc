@@ -26,8 +26,8 @@
 #include "lib/string.h"
 #include "lib/threadpool.h"
 #include "lib/timer.h"
-#include "server/datastore.h"
 #include "server/disk_datastore.h"
+#include "server/indexed_store_file.h"
 #include "server/record_log.h"
 #include "server/store_config.h"
 

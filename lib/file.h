@@ -95,11 +95,24 @@ class File {
     return *stat_;
   }
 
-  scoped_ptr<FileStat> stat_;
-
  private:
+  scoped_ptr<FileStat> stat_;
   string filename_;
   int fd_;
+};
+
+class MmapFile {
+ public:
+  MmapFile(const string &filename);
+  ~MmapFile();
+  void Close();
+  size_t Read(size_t start, size_t len, char *buf);
+  StringPiece Read(size_t start, size_t len);
+
+ private:
+  scoped_ptr<File> fh_;
+  size_t size_;
+  char *ptr_;
 };
 
 vector<string> Glob(const string &pattern);

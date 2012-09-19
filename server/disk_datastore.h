@@ -18,7 +18,7 @@
 #include "lib/string.h"
 #include "lib/timer.h"
 #include "lib/variable.h"
-#include "server/datastore.h"
+#include "server/indexed_store_file.h"
 #include "server/record_log.h"
 
 namespace openinstrument {
