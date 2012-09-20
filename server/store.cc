@@ -31,6 +31,7 @@
 #include "server/indexed_store_file.h"
 #include "server/record_log.h"
 #include "server/store_config.h"
+#include "server/store_file_manager.h"
 
 DECLARE_int32(v);
 DEFINE_int32(port, 8020, "Port to listen on");
@@ -481,7 +482,23 @@ class DataStoreServer : private noncopyable {
     ctemplate::TemplateDictionary dict("status");
     dict.SetValue("RUNTIME", Duration(run_timer_.ms()).ToString());
 
-    uint32_t total_variables = 0, total_values = 0;
+    dict.SetIntValue("STORE_TOTAL_FILES", store_file_manager.available_files().size());
+    dict.SetIntValue("STORE_OPEN_FILES", store_file_manager.num_open_files());
+    for (auto &filename : store_file_manager.available_files()) {
+      auto file = dict.AddSectionDictionary("STORE_FILES");
+      file->SetValue("FILENAME", filename);
+      auto header = store_file_manager.GetHeader(filename);
+      if (header) {
+        file->SetValue("OPEN", "Yes");
+        file->SetValue("FIRST", Timestamp(header->start_timestamp()).GmTime());
+        file->SetValue("LAST", Timestamp(header->end_timestamp()).GmTime());
+        file->SetIntValue("VARIABLES", header->index_size());
+      } else {
+        file->SetValue("OPEN", "No");
+      }
+    }
+
+    uint32_t total_variables = 0, total_values = 0, total_ram = 0;
 
     for (auto &variable : datastore.FindVariables(Variable("*"))) {
       const auto &stream = datastore.GetVariable(variable);
@@ -504,10 +521,12 @@ class DataStoreServer : private noncopyable {
           data_size += value.string_value().size();
       }
       vdict->SetValue("DATA_SIZE", SiUnits(data_size, 1));
+      total_ram += data_size;
     }
 
     dict.SetIntValue("TOTAL_RECORDLOG_VARIABLES", total_variables);
     dict.SetIntValue("TOTAL_RECORDLOG_VALUES", total_values);
+    dict.SetValue("TOTAL_RAM", SiUnits(total_ram));
 
     string output;
     ctemplate::ExpandTemplate("server/status_template.html", ctemplate::DO_NOT_STRIP, &dict, &output);
@@ -536,6 +555,7 @@ class DataStoreServer : private noncopyable {
   }
 
   DiskDatastore datastore;
+  StoreFileManager store_file_manager;
   DefaultThreadPoolPolicy thread_pool_policy_;
   ThreadPool thread_pool_;
   HttpServer server_;
