@@ -34,13 +34,6 @@ def AddVar(addrequest, variable, value, labels={}, timestamp=None):
   return stream
 
 
-def GetEntropyStats(addrequest):
-  timestamp = int(time.time() * 1000)
-  AddVar(addrequest, "/system/random/entropy_available", file("/proc/sys/kernel/random/entropy_avail").read().strip(), {
-    'datatype': 'gauge'
-    }, timestamp)
-
-
 def main(argv):
   parser = optparse.OptionParser(usage="usage: %prog <store hostname:port> args...", add_help_option=False)
   (options, args) = parser.parse_args(args=argv)
@@ -61,9 +54,9 @@ def main(argv):
 
     end_time = time.time()
     AddVar(addrequest, "/http_fetch/time", end_time - start_time,
-        { 'datatype': 'gauge', 'units': 'seconds', 'url': url }, int(start_time))
+        { 'datatype': 'gauge', 'units': 'seconds', 'url': url }, int(start_time * 1000))
     AddVar(addrequest, "/http_fetch/status", status_code,
-        { 'datatype': 'gauge', 'units': 'seconds', 'url': url }, int(start_time))
+        { 'datatype': 'gauge', 'units': 'seconds', 'url': url }, int(start_time * 1000))
 
   # Send the config to the data store
   hostname, port = args[1].split(":")
