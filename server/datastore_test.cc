@@ -19,28 +19,22 @@ class DatastoreTest : public ::testing::Test {};
 
 
 TEST_F(DatastoreTest, IteratorTest) {
-  uint64_t start_timestamp = 1363940931985LL;
-  uint64_t end_timestamp = 1363940951985LL;
+  uint64_t start_timestamp = 1372071901270LL;
+  uint64_t end_timestamp = 1372073401453LL;
   DiskDatastore datastore("/r2/services/openinstrument");
-  DiskDatastoreIterator it(start_timestamp, end_timestamp);
-  for (auto &variable : datastore.FindVariables("/*")) {
-    LOG(INFO) << "Adding variable " << variable.ToString();
-    it.AddStream(&datastore.GetVariable(variable));
-  }
-  ++it;
   int counter = 0;
   uint64_t last_timestamp = 0;
-  for (; it != it.end(); ++it) {
-    if (++counter >= 50)
-      break;
-    auto &value = *it;
-    Variable var(value.variable());
-    LOG(INFO) << var.ToString() << " " << value.timestamp() << ": " << std::fixed << value.double_value();
-    ASSERT_TRUE(value.timestamp() >= last_timestamp);
-    ASSERT_TRUE(value.timestamp() >= start_timestamp);
-    last_timestamp = value.timestamp();
+  for (auto it = datastore.find("/system/vmstat/*", Timestamp(start_timestamp), Timestamp(end_timestamp));
+       it != it.end() && counter < 50;
+       ++it, ++counter) {
+    Variable var(it->variable());
+    LOG(INFO) << var.ToString() << " " << it->timestamp() << ": " << std::fixed << it->double_value();
+    ASSERT_TRUE(it->timestamp() >= last_timestamp);
+    ASSERT_TRUE(it->timestamp() >= start_timestamp);
+    ASSERT_TRUE(it->timestamp() < end_timestamp);
+    last_timestamp = it->timestamp();
   }
-  ASSERT_GT(counter, 0);
+  ASSERT_EQ(counter, 50);
 }
 
 /*

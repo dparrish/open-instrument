@@ -30,6 +30,13 @@ DiskDatastore::~DiskDatastore() {
   live_data_.clear();
 }
 
+DiskDatastoreIterator DiskDatastore::find(const Variable &search, const Timestamp &start, const Timestamp &end) {
+  DiskDatastoreIterator it(bind(&DiskDatastoreIterator::IncludeBetweenTimestamps, start, end, _1));
+  for (auto &variable : FindVariables(search))
+    it.AddStream(&GetVariable(variable));
+  return it;
+}
+
 void DiskDatastore::GetRange(const Variable &variable, const Timestamp &start, const Timestamp &end,
                              proto::ValueStream *outstream) {
   try {
@@ -105,6 +112,51 @@ void DiskDatastore::ReplayRecordLog() {
   } catch (exception &e) {
     LOG(WARNING) << "Couldn't replay record log: " << e.what();
   }
+}
+
+DiskDatastoreIterator::self_type DiskDatastoreIterator::operator++() {
+  uint64_t min_timestamp_ = 0;
+  int min_timestamp_stream_ = 0;
+  if (!streams_.size()) {
+    // End of the list, no streams to process
+    this->node_ = NULL;
+    return *this;
+  }
+  for (size_t i = 0; i < streams_.size(); ++i) {
+    proto::ValueStream *stream = streams_[i];
+    if (stream_pos_[i] >= stream->value_size()) {
+      // Reached the end of a stream
+      continue;
+    }
+    while (true) {
+      if (stream_pos_[i] >= stream->value_size()) {
+        // Reached the end of a stream
+        break;
+      }
+      proto::Value *node = stream->mutable_value(stream_pos_[i]);
+      if (!include_callback_(*node)) {
+        stream_pos_[i]++;
+        continue;
+      }
+      // There's a valid node.
+      if (!min_timestamp_ || min_timestamp_ > node->timestamp()) {
+        // This is the oldest node so far, remember it for later
+        min_timestamp_ = node->timestamp();
+        min_timestamp_stream_ = i;
+      }
+      break;
+    }
+  }
+  if (min_timestamp_) {
+    // An item was found.
+    this->node_ = streams_[min_timestamp_stream_]->mutable_value(stream_pos_[min_timestamp_stream_]);
+    this->node_->mutable_variable()->CopyFrom(streams_[min_timestamp_stream_]->variable());
+    // Increment the pointer so this same item isn't returned again
+    stream_pos_[min_timestamp_stream_]++;
+    return *this;
+  }
+  this->node_ = NULL;
+  return *this;
 }
 
 }  // namespace

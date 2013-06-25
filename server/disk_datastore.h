@@ -24,18 +24,27 @@
 
 namespace openinstrument {
 
-class DiskDatastoreIterator : public boost::iterator_facade<
-                          DiskDatastoreIterator,
-                          proto::Value,
-                          boost::forward_traversal_tag> {
-                          // http://www.boost.org/doc/libs/1_53_0/libs/iterator/doc/new-iter-concepts.html#forward-traversal-iterators-lib-forward-traversal-iterators
-                          // boost:bidirectional_traversal_tag
-                          // boost:random_access_traversal_tag
+class DiskDatastoreIterator {
  public:
-  DiskDatastoreIterator(const Timestamp &start, const Timestamp &end)
+  typedef int size_type;
+  typedef DiskDatastoreIterator self_type;
+  typedef proto::Value value_type;
+  typedef proto::Value& reference;
+  typedef proto::Value* pointer;
+  typedef std::forward_iterator_tag iterator_category;
+  typedef int difference_type;
+
+  typedef boost::function<bool(const reference)> callback;
+
+  DiskDatastoreIterator(callback include_callback)
     : node_(NULL),
-      start_(start),
-      end_(end) {
+      include_callback_(include_callback) {}
+  DiskDatastoreIterator() : node_(NULL) {
+    ++(*this);
+  }
+
+  void AddCallback(callback include_callback) {
+    include_callback_ = include_callback;
   }
 
   void AddStream(proto::ValueStream *stream) {
@@ -43,73 +52,25 @@ class DiskDatastoreIterator : public boost::iterator_facade<
     stream_pos_.push_back(0);
   }
 
-  DiskDatastoreIterator end() const {
-    return DiskDatastoreIterator(0, 0);
+  DiskDatastoreIterator end() {
+    return DiskDatastoreIterator();
   }
+
+  static bool IncludeBetweenTimestamps(const Timestamp &start, const Timestamp &end, const reference node) {
+    return (node.timestamp() >= start.ms() && node.timestamp() < end.ms());
+  }
+
+  self_type operator++();
+  reference operator*() { return *node_; }
+  pointer operator->() { return node_; }
+  bool operator==(const self_type &rhs) { return node_ == rhs.node_; }
+  bool operator!=(const self_type &rhs) { return node_ != rhs.node_; }
 
  private:
-  friend class boost::iterator_core_access;
-
-  virtual void increment() {
-    uint64_t min_timestamp_ = 0;
-    int min_timestamp_stream_ = 0;
-    if (!streams_.size()) {
-      // End of the list, no streams to process
-      this->node_ = NULL;
-      return;
-    }
-    for (size_t i = 0; i < streams_.size(); ++i) {
-      proto::ValueStream *stream = streams_[i];
-      if (stream_pos_[i] >= stream->value_size()) {
-        // Reached the end of a stream
-        continue;
-      }
-      proto::Value *value = stream->mutable_value(stream_pos_[i]);
-      while (value->timestamp() < start_.ms() && stream_pos_[i] < stream->value_size()) {
-        // Look for a value that is after the start timestamp
-        stream_pos_[i]++;
-        //LOG(INFO) << "Discarding timestamp " << value->timestamp() << " which is before start time " << start_.ms();
-        value = stream->mutable_value(stream_pos_[i]);
-      }
-      if (stream_pos_[i] >= stream->value_size()) {
-        // Reached the end of a stream
-        continue;
-      }
-      if (value->timestamp() > end_.ms()) {
-        // Value is after end timestamp
-        //LOG(INFO) << "Discarding timestamp " << value->timestamp() << " which is after end time " << end_.ms();
-        continue;
-      }
-      if (!min_timestamp_ || value->timestamp() <= min_timestamp_) {
-        // Found a valid value, remember it for later
-        min_timestamp_ = value->timestamp();
-        min_timestamp_stream_ = i;
-      }
-    }
-    if (min_timestamp_) {
-      // An item was found.
-      this->node_ = streams_[min_timestamp_stream_]->mutable_value(stream_pos_[min_timestamp_stream_]);
-      this->node_->mutable_variable()->CopyFrom(streams_[min_timestamp_stream_]->variable());
-      // Increment the pointer so this same item isn't returned again
-      stream_pos_[min_timestamp_stream_]++;
-      return;
-    }
-    this->node_ = NULL;
-  }
-
-  bool equal(DiskDatastoreIterator const &other) const {
-    return node_ == other.node_;
-  }
-
-  proto::Value& dereference() const {
-    return *node_;
-  }
-
-  proto::Value *node_;
+  pointer node_;
   vector<proto::ValueStream *> streams_;
   vector<int> stream_pos_;
-  const Timestamp &start_;
-  const Timestamp &end_;
+  callback include_callback_;
 };
 
 class DiskDatastore : private noncopyable {
@@ -119,6 +80,7 @@ class DiskDatastore : private noncopyable {
   explicit DiskDatastore(const string &basedir);
   ~DiskDatastore();
 
+  DiskDatastoreIterator find(const Variable &search, const Timestamp &start, const Timestamp &end);
   void GetRange(const Variable &variable, const Timestamp &start, const Timestamp &end, proto::ValueStream *outstream);
   DiskDatastoreIterator GetRange(const Variable &variable, const Timestamp &start, const Timestamp &end);
   set<Variable> FindVariables(const Variable &variable);
