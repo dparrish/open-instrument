@@ -72,8 +72,9 @@ void VariableExporter::ExportToString(string *output) {
     }
     output->append(var.ToString());
     output->append("\t");
+    int c = 0;
     for (auto &value : stream.value()) {
-      if (i > 0)
+      if (c++ > 0)
         output->append("\t");
       if (value.has_double_value())
         output->append(lexical_cast<string>(value.double_value()));

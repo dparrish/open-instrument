@@ -19,7 +19,7 @@ class TrieTest : public ::testing::Test {};
 
 TEST_F(TrieTest, Insert) {
   Trie<string> trie;
-  EXPECT_EQ(0, trie.size());
+  EXPECT_EQ(0UL, trie.size());
   EXPECT_TRUE(trie.empty());
   trie.insert("/openinstrument/test/key", "test value");
   trie.insert("/openinstrument/test/key2", "test value 2");
@@ -28,7 +28,7 @@ TEST_F(TrieTest, Insert) {
   trie.insert("/apeninstrument/foo", "bar");
   // This last entry replaces the previous one so should not increase the size
   trie.insert("/apeninstrument/foo", "foo");
-  EXPECT_EQ(5, trie.size());
+  EXPECT_EQ(5UL, trie.size());
   EXPECT_FALSE(trie.empty());
 }
 
@@ -37,13 +37,13 @@ TEST_F(TrieTest, Iterator) {
   for (int i = 0; i < 10; i++) {
     trie.insert(StringPrintf("/openinstrument/test/key%d", i), StringPrintf("test value %d", i));
   }
-  EXPECT_EQ(10, trie.size());
+  EXPECT_EQ(10UL, trie.size());
   int count = 0;
   string laststring = "";
   // Iterate over all the items and verify that they are ordered correctly
-  for (Trie<string>::iterator i = trie.begin(); i != trie.end(); ++i) {
-    EXPECT_TRUE(*i > laststring);
-    laststring = *i;
+  for (auto i : trie) {
+    EXPECT_TRUE(i > laststring);
+    laststring = i;
     count++;
   }
   EXPECT_EQ(10, count);
@@ -58,11 +58,11 @@ TEST_F(TrieTest, Clear) {
   for (int i = 0; i < 10; i++) {
     trie.insert(StringPrintf("/openinstrument/test/key%d", i), StringPrintf("test value %d", i));
   }
-  EXPECT_EQ(10, trie.size());
+  EXPECT_EQ(10UL, trie.size());
   trie.clear();
-  EXPECT_EQ(0, trie.size());
-  for (Trie<string>::iterator i = trie.begin(); i != trie.end(); ++i) {
-    FAIL() << "There should not be any entries";
+  EXPECT_EQ(0UL, trie.size());
+  for (auto i : trie) {
+    FAIL() << "There should not be any entries: " << i;
   }
 }
 
@@ -98,9 +98,9 @@ TEST_F(TrieTest, Erase) {
   }
   // This shouldn't delete anything
   trie.erase("test value 1");
-  EXPECT_EQ(10, trie.size());
+  EXPECT_EQ(10UL, trie.size());
   trie.erase("/openinstrument/test/key1");
-  EXPECT_EQ(9, trie.size());
+  EXPECT_EQ(9UL, trie.size());
   Trie<string>::iterator i = trie.find("/openinstrument/test/key1");
   EXPECT_TRUE(trie.end() == i);
 }

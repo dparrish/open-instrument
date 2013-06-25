@@ -72,7 +72,7 @@ TEST_F(UriTest, UriParse) {
   EXPECT_EQ(123, uri.port);
   EXPECT_EQ("/path/to/filename", uri.path);
   EXPECT_EQ("key1=value1&key2=%20value2%20", uri.query_string);
-  ASSERT_EQ(2, uri.params.size());
+  ASSERT_EQ(2UL, uri.params.size());
   EXPECT_EQ("key1", uri.params[0].key);
   EXPECT_EQ("value1", uri.params[0].value);
   EXPECT_EQ("key2", uri.params[1].key);

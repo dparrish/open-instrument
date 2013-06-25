@@ -15,12 +15,12 @@ namespace http {
 const char *HttpServer::RFC112Format = "%a, %d %b %Y %H:%M:%S %Z";
 
 HttpServer::HttpServer(const string &address, const uint16_t port, Executor *executor)
-  : address_(address),
+  : shutdown_(false),
+    address_(address),
     listen_thread_(new thread(bind(&HttpServer::Start, this))),
     executor_(executor),
     request_handler_(new RequestHandler()),
-    stats_("/openinstrument/httpserver"),
-    shutdown_(false) {
+    stats_("/openinstrument/httpserver") {
   address_.set_port(port);
   listen_socket_.Listen(address_);
 }

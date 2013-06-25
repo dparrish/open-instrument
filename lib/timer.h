@@ -62,6 +62,10 @@ class Timestamp {
     return static_cast<double>(ms / 1000.0);
   }
 
+  inline static double UsToSeconds(uint64_t us) {
+    return static_cast<double>(us / 1000000.0);
+  }
+
   inline operator uint64_t() const {
     return ms_;
   }

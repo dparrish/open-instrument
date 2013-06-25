@@ -9,53 +9,13 @@
 
 #include <boost/function.hpp>
 #include "lib/closure.h"
+#include "lib/executor.h"
 
 namespace openinstrument {
-
-BackgroundExecutor::~BackgroundExecutor() {
-  JoinThreads();
-}
-
-void BackgroundExecutor::Add(const Callback &callback) {
-  threads_.push_back(new boost::thread(callback));
-  TryJoinThreads();
-}
-
-void BackgroundExecutor::TryJoinThreads() {
-  for (std::vector<boost::thread *>::iterator i = threads_.begin(); i != threads_.end(); ++i) {
-    if ((*i)->timed_join(boost::posix_time::seconds(0))) {
-      delete *i;
-      threads_.erase(i);
-      return TryJoinThreads();
-    }
-  }
-}
-
-void BackgroundExecutor::JoinThreads() {
-  for (std::vector<boost::thread *>::iterator i = threads_.begin(); i != threads_.end(); ++i) {
-    (*i)->join();
-    delete *i;
-  }
-  threads_.clear();
-}
 
 void DelayedExecutor::Start() {
   CHECK(thread_ == NULL);
   thread_ = new thread(bind(&DelayedExecutor::BackgroundThread, this));
-}
-
-
-DelayedExecutor::DelayedExecutor()
-    : Executor(),
-      stop_(false),
-      thread_(NULL) {
-  Start();
-}
-
-DelayedExecutor::~DelayedExecutor() {
-  Stop();
-  if (thread_)
-    delete thread_;
 }
 
 void DelayedExecutor::Stop() {
@@ -72,21 +32,14 @@ void DelayedExecutor::WaitForAll() const {
   const auto &i = callbacks_.rbegin();
   if (i == callbacks_.rend())
     return;
-  if (i->run_time > Timestamp::Now())
-    boost::this_thread::sleep(boost::posix_time::millisec(i->run_time - Timestamp::Now() + 1));
-}
-
-void DelayedExecutor::Add(const Callback &callback) {
-  Add(callback, Timestamp::Now());
+  if (i->run_time.ms() > Timestamp::Now())
+    boost::this_thread::sleep(boost::posix_time::millisec(i->run_time.ms() - Timestamp::Now() + 1));
 }
 
 void DelayedExecutor::Add(const Callback &callback, Timestamp when, Executor *executor) {
   if (when <= Timestamp::Now()) {
     // Run it now, there's no point adding it to the list.
-    if (executor)
-      executor->Add(callback);
-    else
-      callback();
+    callback();
     return;
   }
   TimedCallback cb;
@@ -107,7 +60,7 @@ void DelayedExecutor::BackgroundThread() {
     uint64_t next_callback = 0;
     vector<TimedCallback> done_callbacks;
     for (auto &i : callbacks_) {
-      if (i.run_time <= Timestamp::Now()) {
+      if (i.run_time.ms() <= Timestamp::Now()) {
         boost::this_thread::disable_interruption di;
         if (i.executor) {
           // Run the callback in another thread
@@ -121,8 +74,8 @@ void DelayedExecutor::BackgroundThread() {
           }
         }
         done_callbacks.push_back(i);
-      } else if (!next_callback || i.run_time < next_callback) {
-        next_callback = i.run_time;
+      } else if (!next_callback || i.run_time.ms() < next_callback) {
+        next_callback = i.run_time.ms();
       }
     }
     for (auto &i : done_callbacks) {

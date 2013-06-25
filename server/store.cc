@@ -23,7 +23,7 @@
 #include "lib/http_static_dir.h"
 #include "lib/openinstrument.pb.h"
 #include "lib/protobuf.h"
-#include "lib/retention_policy.h"
+#include "lib/retention_policy_manager.h"
 #include "lib/string.h"
 #include "lib/threadpool.h"
 #include "lib/timer.h"
@@ -52,13 +52,14 @@ class DataStoreServer : private noncopyable {
  public:
   DataStoreServer(const string &addr, uint16_t port)
     : datastore(FLAGS_datastore),
+      retention_policy_manager_(&store_config_),
+      store_file_manager_(retention_policy_manager_),
       thread_pool_policy_(FLAGS_num_http_threads, FLAGS_max_http_threads),
       thread_pool_("datastore_server", thread_pool_policy_),
       server_(addr, port, &thread_pool_),
       static_dir_("/static", "static", &server_),
       favicon_file_("/favicon.ico", "static/favicon.ico", &server_),
       store_config_(StringPrintf("%s/config.txt", FLAGS_datastore.c_str())),
-      retention_policy_(&store_config_),
       add_request_timer_("/openinstrument/store/add-requests"),
       list_request_timer_("/openinstrument/store/list-requests"),
       get_request_timer_("/openinstrument/store/get-requests"),
@@ -425,7 +426,7 @@ class DataStoreServer : private noncopyable {
         }
         for (auto &value : stream->value()) {
           Timestamp ts(value.timestamp());
-          if (retention_policy_.ShouldDrop(retention_policy_.GetPolicy(var, now.ms() - ts.ms()))) {
+          if (retention_policy_manager_.ShouldDrop(retention_policy_manager_.GetPolicy(var, now.ms() - ts.ms()))) {
             // Retention policy says this variable should be dropped, so just ignore it
             ++retention_policy_drops_;
             continue;
@@ -482,17 +483,17 @@ class DataStoreServer : private noncopyable {
     ctemplate::TemplateDictionary dict("status");
     dict.SetValue("RUNTIME", Duration(run_timer_.ms()).ToString());
 
-    dict.SetIntValue("STORE_TOTAL_FILES", store_file_manager.available_files().size());
-    dict.SetIntValue("STORE_OPEN_FILES", store_file_manager.num_open_files());
-    for (auto &filename : store_file_manager.available_files()) {
+    dict.SetIntValue("STORE_TOTAL_FILES", store_file_manager_.available_files().size());
+    dict.SetIntValue("STORE_OPEN_FILES", store_file_manager_.num_open_files());
+    for (auto &filename : store_file_manager_.available_files()) {
       auto file = dict.AddSectionDictionary("STORE_FILES");
       file->SetValue("FILENAME", filename);
-      auto header = store_file_manager.GetHeader(filename);
+      auto header = store_file_manager_.GetHeader(filename);
       if (header) {
         file->SetValue("OPEN", "Yes");
         file->SetValue("FIRST", Timestamp(header->start_timestamp()).GmTime());
         file->SetValue("LAST", Timestamp(header->end_timestamp()).GmTime());
-        file->SetIntValue("VARIABLES", header->index_size());
+        file->SetIntValue("VARIABLES", header->index_size() ? header->index_size() : header->variable_size());
       } else {
         file->SetValue("OPEN", "No");
       }
@@ -511,8 +512,14 @@ class DataStoreServer : private noncopyable {
       if (stream.value_size()) {
         const auto &front = stream.value(0);
         const auto &back = stream.value(stream.value_size() - 1);
-        vdict->SetValue("FIRST", Timestamp(front.timestamp()).GmTime());
-        vdict->SetValue("LAST", Timestamp(back.timestamp()).GmTime());
+        vdict->SetValue("FIRST", Duration(Timestamp::Now() - front.timestamp()).ToString(false));
+        vdict->SetValue("LAST", Duration(Timestamp::Now() - back.timestamp()).ToString(false));
+        if (front.has_double_value())
+          vdict->SetValue("LATEST", StringPrintf("%0.4f", front.double_value()));
+        else if (front.has_string_value())
+          vdict->SetValue("LATEST", "<em>&lt;STRING&gt;</em>");
+        else
+          vdict->SetValue("LATEST", "<em>none</em>");
       }
       for (const auto &value : stream.value()) {
         if (value.has_double_value())
@@ -555,14 +562,14 @@ class DataStoreServer : private noncopyable {
   }
 
   DiskDatastore datastore;
-  StoreFileManager store_file_manager;
+  RetentionPolicyManager retention_policy_manager_;
+  StoreFileManager store_file_manager_;
   DefaultThreadPoolPolicy thread_pool_policy_;
   ThreadPool thread_pool_;
   HttpServer server_;
   http::HttpStaticDir static_dir_;
   http::HttpStaticFile favicon_file_;
   StoreConfig store_config_;
-  RetentionPolicy retention_policy_;
 
   ExportedTimer add_request_timer_;
   ExportedTimer list_request_timer_;

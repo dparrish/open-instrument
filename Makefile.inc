@@ -18,11 +18,11 @@ endif
 	@echo "Compiling $@"
 	@$(CXX) -o $@ $< -c $(CXXFLAGS)
 
-%_test: %_test.o $(TEST_DEPS)
+%_test: %_test.o $(TEST_DEPS) $(TEST_LIBS) $(EXTRA_DEPS_$@) $(EXTRA_LIBS_$@)
 	@echo "Linking test $@"
-	@$(LD) -o $@ $< $(LDFLAGS) $(LIBS) $(TEST_LIBS) $(EXTRA_LIBS_$@)
+	@$(LD) -o $@ $< $(EXTRA_LIBS_$@) $(LDFLAGS) $(LIBS) $(TEST_LIBS)
 	@echo "Running $@"
-	@if test -f /`which valgrind 2>/dev/null`; then \
+	@if test -f /`which valgrindx 2>/dev/null`; then \
 		valgrind -q ./$@ $(TEST_ARGS) || (rm -f $@ && exit 1) \
 	else \
 		./$@ $(TEST_ARGS) || (rm -f $@ && exit 1) \
@@ -77,3 +77,8 @@ subdirs_depend:
 subdirs_lint:
 	@for DIR in $(SUBDIRS); do $(MAKE) -C $$DIR lint || exit $?; done
 
+GTEST_DIR=$(BASEDIR)/deps/gtest
+$(BASEDIR)/build/libgtest.a: $(GTEST_DIR)/src/gtest-all.cc
+	@echo "Generating gtest"
+	@$(CXX) -o $(GTEST_DIR)/src/gtest-all.o -c -I$(GTEST_DIR)/include -I$(GTEST_DIR) $(GTEST_DIR)/src/gtest-all.cc
+	@ar -rv $@ $(GTEST_DIR)/src/gtest-all.o

@@ -14,9 +14,13 @@
 
 #include <string>
 #include <vector>
+#include <fcntl.h>
 #include <glob.h>
+#include <poll.h>
 #include <stdio.h>
+#include <sys/inotify.h>
 #include <sys/stat.h>
+#include <unistd.h>
 #include "lib/common.h"
 
 namespace openinstrument {
@@ -58,28 +62,28 @@ class FileStat {
 class File {
  public:
   File(const string &filename, const char *mode = "r");
-  ~File();
+  virtual ~File();
   bool Open(const char *mode);
   void Close();
 
-  template<typename T> int32_t Read(T *ptr, int32_t size) {
+  template<typename T> int32_t Read(T *ptr, uint32_t size) {
     if (!fd_)
       return 0;
     return read(fd_, reinterpret_cast<char *>(ptr), size);
   }
 
-  int32_t Write(const char *ptr, int32_t size);
+  int32_t Write(const char *ptr, uint32_t size);
   int32_t Write(const string &str);
 
-  template<typename T> int32_t Write(const T &val, int32_t size) {
+  template<typename T> int32_t Write(const T &val, uint32_t size) {
     if (!fd_)
       return 0;
     return write(fd_, reinterpret_cast<const char *>(&val), size);
   }
 
-  int64_t SeekAbs(int64_t offset);
-  int64_t SeekRel(int64_t offset);
-  int64_t Tell() const;
+  virtual int64_t SeekAbs(int64_t offset);
+  virtual int64_t SeekRel(int64_t offset);
+  virtual int64_t Tell() const;
 
   int fd() const {
     return fd_;
@@ -104,41 +108,142 @@ class File {
 class MmapFile : public File {
  public:
   MmapFile(const string &filename);
-  ~MmapFile();
+  virtual ~MmapFile();
   bool Open(const char *mode);
   void Close();
-  size_t Read(size_t start, size_t size, char *buf);
 
-  template<typename T> int32_t Read(T *ptr, int32_t size) {
-    int32_t ret = Read(pos_, size, reinterpret_cast<char *>(ptr));
+  template<typename T> int32_t Read(T *ptr, uint32_t len) {
+    int32_t ret = Read(pos_, len, reinterpret_cast<char *>(ptr));
     if (ret > 0)
       pos_ += ret;
     return ret;
   }
 
-  StringPiece Read(size_t start, size_t len);
+  virtual int32_t Read(uint64_t start, uint32_t len, char *buf);
+  virtual StringPiece Read(uint64_t start, uint32_t len);
 
-  size_t SeekAbs(size_t offset) {
+  virtual int64_t SeekAbs(int64_t offset) {
     pos_ = offset;
     return pos_;
   }
 
-  size_t SeekRel(size_t offset) {
+  virtual int64_t SeekRel(int64_t offset) {
     pos_ += offset;
     return pos_;
   }
 
-  size_t Tell() const {
+  virtual int64_t Tell() const {
     return pos_;
   }
 
  private:
-  size_t size_;
+  uint64_t size_;
+  uint64_t pos_;
   char *ptr_;
-  size_t pos_;
 };
 
 vector<string> Glob(const string &pattern);
+
+class FilesystemWatcher : private noncopyable {
+ public:
+  typedef boost::function<void(const string &)> EventCallback;
+  enum EventType {
+    FILE_WRITTEN = IN_CLOSE_WRITE,
+    FILE_RENAMED = IN_MOVED_TO,
+    FILE_DELETED = IN_DELETE,
+  };
+
+  FilesystemWatcher()
+    : fd_(inotify_init1(O_NONBLOCK | O_CLOEXEC)),
+      background_thread_(bind(&FilesystemWatcher::Watcher, this)) {
+  }
+
+  ~FilesystemWatcher() {
+    if (fd_)
+      close(fd_);
+    fd_ = 0;
+    background_thread_.interrupt();
+    background_thread_.join();
+  }
+
+
+  bool SyncWatch(const string &path, EventType mask) {
+    Notification notify;
+    AddWatch(path, mask, bind(&Notification::Notify, &notify));
+    notify.WaitForNotification();
+    RemoveWatch(path);
+    return true;
+  }
+
+ private:
+  struct watch_callback;
+ public:
+  bool AddWatch(const string &path, EventType mask, EventCallback callback) {
+    int wd = inotify_add_watch(fd_, path.c_str(), static_cast<uint32_t>(mask));
+    if (wd < 0) {
+      LOG(ERROR) << "Error adding inotify watch: " << strerror(errno);
+      return false;
+    }
+    struct watch_callback cb;
+    cb.path = path;
+    cb.callback = callback;
+    watches_[wd] = cb;
+    return true;
+  }
+
+  void RemoveWatch(const string &path) {
+    for (auto watch : watches_) {
+      if (watch.second.path == path) {
+        inotify_rm_watch(fd_, watch.first);
+        watches_.erase(watch.first);
+        return;
+      }
+    }
+  }
+
+ private:
+  void Watcher() {
+    char buf[4096];
+    while (fd_) {
+      struct pollfd fds[1];
+      fds[0].fd = fd_;
+      fds[0].events = POLLIN;
+      poll(fds, 1, 1000);
+      if (!(fds[0].revents & POLLIN))
+        continue;
+      ssize_t bytes = read(fd_, buf, sizeof(buf));
+      if (bytes <= 0) {
+        if (errno == EAGAIN)
+          continue;
+        LOG(WARNING) << "FilesystemWatcher::Watcher read returned " << strerror(errno);
+        break;
+      }
+      struct inotify_event *event = reinterpret_cast<struct inotify_event *>(buf);
+      while (event < reinterpret_cast<struct inotify_event *>(buf + bytes)) {
+        VLOG(2) << "FilesystemWatcher event.wd: " << event->wd;
+        VLOG(2) << "FilesystemWatcher event.mask: " << event->mask;
+        VLOG(2) << "FilesystemWatcher event.cookie: " << event->cookie;
+        if (event->len)
+          VLOG(2) << "FilesystemWatcher event.name: " << event->name;
+        for (auto watch : watches_) {
+          if (watch.first == event->wd) {
+            string filename(event->name, event->len);
+            watch.second.callback(filename);
+          }
+        }
+        event += event->len + sizeof(struct inotify_event);
+      }
+    }
+  }
+
+  struct watch_callback {
+    string path;
+    EventCallback callback;
+  };
+  int fd_;
+  unordered_map<int, watch_callback> watches_;
+  thread background_thread_;
+};
 
 }  // namespace openinstrument
 

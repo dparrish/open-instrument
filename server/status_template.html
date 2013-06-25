@@ -1,0 +1,72 @@
+<html>
+<head>
+  <title>OpenInstrument Datastore</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      font-size: 10pt;
+    }
+    table {
+      font-family: sans-serif;
+      font-size: 10pt;
+      border-collapse: collapse;
+    }
+    table td {
+      padding: 3px;
+      border: 1px solid gray;
+    }
+    table th {
+      padding: 3px;
+      background-color: lightgray;
+      text-align: left;
+      border: 1px solid gray;
+    }
+  </style>
+</head>
+<body>
+  <h1>OpenInstrument Datastore</h1>
+  <div>Running for {{RUNTIME}}.</div>
+  <div>Total of {{TOTAL_RECORDLOG_VARIABLES}} variables and {{TOTAL_RECORDLOG_VALUES}} data points in the record log,
+    using {{TOTAL_RAM}} RAM.</div>
+  <h2>Store File Manager</h2>
+  <div>Holds a handle on {{STORE_OPEN_FILES}} out of {{STORE_TOTAL_FILES}} total datastore files.</div>
+  <table>
+    <tr>
+      <th>Filename</th>
+      <th>Open?</th>
+      <th>First</th>
+      <th>Last</th>
+      <th>Variables</th>
+    </tr>
+    {{#STORE_FILES}}
+    <tr>
+      <td>{{FILENAME}}</td>
+      <td>{{OPEN}}</td>
+      <td>{{FIRST}}</td>
+      <td>{{LAST}}</td>
+      <td>{{VARIABLES}}</td>
+    </tr>
+    {{/STORE_FILES}}
+  </table>
+  <h2>Live data (recordlog)</h2>
+
+  <table>
+    <tr>
+      <th>Variable</th>
+      <th>Counter</th>
+      <th>Latest</th>
+      <th>Range</th>
+      <th>Data Size</th>
+    </tr>
+    {{#LIVE_VARIABLE}}
+    <tr>
+      <td>{{VARIABLE}}</td>
+      <td>{{COUNTER}}</td>
+      <td>{{LATEST}}</td>
+      <td>{{FIRST}} - {{LAST}}</td>
+      <td>{{DATA_SIZE}}</td>
+    </tr>
+    {{/LIVE_VARIABLE}}
+  </table>
+</body>
+</html>

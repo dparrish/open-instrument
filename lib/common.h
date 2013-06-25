@@ -35,8 +35,6 @@
 #include <stdexcept>
 #include <string>
 #include <vector>
-#include "lib/closure.h"
-#include "lib/string.h"
 
 namespace openinstrument {
 
@@ -210,5 +208,8 @@ char *HexToBuffer(uint32_t i, char *buffer);
 string HexToBuffer(uint32_t i);
 
 }  // namespace
+
+#include "lib/closure.h"
+#include "lib/string.h"
 
 #endif  // _OPENINSTRUMENT_LIB_COMMON_H_

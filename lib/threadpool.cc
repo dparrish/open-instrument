@@ -57,21 +57,25 @@ void ThreadPool::Loop() {
   while (true) {
     policy_.RunPolicy(threads_.size(), stats_busy_threads_, bind(&ThreadPool::AddThreadCallback, this),
                       bind(&ThreadPool::DeleteThreadCallback, this));
+    Callback h;
     try {
-      Callback h;
       pcqueue_.WaitAndPop(h);
-      ThreadCpuTimer cpu_timer;
-      cpu_timer.Start();
-      ScopedExportTimer timer(&stats_work_done_);
-      ++stats_busy_threads_;
-      --stats_queue_size_;
-      h();
-      --stats_busy_threads_;
-      cpu_timer.Stop();
-      stats_cpu_used_ += cpu_timer.us();
     } catch (std::out_of_range) {
       break;
     }
+    ThreadCpuTimer cpu_timer;
+    cpu_timer.Start();
+    ScopedExportTimer timer(&stats_work_done_);
+    ++stats_busy_threads_;
+    --stats_queue_size_;
+    try {
+      h();
+    } catch (exception &e) {
+      LOG(ERROR) << "Exception running ThreadPool callback: " << e.what();
+    }
+    cpu_timer.Stop();
+    --stats_busy_threads_;
+    stats_cpu_used_ += cpu_timer.us();
   }
 }
 

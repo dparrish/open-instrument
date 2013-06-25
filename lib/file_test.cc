@@ -47,13 +47,15 @@ TEST_F(FileTest, MmapReadFile) {
   MmapFile fh(FILENAME);
   char buf[40] = {0};
   fh.Read(0, 18, buf);
-  EXPECT_EQ("This is some text\n", buf);
+  EXPECT_EQ(0, strcmp("This is some text\n", buf));
   fh.Close();
 }
 
+/*
 TEST_F(FileTest, UnlinkFile) {
   unlink(FILENAME);
 }
+*/
 
 }  // namespace
 

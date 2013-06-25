@@ -57,6 +57,9 @@ class HttpServer : private noncopyable {
   bool HandleExportVars(const HttpRequest &request, HttpReply *reply);
   void HandleClient(Socket *sock);
 
+  // Set to true to cause all the listening threads to shut down once they complete the in-progress request
+  bool shutdown_;
+
   Socket::Address address_;
   Socket listen_socket_;
   scoped_ptr<thread> listen_thread_;
@@ -67,9 +70,6 @@ class HttpServer : private noncopyable {
   scoped_ptr<RequestHandler> request_handler_;
 
   ExportedIntegerSet stats_;
-
-  // Set to true to cause all the listening threads to shut down once they complete the in-progress request
-  bool shutdown_;
 };
 
 }  // namespace http

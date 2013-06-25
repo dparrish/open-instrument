@@ -182,7 +182,7 @@ bool ProtoStreamReader::Next(google::protobuf::Message *msg) {
     if (fh_.Read(&magic, sizeof(magic)) != sizeof(magic))
       return false;
     if (magic != protomagic) {
-      // LOG(INFO) << "Corrupted protobuf magic at 0x" << std::hex << startpos;
+      VLOG(2) << "Corrupted protobuf magic at 0x" << std::hex << startpos;
       fh_.SeekAbs(startpos + 1);
       if (FindNextHeader())
         continue;
@@ -192,22 +192,26 @@ bool ProtoStreamReader::Next(google::protobuf::Message *msg) {
     if (fh_.Read(&size, sizeof(size)) != sizeof(size))
       return false;
     if (size >= fh_.stat().size()) {
-      // LOG(INFO) << "Corrupted protobuf size at 0x" << std::hex << startpos;
+      VLOG(2) << "Corrupted protobuf size at 0x" << std::hex << startpos;
       fh_.SeekAbs(startpos + 1);
       if (FindNextHeader())
         continue;
       return false;
     }
+    if (size < 0 || size > 4 * 1024 * 1024) {
+      VLOG(2) << "Corrupted protobuf size " << size;
+      return false;
+    }
     buf_.resize(size);
     if (fh_.Read(const_cast<char *>(buf_.data()), size) != size) {
-      // LOG(INFO) << "Short protobuf read at 0x" << std::hex << startpos;
+      VLOG(2) << "Short protobuf read at 0x" << std::hex << startpos;
       return false;
     }
     crc_type crc;
     if (fh_.Read(&crc, sizeof(crc)) != sizeof(crc))
       return false;
     if (crc != Crc(buf_)) {
-      // LOG(INFO) << "Corrupted protobuf crc at 0x" << std::hex << startpos;
+      VLOG(2) << "Corrupted protobuf crc at 0x" << std::hex << startpos;
       fh_.SeekAbs(startpos + 1);
       if (FindNextHeader())
         continue;
@@ -215,7 +219,7 @@ bool ProtoStreamReader::Next(google::protobuf::Message *msg) {
     }
 
     if (!msg->ParseFromString(buf_)) {
-      // LOG(INFO) << "Corrupted protobuf at 0x" << std::hex << startpos;
+      VLOG(2) << "Corrupted protobuf at 0x" << std::hex << startpos;
       if (FindNextHeader())
         continue;
       return false;

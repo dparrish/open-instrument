@@ -7,8 +7,8 @@
  *
  */
 
-#ifndef _OPENINSTRUMENT_LIB_RETENTION_POLICY_H_
-#define _OPENINSTRUMENT_LIB_RETENTION_POLICY_H_
+#ifndef _OPENINSTRUMENT_LIB_RETENTION_POLICY_MANAGER_H_
+#define _OPENINSTRUMENT_LIB_RETENTION_POLICY_MANAGER_H_
 
 #include <boost/function.hpp>
 #include <boost/timer.hpp>
@@ -17,9 +17,9 @@
 
 namespace openinstrument {
 
-class RetentionPolicy {
+class RetentionPolicyManager {
  public:
-  RetentionPolicy(StoreConfig *config)
+  RetentionPolicyManager(StoreConfig *config)
     : config_(config) {
   }
 
@@ -55,11 +55,22 @@ class RetentionPolicy {
     return policy.policy() == proto::RetentionPolicyItem::DROP;
   }
 
+  bool HasPolicyForVariable(const Variable &variable) const {
+    for (auto &item : config_->config().retention_policy().policy()) {
+      for (int j = 0; j < item.variable_size(); j++) {
+        Variable match(item.variable(j));
+        if (variable.Matches(match))
+          return true;
+      }
+    }
+    return false;
+  }
+
  private:
   StoreConfig *config_;
 };
 
 }  // namespace openinstrument
 
-#endif  // _OPENINSTRUMENT_LIB_COMMON_H_
+#endif  // _OPENINSTRUMENT_LIB_RETENTION_POLICY_MANAGER_H_
 

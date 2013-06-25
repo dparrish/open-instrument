@@ -62,7 +62,7 @@ void File::Close() {
   fd_ = 0;
 }
 
-int32_t File::Write(const char *ptr, int32_t size) {
+int32_t File::Write(const char *ptr, uint32_t size) {
   if (!fd_)
     throw runtime_error("Attempt to write to closed filehandle");
   return write(fd_, ptr, size);
@@ -95,8 +95,8 @@ int64_t File::Tell() const {
 MmapFile::MmapFile(const string &filename)
   : File(filename, "r"),
     size_(0),
-    ptr_(NULL),
-    pos_(0) {
+    pos_(0),
+    ptr_(NULL) {
   Open("r");
 }
 
@@ -130,14 +130,24 @@ void MmapFile::Close() {
   size_ = 0;
 }
 
-size_t MmapFile::Read(size_t start, size_t len, char *buf) {
-  StringPiece piece = Read(start, len);
-  if (piece.size())
-    memcpy(buf, piece.data(), piece.size());
-  return piece.size();
+int32_t MmapFile::Read(uint64_t start, uint32_t len, char *buf) {
+  if (!buf)
+    return -1;
+  if (start > size_)
+    return 0;
+  if (len > size_)
+    len = size_;
+  if (len == 0)
+    return 0;
+  if (start + len > size_)
+    len = size_ - start;
+  if (len <= 0)
+    return 0;
+  memcpy(buf, ptr_ + start, len);
+  return len;
 }
 
-StringPiece MmapFile::Read(size_t start, size_t len) {
+StringPiece MmapFile::Read(uint64_t start, uint32_t len) {
   if (!ptr_)
     return StringPiece(NULL, 0);
   if (start > size_)

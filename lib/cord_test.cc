@@ -18,7 +18,7 @@ class CordTest : public ::testing::Test {};
 
 TEST_F(CordTest, GetAppendBuf) {
   Cord cord;
-  ASSERT_EQ(0, cord.size());
+  ASSERT_EQ(0UL, cord.size());
   char *buf = NULL;
   uint32_t size = 0;
   string appendstring("This is the string that will be appended.\n");
@@ -27,7 +27,7 @@ TEST_F(CordTest, GetAppendBuf) {
     EXPECT_EQ(appendstring.size(), size);
     memcpy(buf, appendstring.c_str(), appendstring.size());
   }
-  EXPECT_EQ(420, cord.size());
+  EXPECT_EQ(420UL, cord.size());
 }
 
 TEST_F(CordTest, Append) {
@@ -36,11 +36,11 @@ TEST_F(CordTest, Append) {
   for (int i = 0; i < 20; i++) {
     cord.Append(teststring);
   }
-  EXPECT_EQ(1900, cord.size());
+  EXPECT_EQ(1900UL, cord.size());
 
   string output;
   cord.AppendTo(&output);
-  EXPECT_EQ(1900, output.size());
+  EXPECT_EQ(1900UL, output.size());
 }
 
 TEST_F(CordTest, CopyCord) {
@@ -71,7 +71,7 @@ TEST_F(CordTest, SubstrPointers) {
   for (int i = 0; i < 20; i++) {
     cord.CopyFrom(teststring.c_str(), teststring.size());
   }
-  EXPECT_EQ(200, cord.size());
+  EXPECT_EQ(200UL, cord.size());
 
   // Start after bounds
   EXPECT_THROW(cord.Substr(400, 10), out_of_range);
@@ -99,7 +99,7 @@ TEST_F(CordTest, SubstrStrings) {
   for (int i = 0; i < 20; i++) {
     cord.CopyFrom(teststring.c_str(), teststring.size());
   }
-  EXPECT_EQ(200, cord.size());
+  EXPECT_EQ(200UL, cord.size());
 
   // Start after bounds
   EXPECT_THROW(cord.Substr(400, 10), out_of_range);
@@ -127,7 +127,7 @@ TEST_F(CordTest, RandomAccess) {
   for (int i = 0; i < 20; i++) {
     cord.Append(teststring);
   }
-  EXPECT_EQ(200, cord.size());
+  EXPECT_EQ(200UL, cord.size());
 
   EXPECT_EQ('1', cord[0]);
   EXPECT_EQ('0', cord[9]);
@@ -144,7 +144,7 @@ TEST_F(CordTest, IteratorRead) {
   for (int i = 0; i < 20; i++) {
     cord.CopyFrom(teststring.c_str(), teststring.size());
   }
-  EXPECT_EQ(200, cord.size());
+  EXPECT_EQ(200UL, cord.size());
 
   Cord::iterator i = cord.begin();
   EXPECT_EQ("1234567890123456", string(i->buffer(), i->size()));
@@ -196,12 +196,12 @@ TEST_F(CordTest, Consume) {
   cord.CopyFrom("This is line 3 that does not have a trailing newline");
 
   string out;
-  EXPECT_EQ(136, cord.size());
+  EXPECT_EQ(136UL, cord.size());
   EXPECT_EQ('L', cord[0]);
   cord.Consume(1, &out);
   EXPECT_EQ("L", out);
   EXPECT_EQ('i', cord[0]);
-  EXPECT_EQ(135, cord.size());
+  EXPECT_EQ(135UL, cord.size());
   out.clear();
   cord.Consume(53, &out);
   EXPECT_EQ("ine 1\r\n\r\nThis is line 2, it is a long line that spans", out);
@@ -217,7 +217,7 @@ TEST_F(CordTest, ConsumeLine) {
   cord.CopyFrom("This is line 3, it is a long line that spans multiple CordBuffer blocks.\r\n");
   cord.CopyFrom("This is line 4 that does not have a trailing newline");
 
-  EXPECT_EQ(144, cord.size());
+  EXPECT_EQ(144UL, cord.size());
   string output;
   cord.ConsumeLine(&output);
   EXPECT_EQ("Line 1", output);

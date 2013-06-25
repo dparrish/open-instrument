@@ -9,7 +9,7 @@
 
 #include <string>
 #include <gtest/gtest.h>
-#include "lib/retention_policy.h"
+//#include "lib/retention_policy.h"
 #include "lib/string.h"
 #include "server/store_config.h"
 

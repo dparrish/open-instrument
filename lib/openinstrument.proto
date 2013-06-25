@@ -72,6 +72,7 @@ message Value {
 
   // Used for run-length encoding
   optional uint64 end_timestamp = 4;
+  optional StreamVariable variable = 5;
 }
 
 message ValueStream {

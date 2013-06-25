@@ -10,15 +10,36 @@
 #include <gtest/gtest.h>
 #include <string>
 #include "lib/timer.h"
+#include "lib/common.h"
 
 namespace openinstrument {
 
 class TimerTest : public ::testing::Test {};
 
+int callbacks_run = 0;
+void PrintHello(int i) {
+  callbacks_run++;
+}
+
+TEST_F(TimerTest, DelayedExecutor) {
+  Executor exec1, exec2;
+  DelayedExecutor executor;
+  int i = 0;
+  executor.Add(bind(PrintHello, ++i), Timestamp::Now() + 100);
+  executor.Add(bind(PrintHello, ++i), Timestamp::Now() + 100, &exec1);
+  executor.Add(bind(PrintHello, ++i), Timestamp::Now() + 350, &exec2);
+  executor.Add(bind(PrintHello, ++i), Timestamp::Now() + 250, &exec1);
+  executor.Add(bind(PrintHello, ++i), Timestamp::Now() + 200, &exec2);
+  executor.Add(bind(PrintHello, ++i), Timestamp::Now() + 50, &exec2);
+
+  executor.WaitForAll();
+  EXPECT_EQ(callbacks_run, 6);
+}
+
 TEST_F(TimerTest, DurationFromString) {
-  EXPECT_EQ(0, Duration::FromString("").ms());  // invalid duration string
-  EXPECT_EQ(0, Duration::FromString("1").ms());  // invalid duration string
-  EXPECT_EQ(1000, Duration::FromString("1s").ms());
+  EXPECT_EQ(0ULL, Duration::FromString("").ms());  // invalid duration string
+  EXPECT_EQ(0ULL, Duration::FromString("1").ms());  // invalid duration string
+  EXPECT_EQ(1000ULL, Duration::FromString("1s").ms());
   EXPECT_FLOAT_EQ(11, Duration::FromString("10s1s").seconds());
   EXPECT_FLOAT_EQ(50, Duration::FromString("50s").seconds());
   EXPECT_FLOAT_EQ(120, Duration::FromString("2 m").seconds());
@@ -52,7 +73,7 @@ TEST_F(TimerTest, Strftime) {
   string timestr = t.GmTime("%Y-%m-%d %H:%M:%S.%. %Z");
   EXPECT_EQ("2011-01-06 23:34:02.114 GMT", timestr);
   // TODO(dparrish): Add in tests for timezones
-  EXPECT_EQ(1294356842114, Timestamp::FromGmTime(timestr, "%Y-%m-%d %H:%M:%S"));
+  EXPECT_EQ(1294356842114ULL, Timestamp::FromGmTime(timestr, "%Y-%m-%d %H:%M:%S"));
 }
 
 TEST_F(TimerTest, ProcessCpuTimer) {

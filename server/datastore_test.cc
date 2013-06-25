@@ -10,27 +10,40 @@
 #include <gtest/gtest.h>
 #include <string>
 #include <vector>
-#include "server/datastore.h"
+#include "server/disk_datastore.h"
+#include "lib/timer.h"
 
 namespace openinstrument {
 
-class DataStoreTest : public ::testing::Test {
- protected:
-  void add_test_data(int count = 5) {
-    HostPort *source = HostPort::get("foobar", 8000);
-    for (int i = 0; i < count; ++i) {
-      LabelMap labels;
-      labels["job"] = "testjob";
-      labels["cluster"] = "home";
-      labels["label3"] = "label3";
-      Timestamp stamp;
-      datastore.record(source, "/test/key", labels, i * 1000 * 1000, i);
-    }
+class DatastoreTest : public ::testing::Test {};
+
+
+TEST_F(DatastoreTest, IteratorTest) {
+  uint64_t start_timestamp = 1363940931985LL;
+  uint64_t end_timestamp = 1363940951985LL;
+  DiskDatastore datastore("/r2/services/openinstrument");
+  DiskDatastoreIterator it(start_timestamp, end_timestamp);
+  for (auto &variable : datastore.FindVariables("/*")) {
+    LOG(INFO) << "Adding variable " << variable.ToString();
+    it.AddStream(&datastore.GetVariable(variable));
   }
+  ++it;
+  int counter = 0;
+  uint64_t last_timestamp = 0;
+  for (; it != it.end(); ++it) {
+    if (++counter >= 50)
+      break;
+    auto &value = *it;
+    Variable var(value.variable());
+    LOG(INFO) << var.ToString() << " " << value.timestamp() << ": " << std::fixed << value.double_value();
+    ASSERT_TRUE(value.timestamp() >= last_timestamp);
+    ASSERT_TRUE(value.timestamp() >= start_timestamp);
+    last_timestamp = value.timestamp();
+  }
+  ASSERT_GT(counter, 0);
+}
 
-  DataStore datastore;
-};
-
+/*
 TEST_F(DataStoreTest, SortOrdering) {
   HostPort *source = HostPort::get("foobar", 8000);
   ASSERT_TRUE(source);
@@ -90,6 +103,7 @@ TEST_F(DataStoreTest, FetchRange) {
     ++count;
   EXPECT_EQ(6, count);
 }
+*/
 
 }  // namespace
 

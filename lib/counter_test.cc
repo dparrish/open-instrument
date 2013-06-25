@@ -67,14 +67,14 @@ TEST_F(CounterTest, UniformTimeSeries) {
   }
 
   for (TimestampValue &out : output) {
-    ASSERT_GT(expected.size(), 0);
+    ASSERT_GT(expected.size(), 0UL);
     TimestampValue exp = expected.front();
     expected.erase(expected.begin());
     VLOG(1) << "Expecting " << exp.timestamp << " / " << exp.value;
     EXPECT_EQ(exp.timestamp, out.timestamp);
     EXPECT_FLOAT_EQ(exp.value, out.value);
   }
-  EXPECT_EQ(0, expected.size()) << "Not all expected values were returned";
+  EXPECT_EQ(0UL, expected.size()) << "Not all expected values were returned";
 }
 
 }  // namespace
