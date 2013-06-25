@@ -10,6 +10,7 @@
 #ifndef _OPENINSTRUMENT_LIB_TIMESTAMP_
 #define _OPENINSTRUMENT_LIB_TIMESTAMP_
 
+#include <iostream>
 #include <boost/thread.hpp>
 #include <glog/logging.h>
 #include <stdlib.h>
@@ -192,7 +193,9 @@ class Duration : public Timestamp {
   //   1y1m1w1d1h1s = 1 year, 1 month, 1 week, 1 day, 1 hour, 1 second
   static Duration FromString(const string &duration);
 
-  string ToString(bool longformat = true);
+  string ToString(bool longformat = true) const;
+
+  friend std::ostream &operator<<(std::ostream &out, const Duration &duration);
 };
 
 class Deadline {

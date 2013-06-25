@@ -3,7 +3,7 @@ TESTS=hash_test file_test variable_test string_test timer_test uri_test exported
       cord_test socket_test protobuf_test counter_test
 OBJS=openinstrument.pb.o common.o closure.o hash.o threadpool.o string.o uri.o exported_vars.o base64.o protobuf.o \
      cord.o socket.o http_message.o http_server.o http_client.o http_reply.o http_request.o store_client.o \
-     http_static_dir.o mime_types.o file.o counter.o timer.o variable.o
+     http_static_dir.o mime_types.o file.o counter.o timer.o variable.o store_config.o
 TEST_LIBS+=libopeninstrument.a
 TEST_DEPS=libopeninstrument.a
 CLEAN_TARGETS=openinstrument.pb.cc openinstrument.pb.h
@@ -328,40 +328,6 @@ protobuf_test.o: protobuf_test.cc \
  $(BASEDIR)/lib/protobuf.h \
  $(BASEDIR)/lib/cord.h \
  $(BASEDIR)/lib/variable.h
-retention_policy_test.o: retention_policy_test.cc \
- $(BASEDIR)/deps/gtest/include/gtest/gtest.h \
- $(BASEDIR)/deps/gtest/include/gtest/internal/gtest-internal.h \
- $(BASEDIR)/deps/gtest/include/gtest/internal/gtest-port.h \
- $(BASEDIR)/deps/gtest/include/gtest/internal/gtest-string.h \
- $(BASEDIR)/deps/gtest/include/gtest/internal/gtest-filepath.h \
- $(BASEDIR)/deps/gtest/include/gtest/internal/gtest-type-util.h \
- $(BASEDIR)/deps/gtest/include/gtest/gtest-death-test.h \
- $(BASEDIR)/deps/gtest/include/gtest/internal/gtest-death-test-internal.h \
- $(BASEDIR)/deps/gtest/include/gtest/gtest-message.h \
- $(BASEDIR)/deps/gtest/include/gtest/gtest-param-test.h \
- $(BASEDIR)/deps/gtest/include/gtest/internal/gtest-param-util.h \
- $(BASEDIR)/deps/gtest/include/gtest/internal/gtest-linked_ptr.h \
- $(BASEDIR)/deps/gtest/include/gtest/gtest-printers.h \
- $(BASEDIR)/deps/gtest/include/gtest/internal/gtest-param-util-generated.h \
- $(BASEDIR)/deps/gtest/include/gtest/gtest_prod.h \
- $(BASEDIR)/deps/gtest/include/gtest/gtest-test-part.h \
- $(BASEDIR)/deps/gtest/include/gtest/gtest-typed-test.h \
- $(BASEDIR)/deps/gtest/include/gtest/gtest_pred_impl.h \
- $(BASEDIR)/lib/string.h \
- $(BASEDIR)/lib/common.h \
- $(BASEDIR)/lib/closure.h \
- $(BASEDIR)/lib/timer.h \
- $(BASEDIR)/server/store_config.h \
- $(BASEDIR)/lib/exported_vars.h \
- $(BASEDIR)/lib/atomic.h \
- $(BASEDIR)/lib/protobuf.h \
- $(BASEDIR)/lib/cord.h \
- $(BASEDIR)/lib/file.h \
- $(BASEDIR)/lib/openinstrument.pb.h \
- $(BASEDIR)/lib/variable.h \
- $(BASEDIR)/lib/hash.h \
- $(BASEDIR)/lib/store_client.h \
- $(BASEDIR)/lib/socket.h
 socket.o: socket.cc $(BASEDIR)/lib/common.h \
  $(BASEDIR)/lib/closure.h \
  $(BASEDIR)/lib/timer.h \
@@ -393,28 +359,6 @@ socket_test.o: socket_test.cc \
  $(BASEDIR)/lib/timer.h \
  $(BASEDIR)/lib/string.h \
  $(BASEDIR)/lib/socket.h
-store_client.o: store_client.cc \
- $(BASEDIR)/lib/common.h \
- $(BASEDIR)/lib/closure.h \
- $(BASEDIR)/lib/timer.h \
- $(BASEDIR)/lib/string.h \
- $(BASEDIR)/lib/exported_vars.h \
- $(BASEDIR)/lib/atomic.h \
- $(BASEDIR)/lib/protobuf.h \
- $(BASEDIR)/lib/cord.h \
- $(BASEDIR)/lib/file.h \
- $(BASEDIR)/lib/openinstrument.pb.h \
- $(BASEDIR)/lib/variable.h \
- $(BASEDIR)/lib/http_client.h \
- $(BASEDIR)/lib/http_reply.h \
- $(BASEDIR)/lib/http_message.h \
- $(BASEDIR)/lib/http_headers.h \
- $(BASEDIR)/lib/http_request.h \
- $(BASEDIR)/lib/socket.h \
- $(BASEDIR)/lib/uri.h \
- $(BASEDIR)/lib/store_client.h \
- $(BASEDIR)/server/store_config.h \
- $(BASEDIR)/lib/hash.h
 string.o: string.cc $(BASEDIR)/lib/string.h \
  $(BASEDIR)/lib/common.h \
  $(BASEDIR)/lib/closure.h \

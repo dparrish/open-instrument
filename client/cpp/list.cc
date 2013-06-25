@@ -16,8 +16,8 @@
 #include "lib/openinstrument.pb.h"
 #include "lib/protobuf.h"
 #include "lib/store_client.h"
+#include "lib/store_config.h"
 #include "lib/string.h"
-#include "server/store_config.h"
 
 using namespace openinstrument;
 using namespace std;
@@ -42,7 +42,7 @@ int main(int argc, char *argv[]) {
   }
 
   // Retrieve cluster config from the single server specified on the commandline.
-  StoreConfig config;
+  StoreConfig &config = StoreConfig::get_manager();
   try {
     StoreClient client(argv[1]);
     scoped_ptr<proto::StoreConfig> response(client.GetStoreConfig());
@@ -58,7 +58,7 @@ int main(int argc, char *argv[]) {
     proto::ListRequest req;
     req.set_max_variables(FLAGS_max_variables);
     Variable(argv[2]).ToProtobuf(req.mutable_prefix());
-    StoreClient client(&config);
+    StoreClient client;
     scoped_ptr<proto::ListResponse> response(client.List(req));
     set<string> variables;
     for (auto &stream : response->stream()) {

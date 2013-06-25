@@ -19,13 +19,10 @@
 
 namespace openinstrument {
 
-class StoreConfig;
-
 class StoreClient : private noncopyable {
  public:
   // Preferred method of connecting to the storage server cluster.
-  // The caller is responsible for deleting the config object.
-  explicit StoreClient(StoreConfig *config);
+  StoreClient();
 
   // Connect to a single storage server
   explicit StoreClient(const string &address);
@@ -43,7 +40,6 @@ class StoreClient : private noncopyable {
   proto::StoreConfig *GetStoreConfig();
 
  private:
-  StoreConfig *store_config_;
   Socket::Address address_;
   string hostname_;
   ExportedTimer request_timer_;

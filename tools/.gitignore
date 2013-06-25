@@ -1,2 +1,4 @@
 primetest
 dump_recordlog
+dump_store_config
+reindex_store_file

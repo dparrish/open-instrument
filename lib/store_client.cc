@@ -16,9 +16,9 @@
 #include "lib/protobuf.h"
 #include "lib/socket.h"
 #include "lib/store_client.h"
+#include "lib/store_config.h"
 #include "lib/string.h"
 #include "lib/uri.h"
-#include "server/store_config.h"
 
 namespace openinstrument {
 
@@ -29,18 +29,15 @@ using http::Uri;
 
 // Preferred method of connecting to the storage server cluster.
 // The caller is responsible for deleting the config object.
-StoreClient::StoreClient(StoreConfig *config)
-  : store_config_(config),
-    request_timer_("/openinstrument/client/store/all-requests") {}
+StoreClient::StoreClient()
+  : request_timer_("/openinstrument/client/store/all-requests") {}
 
 // Connect to a single storage server
 StoreClient::StoreClient(const string &address)
-  : store_config_(NULL),
-    hostname_(address),
+  : hostname_(address),
     request_timer_("/openinstrument/client/store/all-requests") {}
 StoreClient::StoreClient(const Socket::Address &address)
-  : store_config_(NULL),
-    address_(address),
+  : address_(address),
     request_timer_("/openinstrument/client/store/all-requests") {}
 
 void StoreClient::SendRequestToHost(const Socket::Address &address, const string &path,
@@ -101,91 +98,74 @@ proto::AddResponse *StoreClient::Add(const proto::AddRequest &req) {
 }
 
 proto::ListResponse *StoreClient::List(const proto::ListRequest &req) {
-  if (store_config_) {
-    // Send request to all storage servers
-    vector<proto::ListResponse *> responses;
-    BackgroundExecutor executor;
-    for (auto &server : store_config_->config().server()) {
-      proto::ListResponse *response = new proto::ListResponse();
-      responses.push_back(response);
-      executor.Add(bind(&StoreClient::SendRequestToHost, this, Socket::Address(server.address()), "/list", req,
-                        response));
-    }
-    executor.JoinThreads();
-
-    scoped_ptr<proto::ListResponse> output(new proto::ListResponse());
-    output->set_success(false);
-    output->set_errormessage("No responses");
-    for (vector<proto::ListResponse *>::iterator i = responses.begin(); i != responses.end(); ++i) {
-      proto::ListResponse *response = *i;
-      if (response->success()) {
-        output->set_success(true);
-      } else {
-        output->set_errormessage(response->errormessage());
-      }
-      // Copy streams from response
-      for (auto &istream : response->stream()) {
-        proto::ValueStream *stream = output->add_stream();
-        stream->CopyFrom(istream);
-      }
-      delete response;
-      if (output->success())
-        output->clear_errormessage();
-    }
-    return output.release();
-  } else {
-    // Send request to a single storage server
-    scoped_ptr<proto::ListResponse> response(new proto::ListResponse());
-    SendRequest("/list", req, response.get());
-    if (!response->success())
-      throw runtime_error(StringPrintf("Server Error: %s", response->errormessage().c_str()));
-    return response.release();
+  auto &config = StoreConfig::get();
+  // Send request to all storage servers
+  vector<proto::ListResponse *> responses;
+  BackgroundExecutor executor;
+  for (auto &server : config.server()) {
+    proto::ListResponse *response = new proto::ListResponse();
+    responses.push_back(response);
+    executor.Add(bind(&StoreClient::SendRequestToHost, this, Socket::Address(server.address()), "/list", req,
+                      response));
   }
+  executor.JoinThreads();
+
+  scoped_ptr<proto::ListResponse> output(new proto::ListResponse());
+  output->set_success(false);
+  output->set_errormessage("No responses");
+  for (vector<proto::ListResponse *>::iterator i = responses.begin(); i != responses.end(); ++i) {
+    proto::ListResponse *response = *i;
+    if (response->success()) {
+      output->set_success(true);
+    } else {
+      output->set_errormessage(response->errormessage());
+    }
+    // Copy streams from response
+    for (auto &istream : response->stream()) {
+      proto::ValueStream *stream = output->add_stream();
+      stream->CopyFrom(istream);
+    }
+    delete response;
+    if (output->success())
+      output->clear_errormessage();
+  }
+  return output.release();
 }
 
 proto::GetResponse *StoreClient::Get(const proto::GetRequest &req) {
-  if (store_config_) {
-    // Send request to all storage servers
-    vector<proto::GetResponse *> responses;
-    BackgroundExecutor executor;
-    for (int i = 0; i < store_config_->config().server_size(); i++) {
-      const proto::StoreServer &server = store_config_->config().server(i);
-      proto::GetResponse *response = new proto::GetResponse();
-      responses.push_back(response);
-      executor.Add(bind(&StoreClient::SendRequestToHost, this, Socket::Address(server.address()), "/get", req,
-                        response));
-    }
-    executor.JoinThreads();
-
-    scoped_ptr<proto::GetResponse> output(new proto::GetResponse());
-    output->set_success(false);
-    output->set_errormessage("No responses");
-    for (vector<proto::GetResponse *>::iterator i = responses.begin(); i != responses.end(); ++i) {
-      proto::GetResponse *response = *i;
-      if (response->success()) {
-        output->set_success(true);
-      } else {
-        output->set_errormessage(response->errormessage());
-      }
-      // Copy streams from response
-      for (int j = 0; j < response->stream_size(); j++) {
-        proto::ValueStream *stream = output->add_stream();
-        stream->CopyFrom(response->stream(j));
-      }
-      delete response;
-      if (output->success())
-        output->clear_errormessage();
-    }
-    return output.release();
-
-  } else {
-    // Send request to a single storage server
-    scoped_ptr<proto::GetResponse> response(new proto::GetResponse());
-    SendRequest("/get", req, response.get());
-    if (!response->success())
-      throw runtime_error(StringPrintf("Server Error: %s", response->errormessage().c_str()));
-    return response.release();
+  auto &config = StoreConfig::get();
+  // Send request to all storage servers
+  vector<proto::GetResponse *> responses;
+  BackgroundExecutor executor;
+  for (int i = 0; i < config.server_size(); i++) {
+    const proto::StoreServer &server = config.server(i);
+    proto::GetResponse *response = new proto::GetResponse();
+    responses.push_back(response);
+    executor.Add(bind(&StoreClient::SendRequestToHost, this, Socket::Address(server.address()), "/get", req,
+                      response));
   }
+  executor.JoinThreads();
+
+  scoped_ptr<proto::GetResponse> output(new proto::GetResponse());
+  output->set_success(false);
+  output->set_errormessage("No responses");
+  for (vector<proto::GetResponse *>::iterator i = responses.begin(); i != responses.end(); ++i) {
+    proto::GetResponse *response = *i;
+    if (response->success()) {
+      output->set_success(true);
+    } else {
+      output->set_errormessage(response->errormessage());
+    }
+    // Copy streams from response
+    for (int j = 0; j < response->stream_size(); j++) {
+      proto::ValueStream *stream = output->add_stream();
+      stream->CopyFrom(response->stream(j));
+    }
+    delete response;
+    if (output->success())
+      output->clear_errormessage();
+  }
+  return output.release();
 }
 
 proto::StoreConfig *StoreClient::GetStoreConfig() {

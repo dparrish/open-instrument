@@ -25,27 +25,35 @@ proto::Value NewValue(double double_value) {
 
 TEST_F(DatastoreTest, IteratorTest) {
   BasicDatastore datastore;
-  datastore.Record(Variable("/openinstrument/test1/test1"), Timestamp(1), NewValue(10.0));
-  datastore.Record(Variable("/openinstrument/test1/test1"), Timestamp(2), NewValue(11.0));
-  datastore.Record(Variable("/openinstrument/test1/test1"), Timestamp(3), NewValue(12.0));
-  datastore.Record(Variable("/openinstrument/test1/test2"), Timestamp(1), NewValue(11.0));
-  datastore.Record(Variable("/openinstrument/test1/test2"), Timestamp(2), NewValue(12.0));
-  datastore.Record(Variable("/openinstrument/test1/test2"), Timestamp(3), NewValue(13.0));
-  datastore.Record(Variable("/openinstrument/test1/test3"), Timestamp(2), NewValue(15.0));
-  datastore.Record(Variable("/openinstrument/test1/test3"), Timestamp(3), NewValue(16.0));
-  datastore.Record(Variable("/openinstrument/test1/test3"), Timestamp(4), NewValue(17.0));
-  datastore.Record(Variable("/openinstrument/test2/test1"), Timestamp(1), NewValue(10.0));
-  datastore.Record(Variable("/openinstrument/test2/test1"), Timestamp(2), NewValue(11.0));
-  datastore.Record(Variable("/openinstrument/test2/test1"), Timestamp(3), NewValue(12.0));
+  // All these values should be returned
+  datastore.Record(Variable("/openinstrument/test1/test1{test=foo}"), Timestamp(1), NewValue(10.0));
+  datastore.Record(Variable("/openinstrument/test1/test1{test=foo}"), Timestamp(2), NewValue(11.0));
+  datastore.Record(Variable("/openinstrument/test1/test1{test=foo}"), Timestamp(3), NewValue(12.0));
+  datastore.Record(Variable("/openinstrument/test1/test2{test=foo}"), Timestamp(1), NewValue(11.0));
+  datastore.Record(Variable("/openinstrument/test1/test2{test=foo}"), Timestamp(2), NewValue(12.0));
+  datastore.Record(Variable("/openinstrument/test1/test2{test=foo}"), Timestamp(3), NewValue(13.0));
+  datastore.Record(Variable("/openinstrument/test1/test3{test=foo}"), Timestamp(2), NewValue(15.0));
+  datastore.Record(Variable("/openinstrument/test1/test3{test=foo}"), Timestamp(3), NewValue(16.0));
+  // This last value is outside the critera so won't be included
+  datastore.Record(Variable("/openinstrument/test1/test3{test=foo}"), Timestamp(4), NewValue(17.0));
+  // This stream won't be included because all its values fall outside the criteria
+  datastore.Record(Variable("/openinstrument/test1/test4{test=foo}"), Timestamp(6), NewValue(15.0));
+  datastore.Record(Variable("/openinstrument/test1/test4{test=foo}"), Timestamp(7), NewValue(16.0));
+  datastore.Record(Variable("/openinstrument/test1/test4{test=foo}"), Timestamp(8), NewValue(17.0));
+  // This stream has a different label
+  datastore.Record(Variable("/openinstrument/test2/test1{test=bar}"), Timestamp(1), NewValue(10.0));
+  datastore.Record(Variable("/openinstrument/test2/test1{test=bar}"), Timestamp(2), NewValue(11.0));
+  datastore.Record(Variable("/openinstrument/test2/test1{test=bar}"), Timestamp(3), NewValue(12.0));
   uint64_t start_timestamp = 1LL;
   uint64_t end_timestamp = 3LL;
   int counter = 0;
   uint64_t last_timestamp = 0;
-  for (auto it = datastore.find("/openinstrument/test1/*", Timestamp(start_timestamp), Timestamp(end_timestamp));
+  for (auto it = datastore.find("/openinstrument/test*{test=foo}", Timestamp(start_timestamp), Timestamp(end_timestamp));
        it != it.end() && counter < 50;
        ++it, ++counter) {
     Variable var(it->variable());
     LOG(INFO) << var.ToString() << " " << it->timestamp() << ": " << std::fixed << it->double_value();
+    // Require in-order output, meeting criteria
     ASSERT_TRUE(it->timestamp() >= last_timestamp);
     ASSERT_TRUE(it->timestamp() >= start_timestamp);
     ASSERT_TRUE(it->timestamp() <= end_timestamp);

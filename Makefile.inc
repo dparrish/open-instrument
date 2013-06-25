@@ -12,7 +12,7 @@ endif
 
 %: %.o $(EXTRA_DEPS) $(EXTRA_DEPS_$@)
 	@echo "Linking $@"
-	@$(LD) -o $@ $< $(EXTRA_LIBS_$@) $(LDFLAGS) $(LIBS) $(EXTRA_LIBS)
+	$(LD) -o $@ $< $(EXTRA_LIBS_$@) $(LDFLAGS) $(LIBS) $(EXTRA_LIBS)
 
 %.o: %.cc
 	@echo "Compiling $@"

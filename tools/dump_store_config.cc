@@ -16,8 +16,8 @@
 #include "lib/openinstrument.pb.h"
 #include "lib/protobuf.h"
 #include "lib/store_client.h"
+#include "lib/store_config.h"
 #include "lib/string.h"
-#include "server/store_config.h"
 
 using namespace openinstrument;
 using namespace std;
@@ -43,9 +43,8 @@ int main(int argc, char *argv[]) {
   try {
     StoreClient client(argv[1]);
     scoped_ptr<proto::StoreConfig> response(client.GetStoreConfig());
-    StoreConfig config;
-    config.HandleNewConfig(*response);
-    cout << config.DumpConfig() << "\n";
+    StoreConfig::get_manager().HandleNewConfig(*response);
+    cout << StoreConfig::get_manager().DumpConfig() << "\n";
 
   } catch (exception &e) {
     cerr << e.what();

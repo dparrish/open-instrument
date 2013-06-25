@@ -14,9 +14,9 @@
 #include "lib/common.h"
 #include "lib/openinstrument.pb.h"
 #include "lib/store_client.h"
+#include "lib/store_config.h"
 #include "lib/string.h"
 #include "lib/timer.h"
-#include "server/store_config.h"
 
 using namespace openinstrument;
 using namespace std;
@@ -93,9 +93,9 @@ int main(int argc, char *argv[]) {
   }
 
   // Retrieve cluster config from the single server specified on the commandline.
-  StoreConfig config;
+  StoreConfig &config = StoreConfig::get_manager();
+  StoreClient client(argv[1]);
   try {
-    StoreClient client(argv[1]);
     scoped_ptr<proto::StoreConfig> response(client.GetStoreConfig());
     config.HandleNewConfig(*response);
   } catch (exception &e) {
@@ -104,7 +104,6 @@ int main(int argc, char *argv[]) {
     return 1;
   }
 
-  StoreClient client(&config);
   scoped_ptr<proto::GetResponse> response(client.Get(req));
   LOG(INFO) << "Number of returned streams: " << response->stream_size();
   for (auto &stream : response->stream()) {

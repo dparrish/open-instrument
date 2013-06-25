@@ -16,6 +16,7 @@
 #include <boost/algorithm/string/predicate.hpp>
 #include "lib/common.h"
 #include "lib/file.h"
+#include "lib/store_config.h"
 #include "lib/string.h"
 #include "lib/timer.h"
 #include "lib/retention_policy_manager.h"
@@ -91,7 +92,7 @@ class StoreFileManager : private noncopyable {
     watcher.AddWatch(FLAGS_datastore, FilesystemWatcher::FILE_WRITTEN,
                      bind(&StoreFileManager::WatchChanged, this, FLAGS_datastore, _1));
     for (uint64_t ticks = 0; !shutdown_; ticks++) {
-      if (ticks % 120 == 5) {
+      if (ticks % StoreConfig::get().retention_policy().interval() == 0) {
         // Attempt to update files to meet the retention policy
         RunRetentionPolicy();
       }
@@ -128,7 +129,7 @@ class StoreFileManager : private noncopyable {
   void RunRetentionPolicy() {
     Timer timer;
     timer.Start();
-    LOG(INFO) << "Running retention policy";
+    VLOG(1) << "Running retention policy";
     MutexLock lock(store_files_mutex_);
     int counter = 0;
     for (auto &filename : store_filenames_) {
@@ -141,10 +142,10 @@ class StoreFileManager : private noncopyable {
         if (++counter > 50)
           break;
         Variable variable(varproto);
-        LOG(INFO) << "Checking policy for " << variable.ToString();
+        VLOG(1) << "Checking policy for " << variable.ToString();
         bool has_policy = retention_policy_manager_.HasPolicyForVariable(variable);
         if (!has_policy) {
-          LOG(INFO) << "No policy for " << variable.ToString();
+          VLOG(1) << "No policy for " << variable.ToString();
           continue;
         }
         vector<proto::ValueStream> results_set;
@@ -153,14 +154,14 @@ class StoreFileManager : private noncopyable {
           continue;
         }
         for (const auto &result : results_set) {
-          LOG(INFO) << "Variable " << variable.ToString() << " has " << result.value_size() << " results from "
-                    << file.first;
+          VLOG(1) << "Variable " << variable.ToString() << " has " << result.value_size() << " results from "
+                  << file.first;
           if (!result.value_size())
             continue;
           auto &front = result.value(0);
           auto &back = result.value(result.value_size() - 1);
-          LOG(INFO) << "  between " << Timestamp(front.timestamp()).GmTime() << " and "
-                    << Timestamp(back.has_end_timestamp() ? back.end_timestamp() : back.timestamp()).GmTime();
+          VLOG(1) << "  between " << Timestamp(front.timestamp()).GmTime() << " and "
+                  << Timestamp(back.has_end_timestamp() ? back.end_timestamp() : back.timestamp()).GmTime();
           uint64_t end_timestamp = (back.has_end_timestamp() ?  back.end_timestamp() : back.timestamp());
           auto &policy = retention_policy_manager_.GetPolicy(variable, Timestamp::Now() - end_timestamp);
           string str = StringPrintf("  policy is to %s",
@@ -204,11 +205,11 @@ class StoreFileManager : private noncopyable {
           else
             str += " forever";
 
-          LOG(INFO) << str;
+          VLOG(1) << str;
         }
       }
     }
-    LOG(INFO) << "Finished retention policy, took " << Duration(timer.ms()).ToString();
+    LOG(INFO) << "Finished retention policy, took " << Duration(timer.ms());
   }
 
 

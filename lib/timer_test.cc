@@ -66,6 +66,10 @@ TEST_F(TimerTest, DurationToString) {
   EXPECT_EQ("2y", Duration::FromString("2y").ToString());
   EXPECT_EQ("1y 2w 7m 24s", Duration::FromString("1y2w7m24s").ToString());
   EXPECT_EQ("1y", Duration::FromString("1y2w7m24s").ToString(false));
+  Duration dur = Duration::FromString("1y2w7m24s");
+  EXPECT_EQ("1y", dur.ToString(false));
+  LOG(INFO) << dur;
+  LOG(INFO) << Duration::FromString("1y2w7m24s");
 }
 
 TEST_F(TimerTest, Strftime) {

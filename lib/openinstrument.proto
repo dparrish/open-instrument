@@ -170,6 +170,7 @@ message RetentionPolicyItem {
 
 message RetentionPolicy {
   repeated RetentionPolicyItem policy = 1;
+  optional uint32 interval = 2 [ default = 600 ];
 }
 
 message StoreServer {

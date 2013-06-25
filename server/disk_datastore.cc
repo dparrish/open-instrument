@@ -151,7 +151,9 @@ Datastore::iterator::self_type Datastore::iterator::operator++() {
   if (min_timestamp_) {
     // An item was found.
     this->node_ = streams_[min_timestamp_stream_]->mutable_value(stream_pos_[min_timestamp_stream_]);
-    this->node_->mutable_variable()->CopyFrom(streams_[min_timestamp_stream_]->variable());
+    this->nodecopy_.Clear();
+    this->nodecopy_.CopyFrom(*this->node_);
+    this->nodecopy_.mutable_variable()->CopyFrom(streams_[min_timestamp_stream_]->variable());
     // Increment the pointer so this same item isn't returned again
     stream_pos_[min_timestamp_stream_]++;
     return *this;

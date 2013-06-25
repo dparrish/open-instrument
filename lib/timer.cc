@@ -123,7 +123,7 @@ Duration Duration::FromString(const string &duration) {
   return Duration(seconds * 1000);
 }
 
-string Duration::ToString(bool longformat) {
+string Duration::ToString(bool longformat) const {
   string output;
   if (ms_ < 1000)
     return StringPrintf("%llums", ms_);
@@ -154,6 +154,11 @@ string Duration::ToString(bool longformat) {
   if (output.size())
     return output.substr(0, output.size() - 1);
   return output;
+}
+
+std::ostream &operator<<(std::ostream &out, const Duration &duration) {
+  out << duration.ToString(false);
+  return out;
 }
 
 int64_t ProcessCpuTimer::ms() {

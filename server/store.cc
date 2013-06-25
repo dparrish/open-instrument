@@ -24,23 +24,23 @@
 #include "lib/openinstrument.pb.h"
 #include "lib/protobuf.h"
 #include "lib/retention_policy_manager.h"
+#include "lib/store_config.h"
 #include "lib/string.h"
 #include "lib/threadpool.h"
 #include "lib/timer.h"
 #include "server/disk_datastore.h"
 #include "server/indexed_store_file.h"
 #include "server/record_log.h"
-#include "server/store_config.h"
 #include "server/store_file_manager.h"
 
 DECLARE_int32(v);
+DECLARE_string(config_file);
 DEFINE_int32(port, 8020, "Port to listen on");
 DEFINE_string(listen_address, "::", "Address to listen on. Use 0.0.0.0 or :: to listen on any address");
 DEFINE_int32(num_http_threads, 10, "Number of threads to create in the Http Server thread pool");
 DEFINE_int32(max_http_threads, 20, "Max of threads to create in the Http Server thread pool");
 DEFINE_string(datastore, "/home/services/openinstrument", "Base directory for datastore files");
 DEFINE_int32(store_max_ram, 200, "Maximum amount of datastore objects to cache in RAM");
-DEFINE_string(config_file, "config.txt", "Configuration file to read on startup");
 
 namespace openinstrument {
 
@@ -52,24 +52,24 @@ class DataStoreServer : private noncopyable {
  public:
   DataStoreServer(const string &addr, uint16_t port)
     : datastore(FLAGS_datastore),
-      retention_policy_manager_(&store_config_),
+      retention_policy_manager_(),
       store_file_manager_(retention_policy_manager_),
       thread_pool_policy_(FLAGS_num_http_threads, FLAGS_max_http_threads),
       thread_pool_("datastore_server", thread_pool_policy_),
       server_(addr, port, &thread_pool_),
       static_dir_("/static", "static", &server_),
       favicon_file_("/favicon.ico", "static/favicon.ico", &server_),
-      store_config_(StringPrintf("%s/config.txt", FLAGS_datastore.c_str())),
       add_request_timer_("/openinstrument/store/add-requests"),
       list_request_timer_("/openinstrument/store/list-requests"),
       get_request_timer_("/openinstrument/store/get-requests"),
       forwarded_streams_ratio_("/openinstrument/store/forwarded-streams"),
       retention_policy_drops_("/openinstrument/store/retention-policy/values-dropped") {
     run_timer_.Start();
-    store_config_.WaitForConfigLoad();
-    if (!store_config_.server(MyAddress()))
+    StoreConfig &config = StoreConfig::get_manager();
+    config.SetConfigFilename(StringPrintf("%s/%s", FLAGS_datastore.c_str(), FLAGS_config_file.c_str()));
+    if (!config.server(MyAddress()))
       throw runtime_error(StringPrintf("Could not find local address %s in store config", MyAddress().c_str()));
-    store_config_.SetServerState(MyAddress(), proto::StoreServer::STARTING);
+    config.SetServerState(MyAddress(), proto::StoreServer::STARTING);
     server_.request_handler()->AddPath("/add$", &DataStoreServer::HandleAdd, this);
     server_.request_handler()->AddPath("/list$", &DataStoreServer::HandleList, this);
     server_.request_handler()->AddPath("/get$", &DataStoreServer::HandleGet, this);
@@ -81,13 +81,13 @@ class DataStoreServer : private noncopyable {
     VariableExporter::GetGlobalExporter()->SetExportLabel("job", "datastore");
     VariableExporter::GetGlobalExporter()->SetExportLabel("hostname", Socket::Hostname());
     VariableExporter::GetGlobalExporter()->StartExportThread(MyAddress(), 300);
-    store_config_.SetServerState(MyAddress(), proto::StoreServer::RUNNING);
+    config.SetServerState(MyAddress(), proto::StoreServer::RUNNING);
   }
 
   bool HandleGetConfig(const HttpRequest &request, HttpReply *reply) {
     reply->SetStatus(HttpReply::OK);
     reply->SetContentType("application/base64");
-    if (!SerializeProtobuf(store_config_.config(), reply->mutable_body())) {
+    if (!SerializeProtobuf(StoreConfig::get(), reply->mutable_body())) {
       reply->SetStatus(HttpReply::INTERNAL_SERVER_ERROR);
       reply->mutable_body()->clear();
       reply->mutable_body()->CopyFrom("Error serializing protobuf\n");
@@ -415,7 +415,7 @@ class DataStoreServer : private noncopyable {
             var.variable().find_first_of("\n\t ") != string::npos) {
           throw runtime_error(StringPrintf("Invalid variable name %s", var.ToString().c_str()));
         }
-        string node = store_config_.hash_ring().GetNode(var.ToString());
+        string node = StoreConfig::get_manager().hash_ring().GetNode(var.ToString());
         if (node != MyAddress() && !req.forwarded()) {
           // This variable should be stored on another storage server, add it to the list of streams to forward
           proto::AddRequest &forwardreq = forward_requests[node];
@@ -544,11 +544,12 @@ class DataStoreServer : private noncopyable {
  private:
   const string &MyAddress() const {
     static string my_address;
+    auto &config = StoreConfig::get();
     if (my_address.empty()) {
       vector<Socket::Address> local_addresses = Socket::LocalAddresses();
       for (auto &address : local_addresses) {
         address.set_port(server_.address().port());
-        for (auto &server : store_config_.config().server()) {
+        for (auto &server : config.server()) {
           if (server.address() == address.ToString()) {
             my_address = address.ToString();
             return my_address;
@@ -569,7 +570,6 @@ class DataStoreServer : private noncopyable {
   HttpServer server_;
   http::HttpStaticDir static_dir_;
   http::HttpStaticFile favicon_file_;
-  StoreConfig store_config_;
 
   ExportedTimer add_request_timer_;
   ExportedTimer list_request_timer_;

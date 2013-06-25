@@ -65,13 +65,14 @@ class Datastore : private noncopyable {
     }
 
     self_type operator++();
-    reference operator*() { return *node_; }
-    pointer operator->() { return node_; }
+    reference operator*() { return nodecopy_; }
+    pointer operator->() { return &nodecopy_; }
     bool operator==(const self_type &rhs) { return node_ == rhs.node_; }
     bool operator!=(const self_type &rhs) { return node_ != rhs.node_; }
 
    private:
     pointer node_;
+    value_type nodecopy_;
     vector<proto::ValueStream *> streams_;
     vector<int> stream_pos_;
     callback include_callback_;
@@ -140,10 +141,20 @@ class BasicDatastore : public Datastore {
 
   virtual iterator find(const Variable &search, const Timestamp &start, const Timestamp &end) {
     iterator it(bind(&iterator::IncludeBetweenTimestamps, start, end, _1));
+    int counter = 0;
     for (auto stream : streams_) {
-      if (Variable(stream->variable()).Matches(search))
-        it.AddStream(stream);
+      if (!Variable(stream->variable()).Matches(search))
+        continue;
+      if (!stream->value_size())
+        continue;
+      if (stream->value(0).timestamp() > end.ms())
+        continue;
+      if (stream->value(stream->value_size() - 1).timestamp() < start.ms())
+        continue;
+      it.AddStream(stream);
+      counter++;
     }
+    LOG(INFO) << "Iterating over " << counter << " streams";
     return ++it;
   }
 

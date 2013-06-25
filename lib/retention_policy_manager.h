@@ -13,22 +13,21 @@
 #include <boost/function.hpp>
 #include <boost/timer.hpp>
 #include "lib/common.h"
-#include "server/store_config.h"
+#include "lib/store_config.h"
 
 namespace openinstrument {
 
 class RetentionPolicyManager {
  public:
-  RetentionPolicyManager(StoreConfig *config)
-    : config_(config) {
-  }
+  RetentionPolicyManager() {}
 
   const proto::RetentionPolicyItem &GetPolicy(const Variable &variable, uint64_t age) const {
     static proto::RetentionPolicyItem default_policy;
     default_policy.set_policy(proto::RetentionPolicyItem::DROP);
     VLOG(4) << "Looking for policy matches for " << variable.ToString() << " that is " << Duration(age).ToString()
             << " old";
-    for (auto &item : config_->config().retention_policy().policy()) {
+    auto &config = StoreConfig::get();
+    for (auto &item : config.retention_policy().policy()) {
       for (int j = 0; j < item.variable_size(); j++) {
         Variable match(item.variable(j));
         if (!variable.Matches(match)) {
@@ -56,7 +55,8 @@ class RetentionPolicyManager {
   }
 
   bool HasPolicyForVariable(const Variable &variable) const {
-    for (auto &item : config_->config().retention_policy().policy()) {
+    auto &config = StoreConfig::get();
+    for (auto &item : config.retention_policy().policy()) {
       for (int j = 0; j < item.variable_size(); j++) {
         Variable match(item.variable(j));
         if (variable.Matches(match))
@@ -65,9 +65,6 @@ class RetentionPolicyManager {
     }
     return false;
   }
-
- private:
-  StoreConfig *config_;
 };
 
 }  // namespace openinstrument
