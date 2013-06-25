@@ -17,24 +17,41 @@ namespace openinstrument {
 
 class DatastoreTest : public ::testing::Test {};
 
+proto::Value NewValue(double double_value) {
+  proto::Value value;
+  value.set_double_value(double_value);
+  return value;
+}
 
 TEST_F(DatastoreTest, IteratorTest) {
-  uint64_t start_timestamp = 1372071901270LL;
-  uint64_t end_timestamp = 1372073401453LL;
-  DiskDatastore datastore("/r2/services/openinstrument");
+  BasicDatastore datastore;
+  datastore.Record(Variable("/openinstrument/test1/test1"), Timestamp(1), NewValue(10.0));
+  datastore.Record(Variable("/openinstrument/test1/test1"), Timestamp(2), NewValue(11.0));
+  datastore.Record(Variable("/openinstrument/test1/test1"), Timestamp(3), NewValue(12.0));
+  datastore.Record(Variable("/openinstrument/test1/test2"), Timestamp(1), NewValue(11.0));
+  datastore.Record(Variable("/openinstrument/test1/test2"), Timestamp(2), NewValue(12.0));
+  datastore.Record(Variable("/openinstrument/test1/test2"), Timestamp(3), NewValue(13.0));
+  datastore.Record(Variable("/openinstrument/test1/test3"), Timestamp(2), NewValue(15.0));
+  datastore.Record(Variable("/openinstrument/test1/test3"), Timestamp(3), NewValue(16.0));
+  datastore.Record(Variable("/openinstrument/test1/test3"), Timestamp(4), NewValue(17.0));
+  datastore.Record(Variable("/openinstrument/test2/test1"), Timestamp(1), NewValue(10.0));
+  datastore.Record(Variable("/openinstrument/test2/test1"), Timestamp(2), NewValue(11.0));
+  datastore.Record(Variable("/openinstrument/test2/test1"), Timestamp(3), NewValue(12.0));
+  uint64_t start_timestamp = 1LL;
+  uint64_t end_timestamp = 3LL;
   int counter = 0;
   uint64_t last_timestamp = 0;
-  for (auto it = datastore.find("/system/vmstat/*", Timestamp(start_timestamp), Timestamp(end_timestamp));
+  for (auto it = datastore.find("/openinstrument/test1/*", Timestamp(start_timestamp), Timestamp(end_timestamp));
        it != it.end() && counter < 50;
        ++it, ++counter) {
     Variable var(it->variable());
     LOG(INFO) << var.ToString() << " " << it->timestamp() << ": " << std::fixed << it->double_value();
     ASSERT_TRUE(it->timestamp() >= last_timestamp);
     ASSERT_TRUE(it->timestamp() >= start_timestamp);
-    ASSERT_TRUE(it->timestamp() < end_timestamp);
+    ASSERT_TRUE(it->timestamp() <= end_timestamp);
     last_timestamp = it->timestamp();
   }
-  ASSERT_EQ(counter, 50);
+  ASSERT_EQ(counter, 8);
 }
 
 /*

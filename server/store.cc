@@ -502,7 +502,7 @@ class DataStoreServer : private noncopyable {
     uint32_t total_variables = 0, total_values = 0, total_ram = 0;
 
     for (auto &variable : datastore.FindVariables(Variable("*"))) {
-      const auto &stream = datastore.GetVariable(variable);
+      const auto &stream = datastore.GetValueStream(variable);
       auto vdict = dict.AddSectionDictionary("LIVE_VARIABLE");
       uint32_t data_size = 0;
       vdict->SetValue("VARIABLE", variable.ToString());

@@ -30,17 +30,17 @@ DiskDatastore::~DiskDatastore() {
   live_data_.clear();
 }
 
-DiskDatastoreIterator DiskDatastore::find(const Variable &search, const Timestamp &start, const Timestamp &end) {
-  DiskDatastoreIterator it(bind(&DiskDatastoreIterator::IncludeBetweenTimestamps, start, end, _1));
+Datastore::iterator DiskDatastore::find(const Variable &search, const Timestamp &start, const Timestamp &end) {
+  Datastore::iterator it(bind(&Datastore::iterator::IncludeBetweenTimestamps, start, end, _1));
   for (auto &variable : FindVariables(search))
-    it.AddStream(&GetVariable(variable));
-  return it;
+    it.AddStream(&GetValueStream(variable));
+  return ++it;
 }
 
 void DiskDatastore::GetRange(const Variable &variable, const Timestamp &start, const Timestamp &end,
                              proto::ValueStream *outstream) {
   try {
-    proto::ValueStream &instream = GetVariable(variable);
+    proto::ValueStream &instream = GetValueStream(variable);
     if (!instream.value_size())
       return;
     outstream->mutable_variable()->CopyFrom(instream.variable());
@@ -67,14 +67,14 @@ set<Variable> DiskDatastore::FindVariables(const Variable &variable) {
 
 proto::ValueStream &DiskDatastore::GetOrCreateVariable(const Variable &variable) {
   try {
-    proto::ValueStream &stream = GetVariable(variable);
+    proto::ValueStream &stream = GetValueStream(variable);
     return stream;
   } catch (exception) {
     return CreateVariable(variable);
   }
 }
 
-proto::ValueStream &DiskDatastore::GetVariable(const Variable &variable) {
+proto::ValueStream &DiskDatastore::GetValueStream(const Variable &variable) {
   MapType::iterator it = live_data_.find(variable.ToString());
   if (it == live_data_.end())
     throw out_of_range("Variable not found");
@@ -114,11 +114,12 @@ void DiskDatastore::ReplayRecordLog() {
   }
 }
 
-DiskDatastoreIterator::self_type DiskDatastoreIterator::operator++() {
+Datastore::iterator::self_type Datastore::iterator::operator++() {
   uint64_t min_timestamp_ = 0;
   int min_timestamp_stream_ = 0;
-  if (!streams_.size()) {
+  if (streams_.size() == 0) {
     // End of the list, no streams to process
+    LOG(ERROR) << "No streams";
     this->node_ = NULL;
     return *this;
   }
