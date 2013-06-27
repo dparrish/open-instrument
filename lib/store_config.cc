@@ -142,17 +142,24 @@ proto::StoreServer *StoreConfig::server(const string &address) {
 bool StoreConfig::ReadConfigFile() {
   if (config_file_.empty())
     return false;
-  File fh(config_file_);
-  FileStat stat = fh.stat();
-  if (stat.size() < 5) {
-    LOG(WARNING) << "Empty configuration file, not reading";
-    return false;
-  } else {
-    string input;
-    input.resize(stat.size());
-    fh.Read(const_cast<char *>(input.data()), stat.size());
+  try {
+    File fh(config_file_);
+    FileStat stat = fh.stat();
+    if (stat.size() < 5) {
+      LOG(WARNING) << "Empty configuration file, not reading";
+      initial_load_notify_.Notify();
+      return false;
+    } else {
+      string input;
+      input.resize(stat.size());
+      fh.Read(const_cast<char *>(input.data()), stat.size());
+      initial_load_notify_.Notify();
+      return ReadConfig(input);
+    }
+  } catch (runtime_error &e) {
+    LOG(WARNING) << "Unable to read store config file: " << e.what();
     initial_load_notify_.Notify();
-    return ReadConfig(input);
+    return false;
   }
 }
 

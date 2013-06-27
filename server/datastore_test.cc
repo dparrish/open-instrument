@@ -62,6 +62,9 @@ TEST_F(DatastoreTest, IteratorTest) {
   ASSERT_EQ(counter, 8);
 }
 
+TEST_F(DatastoreTest, ValueStreamTest) {
+}
+
 /*
 TEST_F(DataStoreTest, SortOrdering) {
   HostPort *source = HostPort::get("foobar", 8000);

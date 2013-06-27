@@ -33,7 +33,6 @@
 #include "server/record_log.h"
 #include "server/store_file_manager.h"
 
-DECLARE_int32(v);
 DECLARE_string(config_file);
 DEFINE_int32(port, 8020, "Port to listen on");
 DEFINE_string(listen_address, "::", "Address to listen on. Use 0.0.0.0 or :: to listen on any address");
@@ -488,13 +487,13 @@ class DataStoreServer : private noncopyable {
     for (auto &filename : store_file_manager_.available_files()) {
       auto file = dict.AddSectionDictionary("STORE_FILES");
       file->SetValue("FILENAME", filename);
-      auto header = store_file_manager_.GetHeader(filename);
-      if (header) {
+      try {
+        auto &header = store_file_manager_.GetHeader(filename);
         file->SetValue("OPEN", "Yes");
-        file->SetValue("FIRST", Timestamp(header->start_timestamp()).GmTime());
-        file->SetValue("LAST", Timestamp(header->end_timestamp()).GmTime());
-        file->SetIntValue("VARIABLES", header->index_size() ? header->index_size() : header->variable_size());
-      } else {
+        file->SetValue("FIRST", Timestamp(header.start_timestamp()).GmTime());
+        file->SetValue("LAST", Timestamp(header.end_timestamp()).GmTime());
+        file->SetIntValue("VARIABLES", header.index_size() ? header.index_size() : header.variable_size());
+      } catch (const string &e) {
         file->SetValue("OPEN", "No");
       }
     }

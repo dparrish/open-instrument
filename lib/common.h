@@ -201,6 +201,82 @@ class Notification : private noncopyable {
   mutable Mutex mutex_;
 };
 
+class Refcountable {
+ public:
+  Refcountable() : refcount_() {}
+  ~Refcountable() {}
+
+  virtual void RefcountDestroy() {
+    delete this;
+  };
+
+  int ref() {
+    return ++refcount_;
+  }
+  int deref() {
+    if (--refcount_ <= 0)
+      RefcountDestroy();
+    return refcount_;
+  }
+
+ protected:
+  int refcount() const {
+    return refcount_;
+  }
+
+ private:
+  mutable int refcount_;
+};
+
+template<class T>
+class refcount_ptr : private noncopyable {
+ public:
+  typedef T element_type;
+
+  explicit refcount_ptr(T *p = 0) : ptr_(p) {
+    if (ptr_)
+      ptr_->ref();
+  }
+  ~refcount_ptr() {
+    if (ptr_)
+      ptr_->deref();
+  }
+
+  inline void reset(T *p = 0) {
+    if (ptr_)
+      ptr_->deref();
+    ptr_ = p;
+  }
+
+  inline T &operator*() const {
+    return *ptr_;
+  }
+
+  inline T *operator->() const {
+    return ptr_;
+  }
+
+  inline T *release() {
+    T *p = ptr_;
+    ptr_ = NULL;
+    return p;
+  }
+
+  inline T *get() const {
+    return ptr_;
+  }
+
+  inline void swap(refcount_ptr &b) {
+    T *p = b.ptr_;
+    b.ptr_ = ptr_;
+    ptr_ = p;
+  }
+
+ protected:
+  refcount_ptr() {}
+  T *ptr_;
+};
+
 // Write the supplied uint32_t to a buffer as a hex string.
 // The buffer must be supplied pre-allocated with 21 bytes.
 // Returns a pointer to the first character in the hex string.

@@ -98,6 +98,59 @@ class Datastore : private noncopyable {
   virtual iterator find(const Variable &search, const Timestamp &start, const Timestamp &end) = 0;
 };
 
+class ValueStream {
+ public:
+  ValueStream()
+    : stream_(new proto::ValueStream()),
+      stream_owned_(true) {}
+  ValueStream(proto::ValueStream *stream)
+    : stream_(stream),
+      stream_owned_(false) {}
+  ~ValueStream() {
+    if (stream_owned_)
+      delete stream_;
+  }
+
+  proto::ValueStream *release() {
+    stream_owned_ = false;
+    return stream_;
+  }
+
+  void reset(proto::ValueStream *stream) {
+    if (stream_owned_)
+      delete stream_;
+    if (stream) {
+      stream_ = stream;
+      stream_owned_ = false;
+    } else {
+      stream_ = new proto::ValueStream();
+      stream_owned_ = true;
+    }
+  }
+
+  proto::ValueStream *operator->() {
+    return stream_;
+  }
+
+  const proto::ValueStream &operator*() {
+    return *stream_;
+  }
+
+  Variable variable() const {
+    Variable var;
+    var.FromProtobuf(stream_->variable());
+    return var;
+  }
+
+  void set_variable(const Variable &var) {
+    var.ToProtobuf(stream_->mutable_variable());
+  }
+
+ private:
+  proto::ValueStream *stream_;
+  bool stream_owned_;
+};
+
 class BasicDatastore : public Datastore {
  public:
   BasicDatastore() {}

@@ -22,17 +22,39 @@
 
 namespace openinstrument {
 
-class IndexedStoreFile : private noncopyable {
+class IndexedStoreFile : private noncopyable, public Refcountable {
  public:
   IndexedStoreFile(const string &filename);
-  vector<proto::ValueStream> GetVariable(const Variable &variable);
+
+  bool Open();
+  void Close();
+  void Clear();
+
+  void RefcountDestroy() {
+    Close();
+    Clear();
+    delete this;
+  }
+
   bool GetVariable(const Variable &variable, vector<proto::ValueStream> *results);
 
+  vector<proto::ValueStream> GetVariable(const Variable &variable) {
+    vector<proto::ValueStream> results;
+    GetVariable(variable, &results);
+    return results;
+  }
+
+  const proto::StoreFileHeader &header() const {
+    return header_;
+  }
+
   string filename;
-  ProtoStreamReader reader;
-  typedef unordered_map<string, proto::ValueStream> MapType;
-  MapType log_data;
-  proto::StoreFileHeader header;
+
+ private:
+  scoped_ptr<ProtoStreamReader> reader_;
+  bool opened_;
+  unordered_map<string, proto::ValueStream> log_data_;
+  proto::StoreFileHeader header_;
 };
 
 }  // namespace
