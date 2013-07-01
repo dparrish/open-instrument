@@ -87,86 +87,91 @@ void StoreFileManager::CloseFile(const string &filename) {
 void StoreFileManager::RunRetentionPolicy() {
   Timer timer;
   timer.Start();
-  VLOG(1) << "Running retention policy";
+  VLOG(1) << "Locking retention policy";
   MutexLock lock(store_files_mutex_);
-  uint64_t variables = 0;
-  uint64_t results = 0;
-  for (auto &i : store_files_) {
-    auto file = i.second;
-    auto &header = file->header();
-    for (const auto &varproto : header.variable()) {
-      Variable variable(varproto);
-      VLOG(1) << "Checking policy for " << variable.ToString();
-      bool has_policy = retention_policy_manager_.HasPolicyForVariable(variable);
-      if (!has_policy) {
-        VLOG(1) << "No policy for " << variable.ToString();
-        continue;
-      }
-      vector<proto::ValueStream> results_set;
-      if (!file->GetVariable(variable, &results_set)) {
-        LOG(WARNING) << "Couldn't get variable " << variable.ToString() << " from " << file->filename;
-        continue;
-      }
-      ++variables;
-      for (const auto &result : results_set) {
-        VLOG(1) << "Variable " << variable.ToString() << " has " << result.value_size() << " results from "
-                << file->filename;
-        results += result.value_size();
-        if (!result.value_size())
+  VLOG(1) << "Running retention policy";
+  try {
+    uint64_t variables = 0;
+    uint64_t results = 0;
+    for (auto &i : store_files_) {
+      auto file = i.second;
+      auto &header = file->header();
+      for (const auto &varproto : header.variable()) {
+        Variable variable(varproto);
+        VLOG(1) << "Checking policy for " << variable.ToString();
+        bool has_policy = retention_policy_manager_.HasPolicyForVariable(variable);
+        if (!has_policy) {
+          VLOG(1) << "No policy for " << variable.ToString();
           continue;
-        auto &front = result.value(0);
-        auto &back = result.value(result.value_size() - 1);
-        VLOG(1) << "  between " << Timestamp(front.timestamp()).GmTime() << " and "
-                << Timestamp(back.has_end_timestamp() ? back.end_timestamp() : back.timestamp()).GmTime();
-        uint64_t end_timestamp = (back.has_end_timestamp() ?  back.end_timestamp() : back.timestamp());
-        auto &policy = retention_policy_manager_.GetPolicy(variable, Timestamp::Now() - end_timestamp);
-        string str = StringPrintf("  policy is to %s",
-                                  policy.policy() == proto::RetentionPolicyItem::KEEP ? "keep" : "DROP");
-        if (policy.mutation_size()) {
-          for (auto &mutation : policy.mutation()) {
-            switch (mutation.sample_type()) {
-              case proto::StreamMutation::AVERAGE:
-                str += " AVERAGE";
-                break;
-              case proto::StreamMutation::MIN:
-                str += " MINIMUM";
-                break;
-              case proto::StreamMutation::MAX:
-                str += " MAXIMUM";
-                break;
-              case proto::StreamMutation::RATE:
-                str += " RATE";
-                break;
-              case proto::StreamMutation::RATE_SIGNED:
-                str += " RATE_SIGNED";
-                break;
-              case proto::StreamMutation::DELTA:
-                str += " DELTA";
-                break;
-              case proto::StreamMutation::LATEST:
-                str += " LATEST";
-                break;
-              default:
-                str += " raw samples";
-                break;
-            }
-            if (mutation.has_sample_frequency())
-              str += " every " + Duration(mutation.sample_frequency()).ToString(false);
-          }
-        } else {
-          str += " raw samples";
         }
-        if (policy.has_max_age())
-          str += " until " + Timestamp(Timestamp::Now() + policy.max_age()).GmTime();
-        else
-          str += " forever";
+        vector<proto::ValueStream> results_set;
+        if (!file->GetVariable(variable, &results_set)) {
+          LOG(WARNING) << "Couldn't get variable " << variable.ToString() << " from " << file->filename;
+          continue;
+        }
+        ++variables;
+        for (const auto &result : results_set) {
+          VLOG(1) << "Variable " << variable.ToString() << " has " << result.value_size() << " results from "
+                  << file->filename;
+          results += result.value_size();
+          if (!result.value_size())
+            continue;
+          auto &front = result.value(0);
+          auto &back = result.value(result.value_size() - 1);
+          VLOG(1) << "  between " << Timestamp(front.timestamp()).GmTime() << " and "
+                  << Timestamp(back.has_end_timestamp() ? back.end_timestamp() : back.timestamp()).GmTime();
+          uint64_t end_timestamp = (back.has_end_timestamp() ?  back.end_timestamp() : back.timestamp());
+          auto &policy = retention_policy_manager_.GetPolicy(variable, Timestamp::Now() - end_timestamp);
+          string str = StringPrintf("  policy is to %s",
+                                    policy.policy() == proto::RetentionPolicyItem::KEEP ? "keep" : "DROP");
+          if (policy.mutation_size()) {
+            for (auto &mutation : policy.mutation()) {
+              switch (mutation.sample_type()) {
+                case proto::StreamMutation::AVERAGE:
+                  str += " AVERAGE";
+                  break;
+                case proto::StreamMutation::MIN:
+                  str += " MINIMUM";
+                  break;
+                case proto::StreamMutation::MAX:
+                  str += " MAXIMUM";
+                  break;
+                case proto::StreamMutation::RATE:
+                  str += " RATE";
+                  break;
+                case proto::StreamMutation::RATE_SIGNED:
+                  str += " RATE_SIGNED";
+                  break;
+                case proto::StreamMutation::DELTA:
+                  str += " DELTA";
+                  break;
+                case proto::StreamMutation::LATEST:
+                  str += " LATEST";
+                  break;
+                default:
+                  str += " raw samples";
+                  break;
+              }
+              if (mutation.has_sample_frequency())
+                str += " every " + Duration(mutation.sample_frequency()).ToString(false);
+            }
+          } else {
+            str += " raw samples";
+          }
+          if (policy.has_max_age())
+            str += " until " + Timestamp(Timestamp::Now() + policy.max_age()).GmTime();
+          else
+            str += " forever";
 
-        VLOG(1) << str;
+          VLOG(1) << str;
+        }
       }
     }
+    LOG(INFO) << "Finished retention policy over " << variables << " variables and " << results << " values, took "
+              << Duration(timer.ms());
+  } catch (std::exception &e) {
+    LOG(ERROR) << "Exception after " << Duration(timer.ms()) << " while running retention policy: " << e.what();
   }
-  LOG(INFO) << "Finished retention policy over " << variables << " variables and " << results << " values, took "
-            << Duration(timer.ms());
 }
 
 void StoreFileManager::BackgroundThread() {
@@ -193,17 +198,16 @@ void StoreFileManager::WatchChanged(const string &path, const string &filename) 
 }
 
 void StoreFileManager::ReglobFiles() {
-  auto filenames = Glob(StringPrintf("%s/datastore.*.bin", FLAGS_datastore.c_str()));
+  vector<string> filenames = Glob(StringPrintf("%s/datastore.*.bin", FLAGS_datastore.c_str()));
   VLOG(2) << "Store filenames:";
-  MutexLock l(store_files_mutex_);
   for (auto filename : filenames) {
     if (store_files_.find(filename) != store_files_.end())
       continue;
     VLOG(2) << "  " << filename;
     try {
       OpenFile(filename);
-    } catch (const string &e) {
-      LOG(ERROR) << "    error: " << e;
+    } catch (std::exception &e) {
+      LOG(ERROR) << "    error: " << e.what();
       CloseFile(filename);
     }
   }

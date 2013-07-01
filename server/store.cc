@@ -501,16 +501,16 @@ class DataStoreServer : private noncopyable {
     uint32_t total_variables = 0, total_values = 0, total_ram = 0;
 
     for (auto &variable : datastore.FindVariables(Variable("*"))) {
-      const auto &stream = datastore.GetValueStream(variable);
+      auto stream = datastore.GetValueStream(variable);
       auto vdict = dict.AddSectionDictionary("LIVE_VARIABLE");
       uint32_t data_size = 0;
       vdict->SetValue("VARIABLE", variable.ToString());
-      vdict->SetIntValue("COUNTER", stream.value_size());
+      vdict->SetIntValue("COUNTER", stream->value_size());
       total_variables++;
-      total_values += stream.value_size();
-      if (stream.value_size()) {
-        const auto &front = stream.value(0);
-        const auto &back = stream.value(stream.value_size() - 1);
+      total_values += stream->value_size();
+      if (stream->value_size()) {
+        const auto &front = stream->value(0);
+        const auto &back = stream->value(stream->value_size() - 1);
         vdict->SetValue("FIRST", Duration(Timestamp::Now() - front.timestamp()).ToString(false));
         vdict->SetValue("LAST", Duration(Timestamp::Now() - back.timestamp()).ToString(false));
         if (front.has_double_value())
@@ -520,7 +520,7 @@ class DataStoreServer : private noncopyable {
         else
           vdict->SetValue("LATEST", "<em>none</em>");
       }
-      for (const auto &value : stream.value()) {
+      for (const auto &value : stream->value()) {
         if (value.has_double_value())
           data_size += sizeof(value.double_value());
         if (value.has_string_value())

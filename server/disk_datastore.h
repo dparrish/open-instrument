@@ -92,7 +92,7 @@ class Datastore : private noncopyable {
   virtual set<Variable> FindVariables(const Variable &variable) = 0;
 
   // Return the original ValueStream for a single variable.
-  virtual proto::ValueStream &GetValueStream(const Variable &variable) = 0;
+  virtual proto::ValueStream *GetValueStream(const Variable &variable) = 0;
 
   // Iterate over variable values matching a search critera and start/end timestamps.
   virtual iterator find(const Variable &search, const Timestamp &start, const Timestamp &end) = 0;
@@ -156,15 +156,15 @@ class BasicDatastore : public Datastore {
   BasicDatastore() {}
   ~BasicDatastore() {}
 
-  virtual proto::ValueStream &GetValueStream(const Variable &variable) {
+  virtual proto::ValueStream *GetValueStream(const Variable &variable) {
     for (proto::ValueStream *stream : streams_) {
       if (Variable(stream->variable()) == variable)
-        return *stream;
+        return stream;
     }
     auto stream = new proto::ValueStream();
     variable.ToProtobuf(stream->mutable_variable());
     streams_.push_back(stream);
-    return *stream;
+    return stream;
   }
 
   virtual void Record(const Variable &variable, Timestamp timestamp, const proto::Value &value) {
@@ -217,7 +217,7 @@ class BasicDatastore : public Datastore {
 
 class DiskDatastore : public Datastore {
  public:
-  typedef unordered_map<string, proto::ValueStream> MapType;
+  typedef unordered_map<string, proto::ValueStream *> MapType;
 
   explicit DiskDatastore(const string &basedir);
   ~DiskDatastore();
@@ -233,11 +233,11 @@ class DiskDatastore : public Datastore {
       record_log_.Add(variable, *val);
   }
 
-  proto::ValueStream &GetValueStream(const Variable &variable);
+  proto::ValueStream *GetValueStream(const Variable &variable);
 
  private:
-  proto::ValueStream &GetOrCreateVariable(const Variable &variable);
-  proto::ValueStream &CreateVariable(const Variable &variable);
+  proto::ValueStream *GetOrCreateVariable(const Variable &variable);
+  proto::ValueStream *CreateVariable(const Variable &variable);
   proto::Value *RecordNoLog(const Variable &variable, Timestamp timestamp, const proto::Value &value);
   void ReplayRecordLog();
 
