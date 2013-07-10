@@ -58,10 +58,11 @@ void IndexedStoreFile::Clear() {
 }
 
 bool IndexedStoreFile::GetVariable(const Variable &variable, vector<proto::ValueStream> *results) {
+  VLOG(2) << "Reading variable " << variable.ToString() << " from " << filename;
   for (auto &index : header_.index()) {
     Variable index_var(index.variable());
-    if (index_var.Matches(variable)) {
-      VLOG(3) << "Seeking to " << index.offset();
+    if (variable.Matches(index_var)) {
+      VLOG(2) << "Seeking to " << index.offset();
       reader_->fh()->SeekAbs(index.offset());
       proto::ValueStream stream;
       if (!reader_->Next(&stream)) {
@@ -73,7 +74,7 @@ bool IndexedStoreFile::GetVariable(const Variable &variable, vector<proto::Value
         LOG(WARNING) << "Variable at " << index.offset() << " in " << filename << " does not match header";
         continue;
       }
-      VLOG(3) << "Found item " << index_var.ToString() << " in " << filename;
+      VLOG(2) << "Found item " << index_var.ToString() << " in " << filename;
       results->push_back(stream);
     }
   }

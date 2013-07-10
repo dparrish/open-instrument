@@ -106,7 +106,7 @@ void StoreFileManager::RunRetentionPolicy() {
         }
         vector<proto::ValueStream> results_set;
         if (!file->GetVariable(variable, &results_set)) {
-          LOG(WARNING) << "Couldn't get variable " << variable.ToString() << " from " << file->filename;
+          VLOG(1) << "Couldn't get variable " << variable.ToString() << " from " << file->filename;
           continue;
         }
         ++variables;

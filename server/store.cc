@@ -343,16 +343,18 @@ class DataStoreServer : private noncopyable {
     ScopedExportTimer t(&list_request_timer_);
 
     proto::ListRequest req;
+    VLOG(2) << "HandleList received body: " << request.body().ToString();
     if (!UnserializeProtobuf(request.body(), &req)) {
       reply->SetStatus(HttpReply::BAD_REQUEST);
       reply->mutable_body()->clear();
       reply->mutable_body()->CopyFrom("Invalid request\n");
       return true;
     }
+    VLOG(2) << ProtobufText(req);
     if (req.prefix().name().empty()) {
       reply->SetStatus(HttpReply::BAD_REQUEST);
       reply->mutable_body()->clear();
-      reply->mutable_body()->CopyFrom("Empty pretix\n");
+      reply->mutable_body()->CopyFrom("Empty prefix\n");
       return true;
     }
     proto::ListResponse response;
