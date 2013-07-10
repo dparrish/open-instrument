@@ -99,6 +99,9 @@ message GetRequest {
   // This request has been forwarded by another store server and should not be forwarded again.
   // This shouldn't happen but is here as a failsafe.
   optional bool forwarded = 10 [ default = false ];
+
+  // Limit the number of values that can be returned for each variable.
+  optional uint32 max_values = 11;
 }
 
 message GetResponse {
