@@ -4,12 +4,15 @@ import (
   "bytes"
   "code.google.com/p/goprotobuf/proto"
   openinstrument_proto "code.google.com/p/open-instrument/proto"
+  "code.google.com/p/open-instrument/store_config"
   "encoding/base64"
   "errors"
   "fmt"
   "io/ioutil"
+  "log"
   "net/http"
   "strings"
+  "sync"
 )
 
 func ProtoText(msg proto.Message) string {
@@ -20,19 +23,34 @@ func ProtoText(msg proto.Message) string {
   return buf.String()
 }
 
-type storeClient struct {
-  host string
-  port int
+type StoreClient struct {
+  hostport []string
 }
 
-func NewStoreClient(host string, port int) *storeClient {
-  client := new(storeClient)
-  client.host = host
-  client.port = port
+func NewStoreClient(config_file string) *StoreClient {
+  config, err := store_config.NewConfig(config_file)
+  if err != nil {
+    log.Fatal(err)
+  }
+  if len(config.Config.Server) == 0 {
+    log.Fatal("Store config does not contain any servers to connect to.")
+  }
+
+  client := new(StoreClient)
+  client.hostport = make([]string, 0)
+  for _, server := range config.Config.GetServer() {
+    client.hostport = append(client.hostport, server.GetAddress())
+  }
   return client
 }
 
-func (sc storeClient) doRequest(path string, request, response proto.Message) error {
+func NewDirectStoreClient(hostport string) *StoreClient {
+  client := new(StoreClient)
+  client.hostport = append(make([]string, 0), hostport)
+  return client
+}
+
+func (sc *StoreClient) doRequest(hostport string, path string, request, response proto.Message) error {
   client := http.Client{}
 
   data, err := proto.Marshal(request)
@@ -40,7 +58,7 @@ func (sc storeClient) doRequest(path string, request, response proto.Message) er
     return errors.New(fmt.Sprintf("Marshaling error: %s", err))
   }
   encoded_body := base64.StdEncoding.EncodeToString(data)
-  req, err := http.NewRequest("POST", fmt.Sprintf("http://%s:%d/%s", sc.host, sc.port, path),
+  req, err := http.NewRequest("POST", fmt.Sprintf("http://%s/%s", hostport, path),
     strings.NewReader(string(encoded_body)))
   if err != nil {
     return errors.New(fmt.Sprintf("Error creating HTTP request: %s", err))
@@ -73,7 +91,7 @@ func (sc storeClient) doRequest(path string, request, response proto.Message) er
   return nil
 }
 
-func (sc storeClient) SimpleList(prefix string) (response openinstrument_proto.ListResponse, err error) {
+func (sc *StoreClient) SimpleList(prefix string) (response openinstrument_proto.ListResponse, err error) {
   request := &openinstrument_proto.ListRequest{
     Prefix: &openinstrument_proto.StreamVariable{
       Name: proto.String(prefix),
@@ -84,12 +102,12 @@ func (sc storeClient) SimpleList(prefix string) (response openinstrument_proto.L
   return
 }
 
-func (sc storeClient) List(request *openinstrument_proto.ListRequest) (response openinstrument_proto.ListResponse, err error) {
-  err = sc.doRequest("list", request, &response)
+func (sc *StoreClient) List(request *openinstrument_proto.ListRequest) (response openinstrument_proto.ListResponse, err error) {
+  err = sc.doRequest(sc.hostport[0], "list", request, &response)
   return
 }
 
-func (sc storeClient) SimpleGet(variable string, min_timestamp, max_timestamp uint64) (response openinstrument_proto.GetResponse, err error) {
+func (sc *StoreClient) SimpleGet(variable string, min_timestamp, max_timestamp uint64) (response []*openinstrument_proto.GetResponse, err error) {
   reqvar := NewVariableFromString(variable)
   request := &openinstrument_proto.GetRequest{
     Variable: reqvar.AsProto(),
@@ -104,7 +122,30 @@ func (sc storeClient) SimpleGet(variable string, min_timestamp, max_timestamp ui
   return
 }
 
-func (sc storeClient) Get(request *openinstrument_proto.GetRequest) (response openinstrument_proto.GetResponse, err error) {
-  err = sc.doRequest("get", request, &response)
-  return
+func (sc *StoreClient) Get(request *openinstrument_proto.GetRequest) ([]*openinstrument_proto.GetResponse, error) {
+  c := make(chan *openinstrument_proto.GetResponse, len(sc.hostport))
+  go func() {
+    waitgroup := new(sync.WaitGroup)
+    for _, hostport := range sc.hostport {
+      waitgroup.Add(1)
+      go func() {
+        defer waitgroup.Done()
+        response := new(openinstrument_proto.GetResponse)
+        err := sc.doRequest(hostport, "get", request, response)
+        if err != nil {
+          log.Printf("Error in Get to %s: %s", hostport, err)
+          return
+        }
+        c <- response
+      }()
+    }
+    waitgroup.Wait()
+    close(c)
+  }()
+
+  response := make([]*openinstrument_proto.GetResponse, 0)
+  for item := range c {
+    response = append(response, item)
+  }
+  return response, nil
 }

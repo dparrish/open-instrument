@@ -3,6 +3,8 @@ package main
 import (
   "code.google.com/p/goprotobuf/proto"
   "code.google.com/p/open-instrument"
+  openinstrument_proto "code.google.com/p/open-instrument/proto"
+  "code.google.com/p/open-instrument/store_config"
   "code.google.com/p/open-instrument/store_manager"
   "code.google.com/p/open-instrument/variable"
   "encoding/base64"
@@ -15,13 +17,12 @@ import (
   "net/http"
   "os"
   "strconv"
-  //"bytes"
-  //"strings"
-  openinstrument_proto "code.google.com/p/open-instrument/proto"
 )
 
 var address = flag.String("address", "", "Address to listen on (blank for any)")
 var port = flag.Int("port", 8020, "Port to listen on")
+var config_file = flag.String("config", "/r2/services/openinstrument/config.txt",
+  "Path to the store configuration file. If the format is host:port:/path, then ZooKeeper will be used to access it.")
 
 var smanager store_manager.StoreManager
 
@@ -181,12 +182,18 @@ func Args(w http.ResponseWriter, req *http.Request) {
 }
 
 func main() {
+  log.Printf("Current PID: %d", os.Getpid())
   flag.Parse()
+  config, err := store_config.NewConfig(*config_file)
+  if err != nil {
+    log.Fatal(err)
+  }
+  config = config
+
   http.Handle("/list", http.HandlerFunc(List))
   http.Handle("/get", http.HandlerFunc(Get))
   http.Handle("/add", http.HandlerFunc(Add))
   http.Handle("/args", http.HandlerFunc(Args))
-  log.Printf("Current PID: %d", os.Getpid())
   sock, e := net.ListenTCP("tcp", &net.TCPAddr{net.ParseIP(*address), *port})
   if e != nil {
     log.Fatal("Can't listen on %s: %s", net.JoinHostPort(*address, strconv.Itoa(*port)), e)

@@ -20,9 +20,9 @@ import (
 
 var datastore_path = flag.String("datastore", "/r2/services/openinstrument", "Path to datastore files")
 var recordlog_max_size = flag.Int64("recordlog_max_size", 50, "Maximum size of recordlog in MB")
-var datastore_max_files_open = flag.Int16("datastore_max_files_open", 100,
+var datastore_max_files_open = flag.Int("datastore_max_files_open", 100,
   "Maximum number of indexed datastore files to keep open")
-var datastore_idle_files_open = flag.Int16("datastore_idle_files_open", 20,
+var datastore_idle_files_open = flag.Int("datastore_idle_files_open", 20,
   "Number of indexed datastore files to keep open at idle")
 
 var PROTO_MAGIC uint16 = 0xDEAD
@@ -89,16 +89,7 @@ func (this *StoreManager) Run() {
     case <-this.quit:
       log.Println("StoreManager quitting")
     case <-tick:
-      // Keep the 20 most recently used datastore files open
-      last_use := func(p1, p2 *IndexedStoreFile) bool {
-        return p1.last_use.Unix() < p2.last_use.Unix()
-      }
-      By(last_use).Sort(this.store_files)
-      for i, storefile := range this.store_files {
-        if i < len(this.store_files)-20 {
-          storefile.Close()
-        }
-      }
+      this.closeIndexedFiles()
       continue
     }
   }
@@ -106,6 +97,16 @@ func (this *StoreManager) Run() {
 }
 
 func (this *StoreManager) closeIndexedFiles() {
+  // Keep some recently used datastore files open
+  last_use := func(p1, p2 *IndexedStoreFile) bool {
+    return p1.last_use.Unix() < p2.last_use.Unix()
+  }
+  By(last_use).Sort(this.store_files)
+  for i, storefile := range this.store_files {
+    if i < len(this.store_files)-*datastore_idle_files_open {
+      storefile.Close()
+    }
+  }
 }
 
 func reopenRecordLog(filename string) (*os.File, error) {

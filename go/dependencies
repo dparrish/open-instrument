@@ -1,0 +1,4 @@
+go get github.com/willf/bloom
+go get github.com/willf/bitset
+go get github.com/joaojeronimo/go-crc16
+go get github.com/stathat/treap
