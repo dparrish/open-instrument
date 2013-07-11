@@ -2,16 +2,17 @@ package variable
 
 import (
   "code.google.com/p/goprotobuf/proto"
-  "testing"
-  "code.google.com/p/open-instrument/variable"
   openinstrument_proto "code.google.com/p/open-instrument/proto"
+  "code.google.com/p/open-instrument/variable"
   . "launchpad.net/gocheck"
+  "testing"
 )
 
 // Hook up gocheck into the "go test" runner.
 func Test(t *testing.T) { TestingT(t) }
 
 type MySuite struct{}
+
 var _ = Suite(&MySuite{})
 
 func (s *MySuite) TestVariableCreation(c *C) {
@@ -22,7 +23,7 @@ func (s *MySuite) TestVariableCreation(c *C) {
   labels[0] = &openinstrument_proto.Label{Label: proto.String("label1"), Value: proto.String("value1")}
   labels[1] = &openinstrument_proto.Label{Label: proto.String("label2"), Value: proto.String("spaced value")}
   newvar = variable.NewFromProto(&openinstrument_proto.StreamVariable{
-    Name: proto.String("/openinstrument/test"),
+    Name:  proto.String("/openinstrument/test"),
     Label: labels,
   })
   c.Check(newvar.String(), Equals, "/openinstrument/test{label1=value1,label2=spaced value}")

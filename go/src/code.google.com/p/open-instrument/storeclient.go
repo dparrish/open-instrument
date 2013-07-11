@@ -3,13 +3,13 @@ package openinstrument
 import (
   "bytes"
   "code.google.com/p/goprotobuf/proto"
+  openinstrument_proto "code.google.com/p/open-instrument/proto"
   "encoding/base64"
   "errors"
   "fmt"
   "io/ioutil"
   "net/http"
   "strings"
-  openinstrument_proto "code.google.com/p/open-instrument/proto"
 )
 
 func ProtoText(msg proto.Message) string {
@@ -41,7 +41,7 @@ func (sc storeClient) doRequest(path string, request, response proto.Message) er
   }
   encoded_body := base64.StdEncoding.EncodeToString(data)
   req, err := http.NewRequest("POST", fmt.Sprintf("http://%s:%d/%s", sc.host, sc.port, path),
-                              strings.NewReader(string(encoded_body)))
+    strings.NewReader(string(encoded_body)))
   if err != nil {
     return errors.New(fmt.Sprintf("Error creating HTTP request: %s", err))
   }
@@ -74,8 +74,8 @@ func (sc storeClient) doRequest(path string, request, response proto.Message) er
 }
 
 func (sc storeClient) SimpleList(prefix string) (response openinstrument_proto.ListResponse, err error) {
-  request := &openinstrument_proto.ListRequest {
-    Prefix: &openinstrument_proto.StreamVariable {
+  request := &openinstrument_proto.ListRequest{
+    Prefix: &openinstrument_proto.StreamVariable{
       Name: proto.String(prefix),
     },
     MaxVariables: proto.Uint32(10),
@@ -91,7 +91,7 @@ func (sc storeClient) List(request *openinstrument_proto.ListRequest) (response 
 
 func (sc storeClient) SimpleGet(variable string, min_timestamp, max_timestamp uint64) (response openinstrument_proto.GetResponse, err error) {
   reqvar := NewVariableFromString(variable)
-  request := &openinstrument_proto.GetRequest {
+  request := &openinstrument_proto.GetRequest{
     Variable: reqvar.AsProto(),
   }
   if min_timestamp > 0 {
@@ -108,4 +108,3 @@ func (sc storeClient) Get(request *openinstrument_proto.GetRequest) (response op
   err = sc.doRequest("get", request, &response)
   return
 }
-

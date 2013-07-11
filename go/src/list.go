@@ -3,6 +3,7 @@ package main
 import (
   "code.google.com/p/goprotobuf/proto"
   "code.google.com/p/open-instrument"
+  openinstrument_proto "code.google.com/p/open-instrument/proto"
   "code.google.com/p/open-instrument/variable"
   "flag"
   "fmt"
@@ -11,7 +12,6 @@ import (
   "net/http"
   "os"
   "strconv"
-  openinstrument_proto "code.google.com/p/open-instrument/proto"
 )
 
 var address = flag.String("address", "", "Address to listen on (blank for any)")

@@ -3,32 +3,36 @@ package store_manager
 import (
   "code.google.com/p/goprotobuf/proto"
   "code.google.com/p/open-instrument"
+  openinstrument_proto "code.google.com/p/open-instrument/proto"
   "code.google.com/p/open-instrument/variable"
+  "errors"
   "flag"
-  "regexp"
-  "sort"
+  "fmt"
   "io"
   "log"
-  "errors"
-  "fmt"
   "os"
   "path/filepath"
-  "time"
+  "regexp"
+  "sort"
   "sync"
-  openinstrument_proto "code.google.com/p/open-instrument/proto"
+  "time"
 )
 
 var datastore_path = flag.String("datastore", "/r2/services/openinstrument", "Path to datastore files")
 var recordlog_max_size = flag.Int64("recordlog_max_size", 50, "Maximum size of recordlog in MB")
+var datastore_max_files_open = flag.Int16("datastore_max_files_open", 100,
+  "Maximum number of indexed datastore files to keep open")
+var datastore_idle_files_open = flag.Int16("datastore_idle_files_open", 20,
+  "Number of indexed datastore files to keep open at idle")
 
 var PROTO_MAGIC uint16 = 0xDEAD
 
 type StoreManager struct {
-  streams map[string] *openinstrument_proto.ValueStream
-  streams_mutex sync.RWMutex
-  quit chan bool
+  streams         map[string]*openinstrument_proto.ValueStream
+  streams_mutex   sync.RWMutex
+  quit            chan bool
   record_log_chan chan *openinstrument_proto.ValueStream
-  store_files []*IndexedStoreFile
+  store_files     []*IndexedStoreFile
 }
 
 func (this *StoreManager) Run() {
@@ -46,19 +50,26 @@ func (this *StoreManager) Run() {
     if err != nil {
       log.Printf("Can't read file names in %s", *datastore_path)
     } else {
+      start_time := time.Now()
+      waitgroup := new(sync.WaitGroup)
       for _, name := range names {
         if matched, _ := regexp.MatchString("^datastore\\.\\d+.bin$", name); matched {
           file := IndexedStoreFile{
             Filename: filepath.Join(*datastore_path, name),
           }
           this.store_files = append(this.store_files, &file)
+          waitgroup.Add(1)
           go func() {
             // Open the file to read the header, then immediately close it to free up filehandles.
             file.Open()
             file.Close()
+            waitgroup.Done()
           }()
         }
       }
+      waitgroup.Wait()
+      duration := time.Since(start_time)
+      log.Printf("Finished reading headers of datastore files in %s", duration)
     }
     dir.Close()
   }
@@ -84,7 +95,7 @@ func (this *StoreManager) Run() {
       }
       By(last_use).Sort(this.store_files)
       for i, storefile := range this.store_files {
-        if i < len(this.store_files) - 20 {
+        if i < len(this.store_files)-20 {
           storefile.Close()
         }
       }
@@ -94,8 +105,11 @@ func (this *StoreManager) Run() {
   log.Println("Shutting down StoreManager")
 }
 
+func (this *StoreManager) closeIndexedFiles() {
+}
+
 func reopenRecordLog(filename string) (*os.File, error) {
-  file, err := os.OpenFile(filename, os.O_WRONLY | os.O_APPEND | os.O_CREATE, 0664)
+  file, err := os.OpenFile(filename, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0664)
   if err != nil || file == nil {
     return nil, errors.New(fmt.Sprintf("Error opening recordlog file: %s", err))
   }
@@ -107,7 +121,7 @@ func reopenRecordLog(filename string) (*os.File, error) {
 func (this *StoreManager) indexRecordLog(input_filename string, waitgroup *sync.WaitGroup) error {
   defer waitgroup.Done()
   log.Printf("Indexing %s", input_filename)
-  streams := make(map[string] *openinstrument_proto.ValueStream, 0)
+  streams := make(map[string]*openinstrument_proto.ValueStream, 0)
   var max_timestamp, min_timestamp uint64
   var input_value_count, output_value_count uint64
   this.readRecordLog(input_filename,
@@ -133,9 +147,9 @@ func (this *StoreManager) indexRecordLog(input_filename string, waitgroup *sync.
         }
         // Run-length encoding of the ValueStream
         if len(stream.Value) > 0 {
-          last := stream.Value[len(stream.Value) - 1]
+          last := stream.Value[len(stream.Value)-1]
           if (last.GetStringValue() != "" && last.GetStringValue() == value.GetStringValue()) ||
-          (last.GetDoubleValue() == value.GetDoubleValue()) {
+            (last.GetDoubleValue() == value.GetDoubleValue()) {
             if value.GetEndTimestamp() > 0 {
               last.EndTimestamp = value.EndTimestamp
             } else {
@@ -152,17 +166,17 @@ func (this *StoreManager) indexRecordLog(input_filename string, waitgroup *sync.
       }
     })
   log.Printf("Read in recordlog file containing %d streams from %d to %d, compressed %d values down to %d",
-  len(streams), min_timestamp, max_timestamp, input_value_count, output_value_count)
+    len(streams), min_timestamp, max_timestamp, input_value_count, output_value_count)
 
   // Build the header with a 0-index for each variable
   header := openinstrument_proto.StoreFileHeader{
     StartTimestamp: proto.Uint64(min_timestamp),
-    EndTimestamp: proto.Uint64(min_timestamp),
+    EndTimestamp:   proto.Uint64(min_timestamp),
   }
   for _, varname := range sortedKeys(streams) {
     i := openinstrument_proto.StoreFileHeaderIndex{
       Variable: variable.NewFromString(varname).AsProto(),
-      Offset: proto.Uint64(0),
+      Offset:   proto.Uint64(0),
     }
     header.Index = append(header.Index, &i)
   }
@@ -242,7 +256,7 @@ func (this *StoreManager) writeRecordLog() {
     case stream := <-this.record_log_chan:
       n, err := file.Write(stream)
       if err != nil || n != 1 {
-        log.Println( err)
+        log.Println(err)
         file.Close()
         file = nil
       }
@@ -253,10 +267,10 @@ func (this *StoreManager) writeRecordLog() {
         log.Printf("Can't stat recordlog:", err)
         continue
       }
-      if stat.Size() >= *recordlog_max_size * 1024 * 1024 {
-        log.Printf("Recordlog is %d MB (>%d MB), rotating", stat.Size() / 1024 / 1024, *recordlog_max_size)
+      if stat.Size() >= *recordlog_max_size*1024*1024 {
+        log.Printf("Recordlog is %d MB (>%d MB), rotating", stat.Size()/1024/1024, *recordlog_max_size)
         new_filename := fmt.Sprintf("%s.%s", filepath.Join(*datastore_path, "recordlog"),
-                                    time.Now().UTC().Format(time.RFC3339))
+          time.Now().UTC().Format(time.RFC3339))
         err := os.Rename(filename, new_filename)
         if err != nil {
           log.Printf("Error renaming %s to %s", filename, new_filename)
@@ -329,15 +343,15 @@ func (this *StoreManager) readRecordLog(filename string, callback func(*openinst
   }
   duration := time.Since(start_time)
   log.Printf("Finished reading %d record log streams containing %d values in %v, StoreManager contains %d streams ",
-             stream_count, value_count, duration, len(this.streams))
+    stream_count, value_count, duration, len(this.streams))
   file.Close()
 }
 
 func (this *StoreManager) GetValueStreams(v *variable.Variable, min_timestamp, max_timestamp *uint64,
-                                          c chan *openinstrument_proto.ValueStream) {
+  c chan *openinstrument_proto.ValueStream) {
   this.streams_mutex.RLock()
   if this.streams == nil {
-    this.streams = make(map[string] *openinstrument_proto.ValueStream, 0)
+    this.streams = make(map[string]*openinstrument_proto.ValueStream, 0)
   }
   for key, stream := range this.streams {
     k := variable.NewFromString(key)
@@ -374,7 +388,7 @@ func (this *StoreManager) AddValueStreams(c chan *openinstrument_proto.ValueStre
 func (this *StoreManager) addValueStreamNoRecord(new_stream *openinstrument_proto.ValueStream) {
   this.streams_mutex.RLock()
   if this.streams == nil {
-    this.streams = make(map[string] *openinstrument_proto.ValueStream, 0)
+    this.streams = make(map[string]*openinstrument_proto.ValueStream, 0)
   }
   new_variable := variable.NewFromProto(new_stream.Variable)
   stream, ok := this.streams[new_variable.String()]
@@ -386,14 +400,13 @@ func (this *StoreManager) addValueStreamNoRecord(new_stream *openinstrument_prot
   this.streams_mutex.RUnlock()
 }
 
-func sortedKeys(m map[string] *openinstrument_proto.ValueStream) []string {
+func sortedKeys(m map[string]*openinstrument_proto.ValueStream) []string {
   keys := make([]string, len(m))
   i := 0
-  for k, _ := range m {
+  for k := range m {
     keys[i] = k
     i++
   }
   sort.Strings(keys)
   return keys
 }
-

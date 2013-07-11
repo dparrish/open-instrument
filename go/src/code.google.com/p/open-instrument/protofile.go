@@ -5,6 +5,7 @@ import (
   "encoding/binary"
   "errors"
   "fmt"
+  "github.com/joaojeronimo/go-crc16"
   "io"
   "log"
   "os"
@@ -14,8 +15,8 @@ var PROTO_MAGIC uint16 = 0xDEAD
 
 type ProtoFileReader struct {
   filename string
-  file *os.File
-  stat os.FileInfo
+  file     *os.File
+  stat     os.FileInfo
 }
 
 func ReadProtoFile(filename string) (*ProtoFileReader, error) {
@@ -59,40 +60,38 @@ func (this *ProtoFileReader) Read(message proto.Message) (int, error) {
       return 0, io.EOF
     }
     pos := this.Tell()
-    // Read Magic header
-    var magic uint16
-    err := binary.Read(this.file, binary.LittleEndian, &magic)
+    type header struct {
+      Magic  uint16
+      Length uint32
+    }
+    var h header
+
+    err := binary.Read(this.file, binary.LittleEndian, &h)
     if err != nil {
       if err == io.EOF {
         return 0, io.EOF
       }
-      log.Printf("Error reading magic from recordlog: %s", err)
+      log.Printf("Error reading record header from recordlog: %s", err)
       return 0, err
     }
-    if magic != PROTO_MAGIC {
+
+    // Read Magic header
+    if h.Magic != PROTO_MAGIC {
       log.Printf("Protobuf delimeter at %d does not match %#x", pos, PROTO_MAGIC)
       failcount++
       continue
     }
-
-    // Read Length of proto
-    var length uint32
-    err = binary.Read(this.file, binary.LittleEndian, &length)
-    if err != nil {
-      log.Printf("Error reading length from recordlog: %s", err)
-      return 0, io.EOF
-    }
-    if int64(length) >= this.stat.Size() {
-      log.Printf("Chunk length %d is greater than file size %d", length, this.stat.Size())
+    if int64(h.Length) >= this.stat.Size() {
+      log.Printf("Chunk length %d is greater than file size %d", h.Length, this.stat.Size())
       failcount++
       continue
     }
 
     // Read Proto
-    buf := make([]byte, length)
+    buf := make([]byte, h.Length)
     n, err := this.file.Read(buf)
-    if err != nil || uint32(n) != length {
-      log.Printf("Could not read %d bytes from file: %s", length, err)
+    if err != nil || uint32(n) != h.Length {
+      log.Printf("Could not read %d bytes from file: %s", h.Length, err)
       return 0, io.EOF
     }
 
@@ -103,7 +102,10 @@ func (this *ProtoFileReader) Read(message proto.Message) (int, error) {
       log.Printf("Error reading CRC from recordlog: %s", err)
       return 0, io.EOF
     }
-    // TODO(dparrish): Implement crc16
+    checkcrc := crc16.Crc16(string(buf))
+    if checkcrc != crc {
+      //log.Printf("CRC %x does not match %x", crc, checkcrc)
+    }
 
     // Decode and add proto
     if err = proto.Unmarshal(buf, message); err != nil {
@@ -119,7 +121,7 @@ func WriteProtoFile(filename string) (*ProtoFileWriter, error) {
   reader := new(ProtoFileWriter)
   reader.filename = filename
   var err error
-  reader.file, err = os.OpenFile(filename, os.O_RDWR | os.O_CREATE, 0664)
+  reader.file, err = os.OpenFile(filename, os.O_RDWR|os.O_CREATE, 0664)
   if err != nil {
     return nil, err
   }
@@ -132,13 +134,10 @@ func WriteProtoFile(filename string) (*ProtoFileWriter, error) {
   return reader, nil
 }
 
-
-
-
 type ProtoFileWriter struct {
   filename string
-  file *os.File
-  stat os.FileInfo
+  file     *os.File
+  stat     os.FileInfo
 }
 
 func (this *ProtoFileWriter) Close() error {
@@ -178,4 +177,3 @@ func (this *ProtoFileWriter) Write(message proto.Message) (int, error) {
   }
   return 1, nil
 }
-

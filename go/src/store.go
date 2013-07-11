@@ -106,7 +106,7 @@ func Get(w http.ResponseWriter, req *http.Request) {
       value_count++
     }
     if request.MaxValues != nil && value_count >= request.GetMaxValues() {
-      newstream.Value = newstream.Value[uint32(len(newstream.Value)) - request.GetMaxValues():]
+      newstream.Value = newstream.Value[uint32(len(newstream.Value))-request.GetMaxValues():]
     }
     response.Stream = append(response.Stream, newstream)
     count++

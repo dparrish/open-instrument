@@ -1,6 +1,8 @@
 package variable
 
 import (
+  "code.google.com/p/goprotobuf/proto"
+  openinstrument_proto "code.google.com/p/open-instrument/proto"
   "encoding/csv"
   "errors"
   "fmt"
@@ -8,14 +10,12 @@ import (
   "regexp"
   "sort"
   "strings"
-  openinstrument_proto "code.google.com/p/open-instrument/proto"
-  "code.google.com/p/goprotobuf/proto"
 )
 
 // Variable represents a variable name with all labels.
 type Variable struct {
   Variable string
-  Labels map[string] string
+  Labels   map[string]string
 }
 
 func valueNeedsQuotes(str string) bool {
@@ -23,10 +23,10 @@ func valueNeedsQuotes(str string) bool {
   return matched
 }
 
-func sortedKeys(m map[string] string) []string {
+func sortedKeys(m map[string]string) []string {
   keys := make([]string, len(m))
   i := 0
-  for k, _ := range m {
+  for k := range m {
     keys[i] = k
     i++
   }
@@ -96,7 +96,7 @@ func (v *Variable) ParseFromString(textvar string) error {
     if err != nil {
       return errors.New(fmt.Sprintf("Error parsing labels from %s: %s", textvar, err))
     }
-    v.Labels = make(map[string] string, 0)
+    v.Labels = make(map[string]string, 0)
     for _, item := range record {
       substrings := strings.SplitN(item, "=", 2)
       if len(substrings) != 2 {
@@ -113,7 +113,7 @@ func (v *Variable) ParseFromString(textvar string) error {
 func (v *Variable) ParseFromProto(p *openinstrument_proto.StreamVariable) error {
   v.Variable = *p.Name
   // Copy labels
-  v.Labels = make(map[string] string, len(p.Label))
+  v.Labels = make(map[string]string, len(p.Label))
   for _, label := range p.Label {
     v.Labels[label.GetLabel()] = label.GetValue()
   }
@@ -123,7 +123,7 @@ func (v *Variable) ParseFromProto(p *openinstrument_proto.StreamVariable) error 
 // Match checks that the supplied variable matches this one, using the matching rules defined above.
 func (v *Variable) Match(match *Variable) bool {
   if strings.HasSuffix(match.Variable, "*") {
-    m := match.Variable[0:len(match.Variable) - 2]
+    m := match.Variable[0 : len(match.Variable)-2]
     if !strings.HasPrefix(v.Variable, m) {
       // Invalid prefix match
       return false

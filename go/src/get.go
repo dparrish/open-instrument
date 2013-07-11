@@ -3,6 +3,7 @@ package main
 import (
   "code.google.com/p/goprotobuf/proto"
   "code.google.com/p/open-instrument"
+  openinstrument_proto "code.google.com/p/open-instrument/proto"
   "flag"
   "fmt"
   "log"
@@ -11,7 +12,6 @@ import (
   "os"
   "strconv"
   "time"
-  openinstrument_proto "code.google.com/p/open-instrument/proto"
 )
 
 var address = flag.String("address", "", "Address to listen on (blank for any)")
@@ -52,7 +52,7 @@ func main() {
     log.Fatal("Invalid --duration:", err)
   }
   request := openinstrument_proto.GetRequest{
-    Variable: openinstrument.NewVariableFromString(flag.Arg(1)).AsProto(),
+    Variable:     openinstrument.NewVariableFromString(flag.Arg(1)).AsProto(),
     MinTimestamp: proto.Uint64(uint64(time.Now().Add(-dur).UnixNano() / 1000000)),
   }
   if *max_variables > 0 {
@@ -68,7 +68,7 @@ func main() {
   for _, stream := range getresponse.Stream {
     variable := openinstrument.NewVariableFromProto(stream.Variable).String()
     for _, value := range stream.Value {
-      fmt.Printf("%s\t%s\t", variable, time.Unix(int64(*value.Timestamp / 1000), 0))
+      fmt.Printf("%s\t%s\t", variable, time.Unix(int64(*value.Timestamp/1000), 0))
       if value.DoubleValue != nil {
         fmt.Printf("%f\n", *value.DoubleValue)
       } else if value.StringValue != nil {
@@ -77,4 +77,3 @@ func main() {
     }
   }
 }
-
