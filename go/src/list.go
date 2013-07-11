@@ -56,6 +56,7 @@ func main() {
   }
   //fmt.Println(openinstrument.ProtoText(&listresponse))
   for _, stream := range listresponse.Stream {
+    //fmt.Println(variable.NewFromProto(stream.Variable))
     fmt.Println(variable.NewFromProto(stream.Variable))
   }
 }

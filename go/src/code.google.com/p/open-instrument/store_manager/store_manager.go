@@ -53,12 +53,14 @@ func (this *StoreManager) Run() {
           }
           this.store_files = append(this.store_files, &file)
           go func() {
+            // Open the file to read the header, then immediately close it to free up filehandles.
             file.Open()
             file.Close()
           }()
         }
       }
     }
+    dir.Close()
   }
 
   // Read the current recordlog
@@ -261,8 +263,10 @@ func (this *StoreManager) writeRecordLog() {
         } else if file != nil {
           file.Close()
           file = nil
+          log.Printf("Locking streams_mutex")
           this.streams_mutex.Lock()
           this.streams = nil
+          log.Printf("Unlocking streams_mutex")
           this.streams_mutex.Unlock()
         }
       }
@@ -286,6 +290,7 @@ func (this *StoreManager) writeRecordLog() {
           }
           waitgroup.Wait()
         }
+        dir.Close()
       }
     }
   }
@@ -302,7 +307,6 @@ func (this *StoreManager) readRecordLog(filename string, callback func(*openinst
     log.Printf("Error opening proto file: %s", err)
     return
   }
-  defer file.Close()
   var stream_count int
   var value_count int
   for {
@@ -326,12 +330,12 @@ func (this *StoreManager) readRecordLog(filename string, callback func(*openinst
   duration := time.Since(start_time)
   log.Printf("Finished reading %d record log streams containing %d values in %v, StoreManager contains %d streams ",
              stream_count, value_count, duration, len(this.streams))
+  file.Close()
 }
 
 func (this *StoreManager) GetValueStreams(v *variable.Variable, min_timestamp, max_timestamp *uint64,
                                           c chan *openinstrument_proto.ValueStream) {
   this.streams_mutex.RLock()
-  defer this.streams_mutex.RUnlock()
   if this.streams == nil {
     this.streams = make(map[string] *openinstrument_proto.ValueStream, 0)
   }
@@ -341,6 +345,7 @@ func (this *StoreManager) GetValueStreams(v *variable.Variable, min_timestamp, m
       c <- stream
     }
   }
+  this.streams_mutex.RUnlock()
   // Find indexed store files that have data matching the requested date range
   for _, file := range this.store_files {
     if min_timestamp != nil && *min_timestamp > file.MaxTimestamp {
@@ -368,7 +373,6 @@ func (this *StoreManager) AddValueStreams(c chan *openinstrument_proto.ValueStre
 
 func (this *StoreManager) addValueStreamNoRecord(new_stream *openinstrument_proto.ValueStream) {
   this.streams_mutex.RLock()
-  defer this.streams_mutex.RUnlock()
   if this.streams == nil {
     this.streams = make(map[string] *openinstrument_proto.ValueStream, 0)
   }
@@ -379,20 +383,8 @@ func (this *StoreManager) addValueStreamNoRecord(new_stream *openinstrument_prot
   } else {
     this.streams[new_variable.String()] = new_stream
   }
+  this.streams_mutex.RUnlock()
 }
-
-/*
-func NanoToMs(nano int64) uint64 {
-  return uint64(nano / 1000 / 1000)
-}
-
-func NewValue(timestamp uint64, double_value float64) *openinstrument_proto.Value {
-  value := new(openinstrument_proto.Value)
-  value.Timestamp = proto.Uint64(timestamp)
-  value.DoubleValue = proto.Float64(double_value)
-  return value
-}
-*/
 
 func sortedKeys(m map[string] *openinstrument_proto.ValueStream) []string {
   keys := make([]string, len(m))

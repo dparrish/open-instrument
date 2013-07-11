@@ -3,8 +3,11 @@ package store_manager
 import (
   "code.google.com/p/open-instrument"
   "code.google.com/p/open-instrument/variable"
+  "github.com/willf/bloom"
   "errors"
   "fmt"
+  "strings"
+  "log"
   "sort"
   "sync"
   "time"
@@ -21,6 +24,7 @@ type IndexedStoreFile struct {
   last_use time.Time
   header_read bool
   close_mutex sync.Mutex
+  bloomfilter *bloom.BloomFilter
 }
 
 type By func(p1, p2 *IndexedStoreFile) bool
@@ -71,9 +75,14 @@ func (this *IndexedStoreFile) Open() error {
     this.MaxTimestamp = this.header.GetEndTimestamp()
     this.offsets = make(map[string] uint64, len(this.header.Index))
     this.last_use = time.Unix(0, 0)
+
+    // Build a Bloom filter containing just the variable names.
+    // This will be used to speed lookups.
+    this.bloomfilter = bloom.NewWithEstimates(uint(len(this.header.Index)), 0.1)
     for _, index := range this.header.Index {
-      varname := variable.NewFromProto(index.Variable).String()
-      this.offsets[varname] = index.GetOffset()
+      varname := variable.NewFromProto(index.Variable)
+      this.offsets[varname.String()] = index.GetOffset()
+      this.bloomfilter.Add([]byte(varname.Variable))
     }
     /*
     log.Printf("Opened indexed store file %s with data from %s to %s",
@@ -103,6 +112,12 @@ func (this *IndexedStoreFile) GetStreams(v *variable.Variable) []*openinstrument
     this.Open()
   }
   ret := make([]*openinstrument_proto.ValueStream, 0)
+  if !strings.HasSuffix(v.Variable, "*") {
+    // This is a direct string lookup, check the Bloom filter first
+    if !this.bloomfilter.Test([]byte(v.Variable)) {
+      return ret
+    }
+  }
   for key, offset := range this.offsets {
     varmatch := variable.NewFromString(key)
     if varmatch.Match(v) {
