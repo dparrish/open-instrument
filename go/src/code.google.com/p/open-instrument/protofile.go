@@ -54,7 +54,7 @@ func (this *ProtoFileReader) ReadAt(pos int64, message proto.Message) (int, erro
   return this.Read(message)
 }
 
-func (this *ProtoFileReader) ValueStreamReader(n int) (chan *openinstrument_proto.ValueStream) {
+func (this *ProtoFileReader) ValueStreamReader(n int) chan *openinstrument_proto.ValueStream {
   c := make(chan *openinstrument_proto.ValueStream, n)
   go func() {
     for {

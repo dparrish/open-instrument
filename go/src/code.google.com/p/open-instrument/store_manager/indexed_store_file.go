@@ -27,7 +27,7 @@ type IndexedStoreFile struct {
   header_read  bool
   bloomfilter  *bloom.BloomFilter
   in_use       sync.RWMutex
-  stream_cache map[string] *openinstrument_proto.ValueStream
+  stream_cache map[string]*openinstrument_proto.ValueStream
 }
 
 type By func(p1, p2 *IndexedStoreFile) bool
@@ -63,8 +63,8 @@ func (this *IndexedStoreFile) String() string {
 
 func NewIndexedStoreFile(filename string) *IndexedStoreFile {
   return &IndexedStoreFile{
-    Filename: filename,
-    stream_cache: make(map[string] *openinstrument_proto.ValueStream),
+    Filename:     filename,
+    stream_cache: make(map[string]*openinstrument_proto.ValueStream),
   }
 }
 
@@ -127,7 +127,7 @@ func (this *IndexedStoreFile) Close() error {
   defer this.in_use.Unlock()
   err := this.file.Close()
   this.file = nil
-  this.stream_cache = make(map[string] *openinstrument_proto.ValueStream)
+  this.stream_cache = make(map[string]*openinstrument_proto.ValueStream)
   max_files_semaphore.Unlock()
   return err
 }

@@ -98,7 +98,7 @@ func (this *StoreManager) closeIndexedFiles() {
     }
     if open_count >= *datastore_idle_files_open {
       // Keep indexed files open for 30 seconds after their last use, unless we're close to the limit of open files
-      if time.Since(storefile.LastUse()) > time.Duration(30) * time.Second || nf >= 500 * 0.8 {
+      if time.Since(storefile.LastUse()) > time.Duration(30)*time.Second || nf >= 500*0.8 {
         storefile.Close()
         nf--
         continue
@@ -390,7 +390,7 @@ func (this *StoreManager) GetValueStreams(v *variable.Variable, min_timestamp, m
   return c
 }
 
-func (this *StoreManager) AddValueStreams() chan *openinstrument_proto.ValueStream{
+func (this *StoreManager) AddValueStreams() chan *openinstrument_proto.ValueStream {
   c := make(chan *openinstrument_proto.ValueStream, 10)
   go func() {
     for new_stream := range c {

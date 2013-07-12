@@ -1,16 +1,16 @@
 package openinstrument
 
 import (
-  "time"
   "fmt"
+  "time"
 )
 
 type DurationTimer struct {
-  name string
+  name       string
   start_time time.Time
-  end_time time.Time
+  end_time   time.Time
   total_time time.Duration
-  running bool
+  running    bool
 }
 
 func NewNamedDurationTimer(name string) *DurationTimer {

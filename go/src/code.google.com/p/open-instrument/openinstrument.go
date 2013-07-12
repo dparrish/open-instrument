@@ -24,8 +24,8 @@ type Timer struct {
 func NewTimer(name string, t *openinstrument_proto.Timer) *Timer {
   return &Timer{
     start_time: time.Now(),
-    t: t,
-    name: name,
+    t:          t,
+    name:       name,
   }
 }
 
@@ -50,7 +50,7 @@ func (s Semaphore) P(n int) {
 }
 
 // release n resources
-func (s Semaphore) V(n int) { 
+func (s Semaphore) V(n int) {
   for i := 0; i < n; i++ {
     <-s
   }
@@ -72,4 +72,59 @@ func (s Semaphore) Signal() {
 
 func (s Semaphore) Wait(n int) {
   s.P(n)
+}
+
+// ValueStreamWriter returns a channel that appends values to the supplied ValueStream
+// No effort is made to ensure that the ValueStream contains sorted Values
+func ValueStreamWriter(stream *openinstrument_proto.ValueStream) chan *openinstrument_proto.Value {
+  c := make(chan *openinstrument_proto.Value)
+  go func() {
+    for value := range c {
+      stream.Value = append(stream.Value, value)
+    }
+  }()
+  return c
+}
+
+// ValueStreamReader returns a channel producing Values from the supplied ValueStream
+func ValueStreamReader(stream *openinstrument_proto.ValueStream) chan *openinstrument_proto.Value {
+  c := make(chan *openinstrument_proto.Value)
+  go func() {
+    for _, value := range stream.Value {
+      c <- value
+    }
+  }()
+  return c
+}
+
+// MergeValueStreams merges multiple ValueStreams, returning channel producing sorted Values.
+func MergeValueStreams(streams []*openinstrument_proto.ValueStream) chan *openinstrument_proto.Value {
+  c := make(chan *openinstrument_proto.Value)
+  n := len(streams)
+  go func() {
+    indexes := make([]int, n)
+    for {
+      var min_timestamp uint64
+      var min_stream *openinstrument_proto.ValueStream
+      var min_value *openinstrument_proto.Value
+      for i := 0; i < n; i++ {
+        if indexes[i] >= len(streams[i].Value) {
+          continue
+        }
+        v := streams[i].Value[indexes[i]]
+        if min_stream == nil || v.GetTimestamp() < min_timestamp {
+          min_timestamp = v.GetTimestamp()
+          min_stream = streams[i]
+          min_value = v
+          indexes[i]++
+        }
+      }
+      if min_value == nil {
+        break
+      }
+      c <- min_value
+    }
+    close(c)
+  }()
+  return c
 }
