@@ -2,6 +2,7 @@ package openinstrument
 
 import (
   "code.google.com/p/goprotobuf/proto"
+  openinstrument_proto "code.google.com/p/open-instrument/proto"
   "encoding/binary"
   "errors"
   "fmt"
@@ -51,6 +52,26 @@ func (this *ProtoFileReader) Stat() (os.FileInfo, error) {
 func (this *ProtoFileReader) ReadAt(pos int64, message proto.Message) (int, error) {
   this.file.Seek(pos, os.SEEK_SET)
   return this.Read(message)
+}
+
+func (this *ProtoFileReader) ValueStreamReader(n int) (chan *openinstrument_proto.ValueStream) {
+  c := make(chan *openinstrument_proto.ValueStream, n)
+  go func() {
+    for {
+      value := new(openinstrument_proto.ValueStream)
+      _, err := this.Read(value)
+      if err == io.EOF {
+        break
+      }
+      if err != nil {
+        log.Println(err)
+        break
+      }
+      c <- value
+    }
+    close(c)
+  }()
+  return c
 }
 
 func (this *ProtoFileReader) Read(message proto.Message) (int, error) {

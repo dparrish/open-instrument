@@ -8,7 +8,6 @@ import (
   "errors"
   "flag"
   "fmt"
-  "io"
   "log"
   "os"
   "path/filepath"
@@ -328,20 +327,10 @@ func (this *StoreManager) readRecordLog(filename string, callback func(*openinst
   }
   var stream_count int
   var value_count int
-  for {
-    stream := new(openinstrument_proto.ValueStream)
-    n, err := file.Read(stream)
-    if err == io.EOF {
-      break
-    }
-    if err != nil {
-      log.Println(err)
-      continue
-    }
-    if n != 1 {
-      log.Printf("Read %v records from proto file", n)
-      continue
-    }
+  // Create a ValueStreamReader to continue reading the file in parallel.
+  // The channel length supplied was picked roughly at random.
+  reader := file.ValueStreamReader(50)
+  for stream := range reader {
     callback(stream)
     stream_count++
     value_count += len(stream.Value)
@@ -358,6 +347,8 @@ func (this *StoreManager) GetValueStreams(v *variable.Variable, min_timestamp, m
     waitgroup := new(sync.WaitGroup)
     waitgroup.Add(1)
     go func() {
+      // Return all the streams currently in RAM that match the supplied variable
+      // This should be very fast
       this.streams_mutex.RLock()
       defer this.streams_mutex.RUnlock()
       if this.streams == nil {
@@ -372,6 +363,7 @@ func (this *StoreManager) GetValueStreams(v *variable.Variable, min_timestamp, m
       waitgroup.Done()
     }()
     // Find indexed store files that have data matching the requested date range
+    // This may take a *LOT* longer to run
     for _, file := range this.store_files {
       waitgroup.Add(1)
       go func(file *IndexedStoreFile) {
@@ -390,6 +382,8 @@ func (this *StoreManager) GetValueStreams(v *variable.Variable, min_timestamp, m
         }
       }(file)
     }
+    // Wait for everything to complete.
+    // There is no early exit if the receiver doesn't need any more data
     waitgroup.Wait()
     close(c)
   }()
