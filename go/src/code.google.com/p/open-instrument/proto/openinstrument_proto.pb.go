@@ -532,6 +532,7 @@ type GetResponse struct {
   Success          *bool          `protobuf:"varint,1,req,name=success" json:"success,omitempty"`
   Errormessage     *string        `protobuf:"bytes,2,opt,name=errormessage" json:"errormessage,omitempty"`
   Stream           []*ValueStream `protobuf:"bytes,3,rep,name=stream" json:"stream,omitempty"`
+  Timer            []*Timer       `protobuf:"bytes,4,rep,name=timer" json:"timer,omitempty"`
   XXX_unrecognized []byte         `json:"-"`
 }
 
@@ -556,6 +557,13 @@ func (m *GetResponse) GetErrormessage() string {
 func (m *GetResponse) GetStream() []*ValueStream {
   if m != nil {
     return m.Stream
+  }
+  return nil
+}
+
+func (m *GetResponse) GetTimer() []*Timer {
+  if m != nil {
+    return m.Timer
   }
   return nil
 }
@@ -587,9 +595,10 @@ func (m *AddRequest) GetForwarded() bool {
 }
 
 type AddResponse struct {
-  Success          *bool   `protobuf:"varint,1,req,name=success" json:"success,omitempty"`
-  Errormessage     *string `protobuf:"bytes,2,opt,name=errormessage" json:"errormessage,omitempty"`
-  XXX_unrecognized []byte  `json:"-"`
+  Success          *bool    `protobuf:"varint,1,req,name=success" json:"success,omitempty"`
+  Errormessage     *string  `protobuf:"bytes,2,opt,name=errormessage" json:"errormessage,omitempty"`
+  Timer            []*Timer `protobuf:"bytes,3,rep,name=timer" json:"timer,omitempty"`
+  XXX_unrecognized []byte   `json:"-"`
 }
 
 func (m *AddResponse) Reset()         { *m = AddResponse{} }
@@ -610,10 +619,18 @@ func (m *AddResponse) GetErrormessage() string {
   return ""
 }
 
+func (m *AddResponse) GetTimer() []*Timer {
+  if m != nil {
+    return m.Timer
+  }
+  return nil
+}
+
 type ListRequest struct {
   DEPRECATEDStringPrefix *string         `protobuf:"bytes,1,opt,name=DEPRECATED_string_prefix" json:"DEPRECATED_string_prefix,omitempty"`
   Prefix                 *StreamVariable `protobuf:"bytes,3,opt,name=prefix" json:"prefix,omitempty"`
   MaxVariables           *uint32         `protobuf:"varint,2,opt,name=max_variables,def=100" json:"max_variables,omitempty"`
+  MaxAge                 *uint64         `protobuf:"varint,4,opt,name=max_age,def=86400000" json:"max_age,omitempty"`
   XXX_unrecognized       []byte          `json:"-"`
 }
 
@@ -622,6 +639,7 @@ func (m *ListRequest) String() string { return proto.CompactTextString(m) }
 func (*ListRequest) ProtoMessage()    {}
 
 const Default_ListRequest_MaxVariables uint32 = 100
+const Default_ListRequest_MaxAge uint64 = 86400000
 
 func (m *ListRequest) GetDEPRECATEDStringPrefix() string {
   if m != nil && m.DEPRECATEDStringPrefix != nil {
@@ -644,11 +662,20 @@ func (m *ListRequest) GetMaxVariables() uint32 {
   return Default_ListRequest_MaxVariables
 }
 
+func (m *ListRequest) GetMaxAge() uint64 {
+  if m != nil && m.MaxAge != nil {
+    return *m.MaxAge
+  }
+  return Default_ListRequest_MaxAge
+}
+
 type ListResponse struct {
-  Success          *bool          `protobuf:"varint,1,req,name=success" json:"success,omitempty"`
-  Errormessage     *string        `protobuf:"bytes,2,opt,name=errormessage" json:"errormessage,omitempty"`
-  Stream           []*ValueStream `protobuf:"bytes,3,rep,name=stream" json:"stream,omitempty"`
-  XXX_unrecognized []byte         `json:"-"`
+  Success          *bool             `protobuf:"varint,1,req,name=success" json:"success,omitempty"`
+  Errormessage     *string           `protobuf:"bytes,2,opt,name=errormessage" json:"errormessage,omitempty"`
+  Stream           []*ValueStream    `protobuf:"bytes,3,rep,name=stream" json:"stream,omitempty"`
+  Variable         []*StreamVariable `protobuf:"bytes,4,rep,name=variable" json:"variable,omitempty"`
+  Timer            []*Timer          `protobuf:"bytes,5,rep,name=timer" json:"timer,omitempty"`
+  XXX_unrecognized []byte            `json:"-"`
 }
 
 func (m *ListResponse) Reset()         { *m = ListResponse{} }
@@ -672,6 +699,20 @@ func (m *ListResponse) GetErrormessage() string {
 func (m *ListResponse) GetStream() []*ValueStream {
   if m != nil {
     return m.Stream
+  }
+  return nil
+}
+
+func (m *ListResponse) GetVariable() []*StreamVariable {
+  if m != nil {
+    return m.Variable
+  }
+  return nil
+}
+
+func (m *ListResponse) GetTimer() []*Timer {
+  if m != nil {
+    return m.Timer
   }
   return nil
 }
@@ -887,6 +928,30 @@ func (m *StoreConfig) GetRetentionPolicy() *RetentionPolicy {
     return m.RetentionPolicy
   }
   return nil
+}
+
+type Timer struct {
+  Name             *string `protobuf:"bytes,1,opt,name=name" json:"name,omitempty"`
+  Ms               *uint64 `protobuf:"varint,2,req,name=ms" json:"ms,omitempty"`
+  XXX_unrecognized []byte  `json:"-"`
+}
+
+func (m *Timer) Reset()         { *m = Timer{} }
+func (m *Timer) String() string { return proto.CompactTextString(m) }
+func (*Timer) ProtoMessage()    {}
+
+func (m *Timer) GetName() string {
+  if m != nil && m.Name != nil {
+    return *m.Name
+  }
+  return ""
+}
+
+func (m *Timer) GetMs() uint64 {
+  if m != nil && m.Ms != nil {
+    return *m.Ms
+  }
+  return 0
 }
 
 func init() {

@@ -54,17 +54,15 @@ func (this *StoreManager) Run() {
       waitgroup := new(sync.WaitGroup)
       for _, name := range names {
         if matched, _ := regexp.MatchString("^datastore\\.\\d+.bin$", name); matched {
-          file := IndexedStoreFile{
-            Filename: filepath.Join(*datastore_path, name),
-          }
-          this.store_files = append(this.store_files, &file)
+          file := NewIndexedStoreFile(filepath.Join(*datastore_path, name))
+          this.store_files = append(this.store_files, file)
           waitgroup.Add(1)
-          go func() {
+          go func(file *IndexedStoreFile) {
             // Open the file to read the header, then immediately close it to free up filehandles.
             file.Open()
             file.Close()
             waitgroup.Done()
-          }()
+          }(file)
         }
       }
       waitgroup.Wait()
@@ -228,9 +226,13 @@ func (this *StoreManager) indexRecordLog(input_filename string, waitgroup *sync.
     }
   }
   if !found {
-    this.store_files = append(this.store_files, &IndexedStoreFile{
-      Filename: filename,
-    })
+    file := NewIndexedStoreFile(filename)
+    this.store_files = append(this.store_files, file)
+    go func() {
+      // Open the file to read the header, then immediately close it to free up filehandles.
+      file.Open()
+      file.Close()
+    }()
   }
   return nil
 }
@@ -348,32 +350,48 @@ func (this *StoreManager) readRecordLog(filename string, callback func(*openinst
   file.Close()
 }
 
-func (this *StoreManager) GetValueStreams(v *variable.Variable, min_timestamp, max_timestamp *uint64,
-  c chan *openinstrument_proto.ValueStream) {
-  this.streams_mutex.RLock()
-  if this.streams == nil {
-    this.streams = make(map[string]*openinstrument_proto.ValueStream, 0)
-  }
-  for key, stream := range this.streams {
-    k := variable.NewFromString(key)
-    if k.Match(v) {
-      c <- stream
+func (this *StoreManager) GetValueStreams(v *variable.Variable, min_timestamp, max_timestamp *uint64) chan *openinstrument_proto.ValueStream {
+  c := make(chan *openinstrument_proto.ValueStream, 1000)
+  go func() {
+    waitgroup := new(sync.WaitGroup)
+    waitgroup.Add(1)
+    go func() {
+      this.streams_mutex.RLock()
+      defer this.streams_mutex.RUnlock()
+      if this.streams == nil {
+        this.streams = make(map[string]*openinstrument_proto.ValueStream, 0)
+      }
+      for key, stream := range this.streams {
+        k := variable.NewFromString(key)
+        if k.Match(v) {
+          c <- stream
+        }
+      }
+      waitgroup.Done()
+    }()
+    // Find indexed store files that have data matching the requested date range
+    for _, file := range this.store_files {
+      waitgroup.Add(1)
+      go func(file *IndexedStoreFile) {
+        defer waitgroup.Done()
+        if min_timestamp != nil && *min_timestamp > file.MaxTimestamp {
+          return
+        }
+        if max_timestamp != nil && *max_timestamp < file.MinTimestamp {
+          return
+        }
+        for _, stream := range file.GetStreams(v) {
+          k := variable.NewFromProto(stream.Variable)
+          if k.Match(v) {
+            c <- stream
+          }
+        }
+      }(file)
     }
-  }
-  this.streams_mutex.RUnlock()
-  // Find indexed store files that have data matching the requested date range
-  for _, file := range this.store_files {
-    if min_timestamp != nil && *min_timestamp > file.MaxTimestamp {
-      continue
-    }
-    if max_timestamp != nil && *max_timestamp < file.MinTimestamp {
-      continue
-    }
-    for _, stream := range file.GetStreams(v) {
-      c <- stream
-    }
-  }
-  c <- nil
+    waitgroup.Wait()
+    close(c)
+  }()
+  return c
 }
 
 func (this *StoreManager) AddValueStreams(c chan *openinstrument_proto.ValueStream) {

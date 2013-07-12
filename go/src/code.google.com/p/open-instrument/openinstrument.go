@@ -1,7 +1,11 @@
 package openinstrument
 
-import "code.google.com/p/open-instrument/variable"
-import openinstrument_proto "code.google.com/p/open-instrument/proto"
+import (
+  "code.google.com/p/goprotobuf/proto"
+  openinstrument_proto "code.google.com/p/open-instrument/proto"
+  "code.google.com/p/open-instrument/variable"
+  "time"
+)
 
 func NewVariableFromString(textvar string) *variable.Variable {
   return variable.NewFromString(textvar)
@@ -9,4 +13,29 @@ func NewVariableFromString(textvar string) *variable.Variable {
 
 func NewVariableFromProto(p *openinstrument_proto.StreamVariable) *variable.Variable {
   return variable.NewFromProto(p)
+}
+
+type Timer struct {
+  t          *openinstrument_proto.Timer
+  start_time time.Time
+  name       string
+}
+
+func NewTimer(name string, t *openinstrument_proto.Timer) *Timer {
+  this := new(Timer)
+  this.start_time = time.Now()
+  this.t = t
+  this.name = name
+  return this
+}
+
+func (this *Timer) Stop() uint64 {
+  duration := time.Since(this.start_time)
+  if this.t != nil {
+    this.t.Ms = proto.Uint64(uint64(duration.Nanoseconds() / 1000000))
+    if this.name != "" {
+      this.t.Name = &this.name
+    }
+  }
+  return uint64(duration.Nanoseconds() / 1000000)
 }

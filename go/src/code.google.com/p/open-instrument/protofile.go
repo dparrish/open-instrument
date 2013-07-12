@@ -72,17 +72,20 @@ func (this *ProtoFileReader) Read(message proto.Message) (int, error) {
         return 0, io.EOF
       }
       log.Printf("Error reading record header from recordlog: %s", err)
+      os.Exit(1)
       return 0, err
     }
 
     // Read Magic header
     if h.Magic != PROTO_MAGIC {
-      log.Printf("Protobuf delimeter at %d does not match %#x", pos, PROTO_MAGIC)
+      log.Printf("Protobuf delimeter at %s:%x does not match %#x", this.filename, pos, PROTO_MAGIC)
+      os.Exit(1)
       failcount++
       continue
     }
     if int64(h.Length) >= this.stat.Size() {
-      log.Printf("Chunk length %d is greater than file size %d", h.Length, this.stat.Size())
+      log.Printf("Chunk length %d at %s:%x is greater than file size %d", h.Length, this.filename, pos,
+        this.stat.Size())
       failcount++
       continue
     }
@@ -109,7 +112,7 @@ func (this *ProtoFileReader) Read(message proto.Message) (int, error) {
 
     // Decode and add proto
     if err = proto.Unmarshal(buf, message); err != nil {
-      log.Printf("Error decoding protobuf: %s", err)
+      log.Printf("Error decoding protobuf at %s:%x: %s", this.filename, pos, err)
       return 0, io.EOF
     }
     break

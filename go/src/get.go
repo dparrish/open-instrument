@@ -30,6 +30,7 @@ func Args(w http.ResponseWriter, req *http.Request) {
 }
 
 func main() {
+  log.SetFlags(log.Ldate | log.Ltime | log.Lshortfile)
   flag.Parse()
 
   var client *openinstrument.StoreClient
@@ -55,12 +56,12 @@ func main() {
   if *max_values > 0 {
     request.MaxValues = proto.Uint32(uint32(*max_values))
   }
-  getresponse, err := client.Get(&request)
+  response, err := client.Get(&request)
   if err != nil {
     log.Fatal(err)
   }
-  for _, response := range getresponse {
-    for _, stream := range response.Stream {
+  for _, getresponse := range response {
+    for _, stream := range getresponse.Stream {
       variable := openinstrument.NewVariableFromProto(stream.Variable).String()
       for _, value := range stream.Value {
         fmt.Printf("%s\t%s\t", variable, time.Unix(int64(*value.Timestamp/1000), 0))

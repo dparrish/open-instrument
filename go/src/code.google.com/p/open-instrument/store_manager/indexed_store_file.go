@@ -13,6 +13,8 @@ import (
   "time"
 )
 
+var file_count int
+
 type IndexedStoreFile struct {
   Filename     string
   file         *openinstrument.ProtoFileReader
@@ -24,6 +26,7 @@ type IndexedStoreFile struct {
   header_read  bool
   bloomfilter  *bloom.BloomFilter
   in_use       sync.RWMutex
+  file_number  int
 }
 
 type By func(p1, p2 *IndexedStoreFile) bool
@@ -53,12 +56,24 @@ func (this *indexedStoreFileSorter) Less(i, j int) bool {
   return this.by(this.files[i], this.files[j])
 }
 
+func (this *IndexedStoreFile) String() string {
+  return fmt.Sprintf("%s:%d", this.Filename, this.file_number)
+}
+
+func NewIndexedStoreFile(filename string) *IndexedStoreFile {
+  file := new(IndexedStoreFile)
+  file.Filename = filename
+  file_count++
+  file.file_number = file_count
+  return file
+}
+
 func (this *IndexedStoreFile) Open() error {
   if this.file != nil {
     return nil
   }
-  this.in_use.RLock()
-  defer this.in_use.RUnlock()
+  this.in_use.Lock()
+  defer this.in_use.Unlock()
   var err error
   this.file, err = openinstrument.ReadProtoFile(this.Filename)
   if err != nil {
@@ -107,11 +122,9 @@ func (this *IndexedStoreFile) Close() error {
 }
 
 func (this *IndexedStoreFile) GetStreams(v *variable.Variable) []*openinstrument_proto.ValueStream {
-  this.in_use.RLock()
-  defer this.in_use.RUnlock()
-  if this.file == nil {
-    this.Open()
-  }
+  this.Open()
+  this.in_use.Lock()
+  defer this.in_use.Unlock()
   ret := make([]*openinstrument_proto.ValueStream, 0)
   if !strings.HasSuffix(v.Variable, "*") {
     // This is a direct string lookup, check the Bloom filter first

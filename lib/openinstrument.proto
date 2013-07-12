@@ -111,6 +111,7 @@ message GetResponse {
   // Contains a separate stream for every mutation requested in GetRequest, in the same order. If no mutations are
   // requested, the response will contain a single stream of the raw data.
   repeated ValueStream stream = 3;
+  repeated Timer timer = 4;
 }
 
 message AddRequest {
@@ -124,6 +125,7 @@ message AddRequest {
 message AddResponse {
   required bool success = 1;
   optional string errormessage = 2;
+  repeated Timer timer = 3;
 }
 
 message ListRequest {
@@ -132,6 +134,10 @@ message ListRequest {
 
   // Limit to how many variables can be returned in a standard ListRequest. This can be overridden if required.
   optional uint32 max_variables = 2 [ default = 100 ];
+
+  // Maximum age of variable.
+  // This controls how far back the search will go for variables that were used in the past but not currently.
+  optional uint64 max_age = 4 [ default = 86400000 ];
 }
 
 message ListResponse {
@@ -140,7 +146,10 @@ message ListResponse {
 
   // Although this uses the ValueStream for returning a list of variables, the expectation is that the value field is
   // empty.
+  // DEPRECATED
   repeated ValueStream stream = 3;
+  repeated StreamVariable variable = 4;
+  repeated Timer timer = 5;
 }
 
 message StoreFileHeaderIndex {
@@ -196,3 +205,9 @@ message StoreConfig {
   repeated StoreServer server = 1;
   optional RetentionPolicy retention_policy = 2;
 }
+
+message Timer {
+  optional string name = 1;
+  required uint64 ms = 2;
+}
+

@@ -1,4 +1,4 @@
-TARGETS=src/code.google.com/p/open-instrument/proto/openinstrument_proto.pb.go bin/list bin/store bin/get bin/add
+TARGETS=src/code.google.com/p/open-instrument/proto/openinstrument_proto.pb.go bin/list bin/store bin/get
 export GOPATH=go
 
 include $(BASEDIR)/Makefile.inc

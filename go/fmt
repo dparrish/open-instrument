@@ -1,0 +1,4 @@
+#!/bin/bash
+
+gofmt -tabs=false --tabwidth=2 -w -s src
+

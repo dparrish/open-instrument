@@ -81,7 +81,7 @@ func (sc *StoreClient) doRequest(hostport string, path string, request, response
 
   decoded_body, err := base64.StdEncoding.DecodeString(string(body))
   if err != nil {
-    return errors.New(fmt.Sprintf("Error decoding response: %s\n%s", err, body))
+    return errors.New(fmt.Sprintf("Error decoding response: %s\n'%s'", err, body))
   }
 
   err = proto.Unmarshal(decoded_body, response)
@@ -91,23 +91,45 @@ func (sc *StoreClient) doRequest(hostport string, path string, request, response
   return nil
 }
 
-func (sc *StoreClient) SimpleList(prefix string) (response openinstrument_proto.ListResponse, err error) {
+func (sc *StoreClient) SimpleList(prefix string) ([]*openinstrument_proto.ListResponse, error) {
   request := &openinstrument_proto.ListRequest{
     Prefix: &openinstrument_proto.StreamVariable{
       Name: proto.String(prefix),
     },
     MaxVariables: proto.Uint32(10),
   }
-  response, err = sc.List(request)
-  return
+  return sc.List(request)
 }
 
-func (sc *StoreClient) List(request *openinstrument_proto.ListRequest) (response openinstrument_proto.ListResponse, err error) {
-  err = sc.doRequest(sc.hostport[0], "list", request, &response)
-  return
+func (sc *StoreClient) List(request *openinstrument_proto.ListRequest) ([]*openinstrument_proto.ListResponse, error) {
+  c := make(chan *openinstrument_proto.ListResponse, len(sc.hostport))
+  go func() {
+    waitgroup := new(sync.WaitGroup)
+    for _, hostport := range sc.hostport {
+      waitgroup.Add(1)
+      go func() {
+        defer waitgroup.Done()
+        response := new(openinstrument_proto.ListResponse)
+        err := sc.doRequest(hostport, "list", request, response)
+        if err != nil {
+          log.Printf("Error in Get to %s: %s", hostport, err)
+          return
+        }
+        c <- response
+      }()
+    }
+    waitgroup.Wait()
+    close(c)
+  }()
+
+  response := make([]*openinstrument_proto.ListResponse, 0)
+  for item := range c {
+    response = append(response, item)
+  }
+  return response, nil
 }
 
-func (sc *StoreClient) SimpleGet(variable string, min_timestamp, max_timestamp uint64) (response []*openinstrument_proto.GetResponse, err error) {
+func (sc *StoreClient) SimpleGet(variable string, min_timestamp, max_timestamp uint64) ([]*openinstrument_proto.GetResponse, error) {
   reqvar := NewVariableFromString(variable)
   request := &openinstrument_proto.GetRequest{
     Variable: reqvar.AsProto(),
@@ -118,8 +140,7 @@ func (sc *StoreClient) SimpleGet(variable string, min_timestamp, max_timestamp u
   if max_timestamp > 0 {
     request.MaxTimestamp = proto.Uint64(max_timestamp)
   }
-  response, err = sc.Get(request)
-  return
+  return sc.Get(request)
 }
 
 func (sc *StoreClient) Get(request *openinstrument_proto.GetRequest) ([]*openinstrument_proto.GetResponse, error) {

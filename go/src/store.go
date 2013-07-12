@@ -17,6 +17,7 @@ import (
   "net/http"
   "os"
   "strconv"
+  "time"
 )
 
 var address = flag.String("address", "", "Address to listen on (blank for any)")
@@ -82,15 +83,10 @@ func Get(w http.ResponseWriter, req *http.Request) {
     return
   }
   fmt.Println(openinstrument.ProtoText(&request))
-  stream_chan := make(chan *openinstrument_proto.ValueStream)
-  go smanager.GetValueStreams(request_variable, request.MinTimestamp, request.MaxTimestamp, stream_chan)
+  stream_chan := smanager.GetValueStreams(request_variable, request.MinTimestamp, request.MaxTimestamp)
   response.Stream = make([]*openinstrument_proto.ValueStream, 0)
   var count uint32
-  for {
-    stream := <-stream_chan
-    if stream == nil {
-      break
-    }
+  for stream := range stream_chan {
     newstream := new(openinstrument_proto.ValueStream)
     newstream.Variable = variable.NewFromProto(stream.Variable).AsProto()
     var value_count uint32
@@ -109,11 +105,11 @@ func Get(w http.ResponseWriter, req *http.Request) {
     if request.MaxValues != nil && value_count >= request.GetMaxValues() {
       newstream.Value = newstream.Value[uint32(len(newstream.Value))-request.GetMaxValues():]
     }
-    response.Stream = append(response.Stream, newstream)
     count++
-    if count >= request.GetMaxVariables() {
+    if request.GetMaxVariables() > 0 && count > request.GetMaxVariables() {
       break
     }
+    response.Stream = append(response.Stream, newstream)
   }
   response.Success = proto.Bool(true)
   returnResponse(w, req, &response)
@@ -137,9 +133,15 @@ func Add(w http.ResponseWriter, req *http.Request) {
   returnResponse(w, req, &response)
 }
 
+func ListResponseAddTimer(name string, response *openinstrument_proto.ListResponse) *openinstrument.Timer {
+  response.Timer = append(response.Timer, &openinstrument_proto.Timer{})
+  return openinstrument.NewTimer(name, response.Timer[len(response.Timer)-1])
+}
+
 func List(w http.ResponseWriter, req *http.Request) {
   var request openinstrument_proto.ListRequest
   var response openinstrument_proto.ListResponse
+  response.Timer = make([]*openinstrument_proto.Timer, 0)
   if parseRequest(w, req, &request) != nil {
     return
   }
@@ -153,27 +155,31 @@ func List(w http.ResponseWriter, req *http.Request) {
     returnResponse(w, req, &response)
     return
   }
-  stream_chan := make(chan *openinstrument_proto.ValueStream)
-  go smanager.GetValueStreams(request_variable, nil, nil, stream_chan)
-  response.Stream = make([]*openinstrument_proto.ValueStream, 0)
-  var count uint32
-  for {
-    stream := <-stream_chan
-    if stream == nil {
-      break
-    }
-    newstream := openinstrument_proto.ValueStream{
-      Variable: stream.Variable,
-    }
-    response.Stream = append(response.Stream, &newstream)
-    count++
-    if count >= request.GetMaxVariables() {
+
+  // Retrieve all variables and store the names in a map for uniqueness
+  timer := ListResponseAddTimer("retrieve variables", &response)
+  vars := make(map[string]*openinstrument_proto.StreamVariable)
+  min_timestamp := time.Now().Add(time.Duration(-request.GetMaxAge()) * time.Millisecond)
+  unix := uint64(min_timestamp.Unix()) * 1000
+  stream_chan := smanager.GetValueStreams(request_variable, &unix, nil)
+  for stream := range stream_chan {
+    vars[variable.NewFromProto(stream.Variable).String()] = stream.Variable
+    if request.GetMaxVariables() > 0 && len(vars) == int(request.GetMaxVariables()) {
       break
     }
   }
+  timer.Stop()
 
+  // Build the response out of the map
+  timer = ListResponseAddTimer("construct response", &response)
+  response.Variable = make([]*openinstrument_proto.StreamVariable, 0)
+  for varname := range vars {
+    response.Variable = append(response.Variable, variable.NewFromString(varname).AsProto())
+  }
   response.Success = proto.Bool(true)
+  timer.Stop()
   returnResponse(w, req, &response)
+  log.Printf("Timers: %s", response.Timer)
 }
 
 // Argument server.
@@ -182,6 +188,7 @@ func Args(w http.ResponseWriter, req *http.Request) {
 }
 
 func main() {
+  log.SetFlags(log.Ldate | log.Ltime | log.Lshortfile)
   log.Printf("Current PID: %d", os.Getpid())
   flag.Parse()
   config, err := store_config.NewConfig(*config_file)
