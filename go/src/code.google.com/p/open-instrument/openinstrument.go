@@ -22,11 +22,11 @@ type Timer struct {
 }
 
 func NewTimer(name string, t *openinstrument_proto.Timer) *Timer {
-  this := new(Timer)
-  this.start_time = time.Now()
-  this.t = t
-  this.name = name
-  return this
+  return &Timer{
+    start_time: time.Now(),
+    t: t,
+    name: name,
+  }
 }
 
 func (this *Timer) Stop() uint64 {
@@ -38,4 +38,38 @@ func (this *Timer) Stop() uint64 {
     }
   }
   return uint64(duration.Nanoseconds() / 1000000)
+}
+
+type Semaphore chan bool
+
+// acquire n resources
+func (s Semaphore) P(n int) {
+  for i := 0; i < n; i++ {
+    s <- true
+  }
+}
+
+// release n resources
+func (s Semaphore) V(n int) { 
+  for i := 0; i < n; i++ {
+    <-s
+  }
+}
+
+func (s Semaphore) Lock() {
+  s.P(1)
+}
+
+func (s Semaphore) Unlock() {
+  s.V(1)
+}
+
+/* signal-wait */
+
+func (s Semaphore) Signal() {
+  s.V(1)
+}
+
+func (s Semaphore) Wait(n int) {
+  s.P(n)
 }

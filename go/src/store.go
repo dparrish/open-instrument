@@ -122,12 +122,11 @@ func Add(w http.ResponseWriter, req *http.Request) {
     return
   }
 
-  stream_chan := make(chan *openinstrument_proto.ValueStream)
-  go smanager.AddValueStreams(stream_chan)
+  stream_chan := smanager.AddValueStreams()
   for _, stream := range request.Stream {
     stream_chan <- stream
   }
-  stream_chan <- nil
+  close(stream_chan)
 
   response.Success = proto.Bool(true)
   returnResponse(w, req, &response)

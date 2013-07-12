@@ -20,8 +20,6 @@ import (
 
 var datastore_path = flag.String("datastore", "/r2/services/openinstrument", "Path to datastore files")
 var recordlog_max_size = flag.Int64("recordlog_max_size", 50, "Maximum size of recordlog in MB")
-var datastore_max_files_open = flag.Int("datastore_max_files_open", 100,
-  "Maximum number of indexed datastore files to keep open")
 var datastore_idle_files_open = flag.Int("datastore_idle_files_open", 20,
   "Number of indexed datastore files to keep open at idle")
 
@@ -30,14 +28,12 @@ var PROTO_MAGIC uint16 = 0xDEAD
 type StoreManager struct {
   streams         map[string]*openinstrument_proto.ValueStream
   streams_mutex   sync.RWMutex
-  quit            chan bool
   record_log_chan chan *openinstrument_proto.ValueStream
   store_files     []*IndexedStoreFile
 }
 
 func (this *StoreManager) Run() {
   log.Println("Running StoreManager")
-  this.quit = make(chan bool)
   this.record_log_chan = make(chan *openinstrument_proto.ValueStream, 1000)
 
   // Cache the list of datastore filenames
@@ -79,37 +75,43 @@ func (this *StoreManager) Run() {
 
   // Start the goroutine that writes the recordlog
   go this.writeRecordLog()
-  tick := time.Tick(10 * time.Second)
 
   // Wait forever...
+  tick := time.Tick(1 * time.Second)
   for {
-    select {
-    case <-this.quit:
-      log.Println("StoreManager quitting")
-    case <-tick:
-      this.closeIndexedFiles()
-      continue
-    }
+    <-tick
+    this.closeIndexedFiles()
+    continue
   }
-  log.Println("Shutting down StoreManager")
 }
 
 func (this *StoreManager) closeIndexedFiles() {
   // Keep some recently used datastore files open
   last_use := func(p1, p2 *IndexedStoreFile) bool {
-    return p1.last_use.Unix() < p2.last_use.Unix()
+    return p1.last_use.Unix() > p2.last_use.Unix()
   }
   By(last_use).Sort(this.store_files)
-  for i, storefile := range this.store_files {
-    if i < len(this.store_files)-*datastore_idle_files_open {
-      storefile.Close()
+  var open_count int
+  nf := this.numOpenFiles()
+  for _, storefile := range this.store_files {
+    if !storefile.IsOpen() {
+      continue
     }
+    if open_count >= *datastore_idle_files_open {
+      // Keep indexed files open for 30 seconds after their last use, unless we're close to the limit of open files
+      if time.Since(storefile.LastUse()) > time.Duration(30) * time.Second || nf >= 500 * 0.8 {
+        storefile.Close()
+        nf--
+        continue
+      }
+    }
+    open_count++
   }
 }
 
 func reopenRecordLog(filename string) (*os.File, error) {
   file, err := os.OpenFile(filename, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0664)
-  if err != nil || file == nil {
+  if err != nil {
     return nil, errors.New(fmt.Sprintf("Error opening recordlog file: %s", err))
   }
   return file, err
@@ -394,14 +396,15 @@ func (this *StoreManager) GetValueStreams(v *variable.Variable, min_timestamp, m
   return c
 }
 
-func (this *StoreManager) AddValueStreams(c chan *openinstrument_proto.ValueStream) {
-  for new_stream := range c {
-    if new_stream == nil {
-      break
+func (this *StoreManager) AddValueStreams() chan *openinstrument_proto.ValueStream{
+  c := make(chan *openinstrument_proto.ValueStream, 10)
+  go func() {
+    for new_stream := range c {
+      this.addValueStreamNoRecord(new_stream)
+      this.record_log_chan <- new_stream
     }
-    this.addValueStreamNoRecord(new_stream)
-    this.record_log_chan <- new_stream
-  }
+  }()
+  return c
 }
 
 func (this *StoreManager) addValueStreamNoRecord(new_stream *openinstrument_proto.ValueStream) {
@@ -417,6 +420,15 @@ func (this *StoreManager) addValueStreamNoRecord(new_stream *openinstrument_prot
     this.streams[new_variable.String()] = new_stream
   }
   this.streams_mutex.RUnlock()
+}
+
+func (this *StoreManager) numOpenFiles() (c int) {
+  for _, store_file := range this.store_files {
+    if store_file.IsOpen() {
+      c++
+    }
+  }
+  return
 }
 
 func sortedKeys(m map[string]*openinstrument_proto.ValueStream) []string {

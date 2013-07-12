@@ -13,7 +13,8 @@ import (
   "time"
 )
 
-var file_count int
+// Hard cap on the number of open indexed files
+var max_files_semaphore = make(openinstrument.Semaphore, 500)
 
 type IndexedStoreFile struct {
   Filename     string
@@ -26,7 +27,7 @@ type IndexedStoreFile struct {
   header_read  bool
   bloomfilter  *bloom.BloomFilter
   in_use       sync.RWMutex
-  file_number  int
+  stream_cache map[string] *openinstrument_proto.ValueStream
 }
 
 type By func(p1, p2 *IndexedStoreFile) bool
@@ -57,21 +58,30 @@ func (this *indexedStoreFileSorter) Less(i, j int) bool {
 }
 
 func (this *IndexedStoreFile) String() string {
-  return fmt.Sprintf("%s:%d", this.Filename, this.file_number)
+  return this.Filename
 }
 
 func NewIndexedStoreFile(filename string) *IndexedStoreFile {
-  file := new(IndexedStoreFile)
-  file.Filename = filename
-  file_count++
-  file.file_number = file_count
-  return file
+  return &IndexedStoreFile{
+    Filename: filename,
+    stream_cache: make(map[string] *openinstrument_proto.ValueStream),
+  }
+}
+
+func (this *IndexedStoreFile) IsOpen() bool {
+  return this.file != nil
+}
+
+func (this *IndexedStoreFile) LastUse() time.Time {
+  return this.last_use
 }
 
 func (this *IndexedStoreFile) Open() error {
+  this.last_use = time.Now()
   if this.file != nil {
     return nil
   }
+  max_files_semaphore.Lock()
   this.in_use.Lock()
   defer this.in_use.Unlock()
   var err error
@@ -90,7 +100,6 @@ func (this *IndexedStoreFile) Open() error {
     this.MinTimestamp = this.header.GetStartTimestamp()
     this.MaxTimestamp = this.header.GetEndTimestamp()
     this.offsets = make(map[string]uint64, len(this.header.Index))
-    this.last_use = time.Unix(0, 0)
 
     // Build a Bloom filter containing just the variable names.
     // This will be used to speed lookups.
@@ -118,6 +127,8 @@ func (this *IndexedStoreFile) Close() error {
   defer this.in_use.Unlock()
   err := this.file.Close()
   this.file = nil
+  this.stream_cache = make(map[string] *openinstrument_proto.ValueStream)
+  max_files_semaphore.Unlock()
   return err
 }
 
@@ -135,10 +146,16 @@ func (this *IndexedStoreFile) GetStreams(v *variable.Variable) []*openinstrument
   for key, offset := range this.offsets {
     varmatch := variable.NewFromString(key)
     if varmatch.Match(v) {
-      stream := new(openinstrument_proto.ValueStream)
-      this.file.ReadAt(int64(offset), stream)
-      ret = append(ret, stream)
-      this.last_use = time.Now()
+      stream, ok := this.stream_cache[key]
+      if ok {
+        ret = append(ret, stream)
+      } else {
+        stream = new(openinstrument_proto.ValueStream)
+        this.file.ReadAt(int64(offset), stream)
+        ret = append(ret, stream)
+        this.last_use = time.Now()
+        this.stream_cache[key] = stream
+      }
     }
   }
   return ret
