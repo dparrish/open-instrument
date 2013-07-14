@@ -102,11 +102,10 @@ func Rate(values []*openinstrument_proto.Value) []*openinstrument_proto.Value {
   ret := make([]*openinstrument_proto.Value, 1)
   ret[0] = &openinstrument_proto.Value{
     Timestamp:   proto.Uint64(last_timestamp),
-    DoubleValue: proto.Float64((last_value - first_value) / float64(last_timestamp - first_timestamp)),
+    DoubleValue: proto.Float64((last_value - first_value) / float64(last_timestamp-first_timestamp)),
   }
   return ret
 }
-
 
 // MutateValues performs a mutation on an input channel of Values.
 // The mutation will be performed on values every <duration> ms apart, with the output timestamp set to the last

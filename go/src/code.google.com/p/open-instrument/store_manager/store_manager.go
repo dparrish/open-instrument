@@ -214,9 +214,11 @@ func (this *StoreManager) indexRecordLog(input_filename string, waitgroup *sync.
   }
 
   log.Printf("Removing %s", input_filename)
+  /*
   if err := os.Remove(input_filename); err != nil {
     return errors.New(fmt.Sprintf("Error removing old recordlog file %s: %s", input_filename, err))
   }
+  */
 
   // Add the new store file to the list of files we know about
   found := false
