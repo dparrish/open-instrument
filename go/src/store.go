@@ -7,6 +7,7 @@ import (
   "code.google.com/p/open-instrument/store_config"
   "code.google.com/p/open-instrument/store_manager"
   "code.google.com/p/open-instrument/variable"
+  "code.google.com/p/open-instrument/mutations"
   "encoding/base64"
   "errors"
   "flag"
@@ -84,33 +85,78 @@ func Get(w http.ResponseWriter, req *http.Request) {
   }
   fmt.Println(openinstrument.ProtoText(&request))
   stream_chan := smanager.GetValueStreams(request_variable, request.MinTimestamp, request.MaxTimestamp)
-  response.Stream = make([]*openinstrument_proto.ValueStream, 0)
-  var count uint32
+  streams := make([]*openinstrument_proto.ValueStream, 0)
   for stream := range stream_chan {
-    newstream := new(openinstrument_proto.ValueStream)
-    newstream.Variable = variable.NewFromProto(stream.Variable).AsProto()
-    var value_count uint32
-    for _, value := range stream.Value {
-      if request.MinTimestamp != nil && value.GetTimestamp() < request.GetMinTimestamp() {
-        // Too old
-        continue
-      }
-      if request.MaxTimestamp != nil && value.GetTimestamp() > request.GetMaxTimestamp() {
-        // Too new
-        continue
-      }
-      newstream.Value = append(newstream.Value, value)
-      value_count++
-    }
-    if request.MaxValues != nil && value_count >= request.GetMaxValues() {
-      newstream.Value = newstream.Value[uint32(len(newstream.Value))-request.GetMaxValues():]
-    }
-    count++
-    if request.GetMaxVariables() > 0 && count > request.GetMaxVariables() {
-      break
-    }
-    response.Stream = append(response.Stream, newstream)
+    streams = append(streams, stream)
   }
+
+  mutation_channels := make([]chan *openinstrument_proto.Value, 0)
+  mutation_channels = append(mutation_channels, openinstrument.MergeValueStreams(streams))
+
+  if request.GetMutation() != nil && len(request.GetMutation()) > 0 {
+    log.Printf("There are %d mutations", len(request.GetMutation()))
+    for _, mut := range request.GetMutation() {
+      switch mut.GetSampleType() {
+      case openinstrument_proto.StreamMutation_NONE:
+        if mut.GetSampleFrequency() > 0 {
+          mutation_channels = append(mutation_channels,
+            mutations.MutateValues(uint64(mut.GetSampleFrequency()),
+                                   mutation_channels[len(mutation_channels) - 1],
+                                   mutations.Interpolate))
+        }
+      case openinstrument_proto.StreamMutation_AVERAGE:
+        mutation_channels = append(mutation_channels,
+          mutations.MutateValues(uint64(mut.GetSampleFrequency()),
+                                 mutation_channels[len(mutation_channels) - 1],
+                                 mutations.Mean))
+      case openinstrument_proto.StreamMutation_MIN:
+        mutation_channels = append(mutation_channels,
+          mutations.MutateValues(uint64(mut.GetSampleFrequency()),
+                                 mutation_channels[len(mutation_channels) - 1],
+                                 mutations.Min))
+      case openinstrument_proto.StreamMutation_MAX:
+        mutation_channels = append(mutation_channels,
+          mutations.MutateValues(uint64(mut.GetSampleFrequency()),
+                                 mutation_channels[len(mutation_channels) - 1],
+                                 mutations.Max))
+      case openinstrument_proto.StreamMutation_RATE:
+        mutation_channels = append(mutation_channels,
+          mutations.MutateValues(uint64(mut.GetSampleFrequency()),
+                                 mutation_channels[len(mutation_channels) - 1],
+                                 mutations.Rate))
+      case openinstrument_proto.StreamMutation_RATE_SIGNED:
+        mutation_channels = append(mutation_channels,
+          mutations.MutateValues(uint64(mut.GetSampleFrequency()),
+                                 mutation_channels[len(mutation_channels) - 1],
+                                 mutations.SignedRate))
+      }
+    }
+  }
+
+  newstream := new(openinstrument_proto.ValueStream)
+  newstream.Variable = variable.NewFromProto(streams[0].Variable).AsProto()
+  writer := openinstrument.ValueStreamWriter(newstream)
+  var value_count uint32
+  for value := range mutation_channels[len(mutation_channels) - 1] {
+    if request.MinTimestamp != nil && value.GetTimestamp() < request.GetMinTimestamp() {
+      // Too old
+      continue
+    }
+    if request.MaxTimestamp != nil && value.GetTimestamp() > request.GetMaxTimestamp() {
+      // Too new
+      continue
+    }
+    writer <- value
+    value_count++
+  }
+  close(writer)
+
+  if request.MaxValues != nil && value_count >= request.GetMaxValues() {
+    newstream.Value = newstream.Value[uint32(len(newstream.Value))-request.GetMaxValues():]
+  }
+
+  response.Stream = make([]*openinstrument_proto.ValueStream, 1)
+  response.Stream[0] = newstream
   response.Success = proto.Bool(true)
   returnResponse(w, req, &response)
 }

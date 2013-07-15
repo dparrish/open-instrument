@@ -93,6 +93,7 @@ func ValueStreamReader(stream *openinstrument_proto.ValueStream) chan *openinstr
     for _, value := range stream.Value {
       c <- value
     }
+    close(c)
   }()
   return c
 }
