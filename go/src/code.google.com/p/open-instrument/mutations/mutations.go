@@ -3,7 +3,6 @@ package mutations
 import (
   "code.google.com/p/goprotobuf/proto"
   openinstrument_proto "code.google.com/p/open-instrument/proto"
-  "log"
 )
 
 type MutateFunc func(duration uint64, input chan *openinstrument_proto.Value, output chan *openinstrument_proto.Value)
@@ -27,7 +26,6 @@ func Mean(duration uint64, input chan *openinstrument_proto.Value, output chan *
 
     if v.GetTimestamp() - first_timestamp > duration {
       mean := sum / float64(count)
-      log.Printf("Returning %f", mean)
       output <- &openinstrument_proto.Value{
         Timestamp:   proto.Uint64(last_timestamp),
         DoubleValue: proto.Float64(mean),

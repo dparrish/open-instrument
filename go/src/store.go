@@ -94,7 +94,6 @@ func Get(w http.ResponseWriter, req *http.Request) {
   mutation_channels = append(mutation_channels, openinstrument.MergeValueStreams(streams))
 
   if request.GetMutation() != nil && len(request.GetMutation()) > 0 {
-    log.Printf("There are %d mutations", len(request.GetMutation()))
     for _, mut := range request.GetMutation() {
       switch mut.GetSampleType() {
       case openinstrument_proto.StreamMutation_NONE:
