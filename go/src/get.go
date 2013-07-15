@@ -59,17 +59,18 @@ func main() {
     request.MaxValues = proto.Uint32(uint32(*max_values))
   }
   request.Mutation = make([]*openinstrument_proto.StreamMutation, 0)
+  request.Aggregation = make([]*openinstrument_proto.StreamAggregation, 0)
   is_rate := false
 
   for _, flag := range flag.Args()[1:] {
     parts := strings.SplitN(flag, "=", 2)
     if strings.ToLower(parts[0]) == "interpolate" {
       if len(parts) != 2 {
-        log.Fatalf("Specify --%s=<duration>", parts[0])
+        log.Fatalf("Specify %s=<duration>", parts[0])
       }
       dur, err := time.ParseDuration(parts[1])
       if err != nil {
-        log.Fatalf("Invalid argument to --%s: %s", parts[0], err)
+        log.Fatalf("Invalid argument to %s: %s", parts[0], err)
       }
       i := openinstrument_proto.StreamMutation_NONE
       request.Mutation = append(request.Mutation, &openinstrument_proto.StreamMutation{
@@ -78,11 +79,11 @@ func main() {
       })
     } else if strings.ToLower(parts[0]) == "mean" {
       if len(parts) != 2 {
-        log.Fatalf("Specify --%s=<duration>", parts[0])
+        log.Fatalf("Specify %s=<duration>", parts[0])
       }
       dur, err := time.ParseDuration(parts[1])
       if err != nil {
-        log.Fatalf("Invalid argument to --%s: %s", parts[0], err)
+        log.Fatalf("Invalid argument to %s: %s", parts[0], err)
       }
       i := openinstrument_proto.StreamMutation_AVERAGE
       request.Mutation = append(request.Mutation, &openinstrument_proto.StreamMutation{
@@ -91,11 +92,11 @@ func main() {
       })
     } else if strings.ToLower(parts[0]) == "min" {
       if len(parts) != 2 {
-        log.Fatalf("Specify --%s=<duration>", parts[0])
+        log.Fatalf("Specify %s=<duration>", parts[0])
       }
       dur, err := time.ParseDuration(parts[1])
       if err != nil {
-        log.Fatalf("Invalid argument to --%s: %s", parts[0], err)
+        log.Fatalf("Invalid argument to %s: %s", parts[0], err)
       }
       i := openinstrument_proto.StreamMutation_MIN
       request.Mutation = append(request.Mutation, &openinstrument_proto.StreamMutation{
@@ -104,11 +105,11 @@ func main() {
       })
     } else if strings.ToLower(parts[0]) == "max" {
       if len(parts) != 2 {
-        log.Fatalf("Specify --%s=<duration>", parts[0])
+        log.Fatalf("Specify %s=<duration>", parts[0])
       }
       dur, err := time.ParseDuration(parts[1])
       if err != nil {
-        log.Fatalf("Invalid argument to --%s: %s", parts[0], err)
+        log.Fatalf("Invalid argument to %s: %s", parts[0], err)
       }
       i := openinstrument_proto.StreamMutation_MAX
       request.Mutation = append(request.Mutation, &openinstrument_proto.StreamMutation{
@@ -121,6 +122,15 @@ func main() {
       request.Mutation = append(request.Mutation, &openinstrument_proto.StreamMutation{
         SampleType: &i,
       })
+    } else if strings.ToLower(parts[0]) == "aggregate" {
+      if len(parts) != 2 || parts[1] == "" {
+        log.Fatalf("Specify an argument to %s", parts[0])
+      }
+      agg := openinstrument_proto.StreamAggregation{
+        Label : strings.Split(parts[1], ","),
+      }
+
+      request.Aggregation = append(request.Aggregation, &agg)
     }
   }
 

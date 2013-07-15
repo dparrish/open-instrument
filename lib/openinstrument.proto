@@ -54,7 +54,7 @@ message StreamAggregation {
     MEDIAN = 3;
     SUM = 4;
   }
-  required AggregateType type = 1;
+  optional AggregateType type = 1;
 
   // Labels to aggregate by on the input streams. If no labels are specified, aggregation will be done on the variable
   // only.

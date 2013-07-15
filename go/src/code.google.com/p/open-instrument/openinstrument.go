@@ -98,7 +98,7 @@ func ValueStreamReader(stream *openinstrument_proto.ValueStream) chan *openinstr
   return c
 }
 
-// MergeValueStreams merges multiple ValueStreams, returning channel producing sorted Values.
+// MergeValueStreams merges multiple ValueStreams, returning a channel producing sorted Values.
 func MergeValueStreams(streams []*openinstrument_proto.ValueStream) chan *openinstrument_proto.Value {
   c := make(chan *openinstrument_proto.Value)
   n := len(streams)
@@ -128,4 +128,83 @@ func MergeValueStreams(streams []*openinstrument_proto.ValueStream) chan *openin
     close(c)
   }()
   return c
+}
+
+func MergeStreamsBy(streams []*openinstrument_proto.ValueStream, by string) chan []*openinstrument_proto.ValueStream {
+  c := make(chan []*openinstrument_proto.ValueStream)
+  go func() {
+    unique_vars := make(map[string] bool)
+    unique_labels := make(map[string] bool)
+    for _, stream := range streams {
+      v := variable.NewFromProto(stream.Variable)
+      unique_vars[v.Variable] = true
+      label_value, ok := v.Labels[by]
+      if !ok {
+        unique_labels[""] = true
+      } else {
+        unique_labels[label_value] = true
+      }
+    }
+    for varname, _ := range unique_vars {
+      v := variable.NewFromString(varname)
+      if by == "" {
+        output := make([]*openinstrument_proto.ValueStream, 0)
+        for _, stream := range streams {
+          testvar := variable.NewFromProto(stream.Variable)
+          if testvar.Variable != v.Variable {
+            continue
+          }
+          output = append(output, stream)
+        }
+        if len(output) > 0 {
+          c <- output
+        }
+      } else {
+        for labelvalue, _ := range unique_labels {
+          output := make([]*openinstrument_proto.ValueStream, 0)
+          for _, stream := range streams {
+            testvar := variable.NewFromProto(stream.Variable)
+            if testvar.Variable != v.Variable {
+              continue
+            }
+            value, ok := testvar.Labels[by]
+            if !ok {
+              continue
+            }
+            if value != labelvalue {
+              continue
+            }
+            output = append(output, stream)
+          }
+          if len(output) > 0 {
+            c <- output
+          }
+        }
+      }
+    }
+    close(c)
+  }()
+  return c
+}
+
+
+
+type valueStreamChannelList struct {
+  input chan *openinstrument_proto.Value
+  channels []chan *openinstrument_proto.Value
+}
+
+func (this *valueStreamChannelList) Add(c chan *openinstrument_proto.Value) {
+  this.channels = append(this.channels, c)
+}
+
+func (this *valueStreamChannelList) Last() chan *openinstrument_proto.Value {
+  return this.channels[len(this.channels) - 1]
+}
+
+func ValueStreamChannelList(initial chan *openinstrument_proto.Value) *valueStreamChannelList {
+  this := new(valueStreamChannelList)
+  this.channels = make([]chan *openinstrument_proto.Value, 0)
+  this.channels = append(this.channels, initial)
+  return this
 }
