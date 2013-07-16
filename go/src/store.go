@@ -235,7 +235,7 @@ func main() {
   if err != nil {
     log.Fatal(err)
   }
-  config = config
+  config.ReadConfig()
 
   http.Handle("/list", http.HandlerFunc(List))
   http.Handle("/get", http.HandlerFunc(Get))
@@ -246,6 +246,7 @@ func main() {
     log.Fatal("Can't listen on %s: %s", net.JoinHostPort(*address, strconv.Itoa(*port)), e)
   }
   log.Printf("Listening on %v", sock.Addr().String())
+  smanager.SetAddress(net.JoinHostPort(*address, strconv.Itoa(*port)))
   go smanager.Run()
   http.Serve(sock, nil)
 }

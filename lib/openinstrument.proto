@@ -199,6 +199,9 @@ message StoreServer {
   required string address = 1;
   optional State state = 2;
   optional uint64 last_updated = 3;
+
+  // Desired size in bytes for indexed datastore files
+  optional uint64 target_indexed_file_size = 4;
 }
 
 message StoreConfig {

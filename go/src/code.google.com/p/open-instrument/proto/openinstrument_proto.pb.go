@@ -875,10 +875,11 @@ func (m *RetentionPolicy) GetInterval() uint32 {
 }
 
 type StoreServer struct {
-	Address          *string            `protobuf:"bytes,1,req,name=address" json:"address,omitempty"`
-	State            *StoreServer_State `protobuf:"varint,2,opt,name=state,enum=openinstrument.proto.StoreServer_State" json:"state,omitempty"`
-	LastUpdated      *uint64            `protobuf:"varint,3,opt,name=last_updated" json:"last_updated,omitempty"`
-	XXX_unrecognized []byte             `json:"-"`
+	Address               *string            `protobuf:"bytes,1,req,name=address" json:"address,omitempty"`
+	State                 *StoreServer_State `protobuf:"varint,2,opt,name=state,enum=openinstrument.proto.StoreServer_State" json:"state,omitempty"`
+	LastUpdated           *uint64            `protobuf:"varint,3,opt,name=last_updated" json:"last_updated,omitempty"`
+	TargetIndexedFileSize *uint64            `protobuf:"varint,4,opt,name=target_indexed_file_size" json:"target_indexed_file_size,omitempty"`
+	XXX_unrecognized      []byte             `json:"-"`
 }
 
 func (m *StoreServer) Reset()         { *m = StoreServer{} }
@@ -902,6 +903,13 @@ func (m *StoreServer) GetState() StoreServer_State {
 func (m *StoreServer) GetLastUpdated() uint64 {
 	if m != nil && m.LastUpdated != nil {
 		return *m.LastUpdated
+	}
+	return 0
+}
+
+func (m *StoreServer) GetTargetIndexedFileSize() uint64 {
+	if m != nil && m.TargetIndexedFileSize != nil {
+		return *m.TargetIndexedFileSize
 	}
 	return 0
 }

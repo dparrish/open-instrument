@@ -5,6 +5,10 @@ import (
   openinstrument_proto "code.google.com/p/open-instrument/proto"
   "code.google.com/p/open-instrument/variable"
   "time"
+  "errors"
+  "fmt"
+  "sort"
+  "os"
 )
 
 func NewVariableFromString(textvar string) *variable.Variable {
@@ -74,13 +78,27 @@ func (s Semaphore) Wait(n int) {
   s.P(n)
 }
 
-// ValueStreamWriter returns a channel that appends values to the supplied ValueStream
+// ValueStreamWriter returns a channel that appends values to the supplied ValueStream, performing run-length-encoding.
 // No effort is made to ensure that the ValueStream contains sorted Values
 func ValueStreamWriter(stream *openinstrument_proto.ValueStream) chan *openinstrument_proto.Value {
   c := make(chan *openinstrument_proto.Value)
   go func() {
     for value := range c {
-      stream.Value = append(stream.Value, value)
+      if len(stream.Value) > 0 {
+        last := stream.Value[len(stream.Value)-1]
+        if (last.GetStringValue() != "" && last.GetStringValue() == value.GetStringValue()) ||
+          (last.GetDoubleValue() == value.GetDoubleValue()) {
+          if value.GetEndTimestamp() > 0 {
+            last.EndTimestamp = value.EndTimestamp
+          } else {
+            last.EndTimestamp = value.Timestamp
+          }
+        } else {
+          stream.Value = append(stream.Value, value)
+        }
+      } else {
+        stream.Value = append(stream.Value, value)
+      }
     }
   }()
   return c
@@ -208,3 +226,18 @@ func ValueStreamChannelList(initial chan *openinstrument_proto.Value) *valueStre
   this.channels = append(this.channels, initial)
   return this
 }
+
+func Readdirnames(directory string) ([]string, error) {
+  dir, err := os.Open(directory)
+  if err != nil {
+    return nil, errors.New(fmt.Sprintf("Can't open %s for readdir: %s", directory, err))
+  }
+  defer dir.Close()
+  names, err := dir.Readdirnames(0)
+  if err != nil {
+    return nil, errors.New(fmt.Sprintf("Can't read file names in %s: %s", directory, err))
+  }
+  sort.Strings(names)
+  return names, nil
+}
+

@@ -45,12 +45,17 @@ func (this *ProtoFileReader) Tell() int64 {
   return pos
 }
 
+func (this *ProtoFileReader) Seek(pos int64) int64 {
+  npos, _ := this.file.Seek(pos, os.SEEK_SET)
+  return npos
+}
+
 func (this *ProtoFileReader) Stat() (os.FileInfo, error) {
   return this.file.Stat()
 }
 
 func (this *ProtoFileReader) ReadAt(pos int64, message proto.Message) (int, error) {
-  this.file.Seek(pos, os.SEEK_SET)
+  this.Seek(pos)
   return this.Read(message)
 }
 
@@ -75,11 +80,7 @@ func (this *ProtoFileReader) ValueStreamReader(n int) chan *openinstrument_proto
 }
 
 func (this *ProtoFileReader) Read(message proto.Message) (int, error) {
-  var failcount int
   for {
-    if failcount > 30 {
-      return 0, io.EOF
-    }
     pos := this.Tell()
     type header struct {
       Magic  uint16
@@ -99,15 +100,11 @@ func (this *ProtoFileReader) Read(message proto.Message) (int, error) {
 
     // Read Magic header
     if h.Magic != PROTO_MAGIC {
-      log.Printf("Protobuf delimeter at %s:%x does not match %#x", this.filename, pos, PROTO_MAGIC)
-      os.Exit(1)
-      failcount++
+      //log.Printf("Protobuf delimeter at %s:%x does not match %#x", this.filename, pos, PROTO_MAGIC)
       continue
     }
     if int64(h.Length) >= this.stat.Size() {
-      log.Printf("Chunk length %d at %s:%x is greater than file size %d", h.Length, this.filename, pos,
-        this.stat.Size())
-      failcount++
+      //log.Printf("Chunk length %d at %s:%x is greater than file size %d", h.Length, this.filename, pos, this.stat.Size())
       continue
     }
 
@@ -123,8 +120,8 @@ func (this *ProtoFileReader) Read(message proto.Message) (int, error) {
     var crc uint16
     err = binary.Read(this.file, binary.LittleEndian, &crc)
     if err != nil {
-      log.Printf("Error reading CRC from recordlog: %s", err)
-      return 0, io.EOF
+      // log.Printf("Error reading CRC from recordlog: %s", err)
+      continue
     }
     checkcrc := crc16.Crc16(string(buf))
     if checkcrc != crc {
@@ -133,8 +130,7 @@ func (this *ProtoFileReader) Read(message proto.Message) (int, error) {
 
     // Decode and add proto
     if err = proto.Unmarshal(buf, message); err != nil {
-      log.Printf("Error decoding protobuf at %s:%x: %s", this.filename, pos, err)
-      return 0, io.EOF
+      return 0, errors.New(fmt.Sprintf("Error decoding protobuf at %s:%x: %s", this.filename, pos, err))
     }
     break
   }

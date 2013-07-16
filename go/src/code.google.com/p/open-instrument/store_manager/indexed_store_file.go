@@ -18,6 +18,7 @@ var max_files_semaphore = make(openinstrument.Semaphore, 500)
 
 type IndexedStoreFile struct {
   Filename     string
+  FileSize          int64
   file         *openinstrument.ProtoFileReader
   MinTimestamp uint64
   MaxTimestamp uint64
@@ -100,6 +101,8 @@ func (this *IndexedStoreFile) Open() error {
     this.MinTimestamp = this.header.GetStartTimestamp()
     this.MaxTimestamp = this.header.GetEndTimestamp()
     this.offsets = make(map[string]uint64, len(this.header.Index))
+    stat, _ := this.file.Stat()
+    this.FileSize = stat.Size()
 
     // Build a Bloom filter containing just the variable names.
     // This will be used to speed lookups.
@@ -109,11 +112,6 @@ func (this *IndexedStoreFile) Open() error {
       this.offsets[varname.String()] = index.GetOffset()
       this.bloomfilter.Add([]byte(varname.Variable))
     }
-    /*
-       log.Printf("Opened indexed store file %s with data from %s to %s",
-                  this.Filename, time.Unix(int64(this.MinTimestamp / 1000), 0),
-                  time.Unix(int64(this.MaxTimestamp / 1000), 0))
-    */
     this.header_read = true
   }
   return nil

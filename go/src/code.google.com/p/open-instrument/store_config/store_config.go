@@ -4,13 +4,13 @@ import (
   "code.google.com/p/goprotobuf/proto"
   "errors"
   "fmt"
-  //"launchpad.net/gozk"
   "log"
   "os"
+  "strings"
   "regexp"
-  //"github.com/howeyc/fsnotify"
   openinstrument_proto "code.google.com/p/open-instrument/proto"
   "time"
+  "net"
 )
 
 type config struct {
@@ -23,20 +23,20 @@ type config struct {
 var global_config *config
 
 func NewConfig(filename string) (*config, error) {
-  this := new(config)
-  this.filename = filename
-  if err := this.ReadConfig(); err != nil {
+  global_config = new(config)
+  global_config.filename = filename
+  if err := global_config.ReadConfig(); err != nil {
     return nil, err
   }
-  go this.watchConfigFile()
-  return this, nil
+  go global_config.watchConfigFile()
+  return global_config, nil
 }
 
-func Config() *openinstrument_proto.StoreConfig {
+func Config() *config {
   if global_config == nil {
     log.Panic("global config not loaded")
   }
-  return global_config.Config
+  return global_config
 }
 
 func (this *config) ReadConfig() error {
@@ -112,3 +112,17 @@ func (this *config) watchConfigFile() {
     }
   }
 }
+
+func (this *config) ThisServer(port string) *openinstrument_proto.StoreServer {
+  addrs, _ := net.InterfaceAddrs()
+  for _, server := range this.Config.Server {
+    for _, addr := range addrs {
+      parts := strings.SplitN(addr.String(), "/", 2)
+      if server.GetAddress() == net.JoinHostPort(parts[0], port) {
+        return server
+      }
+    }
+  }
+  return nil
+}
+
