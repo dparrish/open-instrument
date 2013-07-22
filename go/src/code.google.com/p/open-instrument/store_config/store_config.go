@@ -5,18 +5,19 @@ import (
   "errors"
   "fmt"
   "log"
+  "net"
   "os"
   "strings"
+
+  oproto "code.google.com/p/open-instrument/proto"
   "regexp"
-  openinstrument_proto "code.google.com/p/open-instrument/proto"
   "time"
-  "net"
 )
 
 type config struct {
   filename    string
   config_text string
-  Config      *openinstrument_proto.StoreConfig
+  Config      *oproto.StoreConfig
   stat        os.FileInfo
 }
 
@@ -92,7 +93,7 @@ func (this *config) isZookeeperFile() bool {
 }
 
 func (this *config) handleNewConfig(text string) error {
-  config := new(openinstrument_proto.StoreConfig)
+  config := new(oproto.StoreConfig)
   err := proto.UnmarshalText(text, config)
   if err != nil {
     return errors.New(fmt.Sprintf("Error parsing config file %s: %s", this.filename, err))
@@ -113,7 +114,7 @@ func (this *config) watchConfigFile() {
   }
 }
 
-func (this *config) ThisServer(port string) *openinstrument_proto.StoreServer {
+func (this *config) ThisServer(port string) *oproto.StoreServer {
   addrs, _ := net.InterfaceAddrs()
   for _, server := range this.Config.Server {
     for _, addr := range addrs {
@@ -125,4 +126,3 @@ func (this *config) ThisServer(port string) *openinstrument_proto.StoreServer {
   }
   return nil
 }
-

@@ -51,10 +51,17 @@ func main() {
   flag.Parse()
 
   var client *openinstrument.StoreClient
+  var err error
   if *connect_address != "" {
-    client = openinstrument.NewDirectStoreClient(*connect_address)
+    client, err = openinstrument.NewAutoStoreClient(*connect_address)
+    if err != nil {
+      log.Fatal("Can't create StoreClient: %s", err)
+    }
   } else if *config_file != "" {
-    client = openinstrument.NewStoreClient(*config_file)
+    client, err = openinstrument.NewStoreClient(*config_file)
+    if err != nil {
+      log.Fatal("Can't create StoreClient: %s", err)
+    }
   } else {
     log.Fatal("Specify either --connect or --config")
   }

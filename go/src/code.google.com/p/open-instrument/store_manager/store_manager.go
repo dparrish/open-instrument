@@ -1,19 +1,20 @@
 package store_manager
+
 // vim: tw=120
 
 import (
   "code.google.com/p/goprotobuf/proto"
   "code.google.com/p/open-instrument"
-  openinstrument_proto "code.google.com/p/open-instrument/proto"
-  "code.google.com/p/open-instrument/variable"
+  oproto "code.google.com/p/open-instrument/proto"
   "code.google.com/p/open-instrument/store_config"
+  "code.google.com/p/open-instrument/variable"
   "errors"
   "flag"
   "fmt"
   "log"
+  "net"
   "os"
   "path/filepath"
-  "net"
   "regexp"
   "sort"
   "sync"
@@ -28,9 +29,9 @@ var datastore_idle_files_open = flag.Int("datastore_idle_files_open", 20,
 var PROTO_MAGIC uint16 = 0xDEAD
 
 type StoreManager struct {
-  streams         map[string]*openinstrument_proto.ValueStream
+  streams         map[string]*oproto.ValueStream
   streams_mutex   sync.RWMutex
-  record_log_chan chan *openinstrument_proto.ValueStream
+  record_log_chan chan *oproto.ValueStream
   store_files     []*IndexedStoreFile
   address         string
   rotating_mutex  sync.Mutex
@@ -38,7 +39,7 @@ type StoreManager struct {
 
 func (this *StoreManager) Run() {
   log.Println("Running StoreManager")
-  this.record_log_chan = make(chan *openinstrument_proto.ValueStream, 1000)
+  this.record_log_chan = make(chan *oproto.ValueStream, 1000)
 
   // Cache the list of datastore filenames
   this.store_files = make([]*IndexedStoreFile, 0)
@@ -68,7 +69,7 @@ func (this *StoreManager) Run() {
 
   // Read the current recordlog
   duration := this.readRecordLog(filepath.Join(*datastore_path, "recordlog"),
-    func(stream *openinstrument_proto.ValueStream) {
+    func(stream *oproto.ValueStream) {
       this.addValueStreamNoRecord(stream)
     })
   log.Printf("Finished reading record log in %v, StoreManager contains %d streams ", duration, len(this.streams))
@@ -133,35 +134,35 @@ func (this *StoreManager) mergeIndexedFiles() {
     defer waitgroup.Done()
     var max_timestamp, min_timestamp uint64
     var value_count, stream_count uint64
-    streams := make(map[string]*openinstrument_proto.ValueStream, 0)
+    streams := make(map[string]*oproto.ValueStream, 0)
     for _, filename := range files {
       this.readRecordLog(filename,
-      func(new_stream *openinstrument_proto.ValueStream) {
-        stream_count++
-        new_variable := variable.NewFromProto(new_stream.Variable)
-        stream, ok := streams[new_variable.String()]
-        if !ok {
-          stream = new(openinstrument_proto.ValueStream)
-          stream.Variable = new_variable.AsProto()
-          streams[new_variable.String()] = stream
-        }
+        func(new_stream *oproto.ValueStream) {
+          stream_count++
+          new_variable := variable.NewFromProto(new_stream.Variable)
+          stream, ok := streams[new_variable.String()]
+          if !ok {
+            stream = new(oproto.ValueStream)
+            stream.Variable = new_variable.AsProto()
+            streams[new_variable.String()] = stream
+          }
 
-        writer := openinstrument.ValueStreamWriter(stream)
-        for _, value := range new_stream.Value {
-          value_count++
-          if min_timestamp == 0 || value.GetTimestamp() < min_timestamp {
-            min_timestamp = value.GetTimestamp()
+          writer := openinstrument.ValueStreamWriter(stream)
+          for _, value := range new_stream.Value {
+            value_count++
+            if min_timestamp == 0 || value.GetTimestamp() < min_timestamp {
+              min_timestamp = value.GetTimestamp()
+            }
+            if value.GetTimestamp() > max_timestamp {
+              max_timestamp = value.GetTimestamp()
+            }
+            if value.GetEndTimestamp() > max_timestamp {
+              max_timestamp = value.GetEndTimestamp()
+            }
+            writer <- value
           }
-          if value.GetTimestamp() > max_timestamp {
-            max_timestamp = value.GetTimestamp()
-          }
-          if value.GetEndTimestamp() > max_timestamp {
-            max_timestamp = value.GetEndTimestamp()
-          }
-          writer <- value
-        }
-        close(writer)
-      })
+          close(writer)
+        })
     }
     log.Printf("Read in %d indexed files containing %d streams and %d values", len(files), stream_count, value_count)
     new_filename, err := this.writeIndexedFile(streams, min_timestamp, max_timestamp)
@@ -188,9 +189,9 @@ func (this *StoreManager) mergeIndexedFiles() {
         log.Printf("Can't stat %s: %s", filepath.Join(*datastore_path, name), err)
         continue
       }
-      if uint64(size + stat.Size()) > config.GetTargetIndexedFileSize() {
+      if uint64(size+stat.Size()) > config.GetTargetIndexedFileSize() {
         if len(files) > 1 {
-          log.Printf("Combining %d files (%d MB)", len(files), size / 1024 / 1024)
+          log.Printf("Combining %d files (%d MB)", len(files), size/1024/1024)
           waitgroup.Add(1)
           do_index_files(files, waitgroup)
         } else {
@@ -204,7 +205,7 @@ func (this *StoreManager) mergeIndexedFiles() {
     }
   }
   if len(files) > 1 {
-    log.Printf("At end, combining %d files (%d MB)", len(files), size / 1024 / 1024)
+    log.Printf("At end, combining %d files (%d MB)", len(files), size/1024/1024)
     waitgroup.Add(1)
     do_index_files(files, waitgroup)
   }
@@ -219,14 +220,14 @@ func reopenRecordLog(filename string) (*os.File, error) {
   return file, err
 }
 
-func (this *StoreManager) writeIndexedFile(streams map[string] *openinstrument_proto.ValueStream, min_timestamp, max_timestamp uint64) (string, error) {
+func (this *StoreManager) writeIndexedFile(streams map[string]*oproto.ValueStream, min_timestamp, max_timestamp uint64) (string, error) {
   // Build the header with a 0-index for each variable
-  header := openinstrument_proto.StoreFileHeader{
+  header := oproto.StoreFileHeader{
     StartTimestamp: proto.Uint64(min_timestamp),
     EndTimestamp:   proto.Uint64(min_timestamp),
   }
   for _, varname := range sortedKeys(streams) {
-    i := openinstrument_proto.StoreFileHeaderIndex{
+    i := oproto.StoreFileHeaderIndex{
       Variable: variable.NewFromString(varname).AsProto(),
       Offset:   proto.Uint64(0),
     }
@@ -292,15 +293,15 @@ func (this *StoreManager) indexRecordLog(input_filename string, waitgroup *sync.
   defer this.rotating_mutex.Unlock()
   defer waitgroup.Done()
   log.Printf("Indexing %s", input_filename)
-  streams := make(map[string]*openinstrument_proto.ValueStream, 0)
+  streams := make(map[string]*oproto.ValueStream, 0)
   var max_timestamp, min_timestamp uint64
   var input_value_count uint64
   this.readRecordLog(input_filename,
-    func(new_stream *openinstrument_proto.ValueStream) {
+    func(new_stream *oproto.ValueStream) {
       new_variable := variable.NewFromProto(new_stream.Variable)
       stream, ok := streams[new_variable.String()]
       if !ok {
-        stream = new(openinstrument_proto.ValueStream)
+        stream = new(oproto.ValueStream)
         stream.Variable = new_variable.AsProto()
         streams[new_variable.String()] = stream
       }
@@ -338,7 +339,6 @@ func (this *StoreManager) indexRecordLog(input_filename string, waitgroup *sync.
 func (this *StoreManager) writeRecordLog() {
   // Goroutine that runs constantly, appending entries to the recordlog
   tick := time.Tick(1 * time.Minute)
-  //tick := time.Tick(20 * time.Second)
   filename := filepath.Join(*datastore_path, "recordlog")
   file, err := openinstrument.WriteProtoFile(filename)
   if err != nil {
@@ -378,10 +378,8 @@ func (this *StoreManager) writeRecordLog() {
         } else if file != nil {
           file.Close()
           file = nil
-          log.Printf("Locking streams_mutex")
           this.streams_mutex.Lock()
           this.streams = nil
-          log.Printf("Unlocking streams_mutex")
           this.streams_mutex.Unlock()
         }
       }
@@ -409,7 +407,7 @@ func (this *StoreManager) writeRecordLog() {
   }
 }
 
-func (this *StoreManager) readRecordLog(filename string, callback func(*openinstrument_proto.ValueStream)) time.Duration {
+func (this *StoreManager) readRecordLog(filename string, callback func(*oproto.ValueStream)) time.Duration {
   start_time := time.Now()
   file, err := openinstrument.ReadProtoFile(filename)
   if err != nil {
@@ -418,7 +416,7 @@ func (this *StoreManager) readRecordLog(filename string, callback func(*openinst
   }
 
   // Attempt to read the first proto as a StoreFileHeader
-  header := new(openinstrument_proto.StoreFileHeader)
+  header := new(oproto.StoreFileHeader)
   n, err := file.Read(header)
   if n != 1 || err != nil {
     // It failed, there is probably no header to this file, try again
@@ -436,13 +434,13 @@ func (this *StoreManager) readRecordLog(filename string, callback func(*openinst
     value_count += len(stream.Value)
   }
   //log.Printf("Finished reading %d record log streams containing %d values in %v, StoreManager contains %d streams ",
-    //stream_count, value_count, duration, len(this.streams))
+  //stream_count, value_count, duration, len(this.streams))
   file.Close()
   return time.Since(start_time)
 }
 
-func (this *StoreManager) GetValueStreams(v *variable.Variable, min_timestamp, max_timestamp *uint64) chan *openinstrument_proto.ValueStream {
-  c := make(chan *openinstrument_proto.ValueStream, 1000)
+func (this *StoreManager) GetValueStreams(v *variable.Variable, min_timestamp, max_timestamp *uint64) chan *oproto.ValueStream {
+  c := make(chan *oproto.ValueStream, 1000)
   go func() {
     waitgroup := new(sync.WaitGroup)
     waitgroup.Add(1)
@@ -452,7 +450,7 @@ func (this *StoreManager) GetValueStreams(v *variable.Variable, min_timestamp, m
       this.streams_mutex.RLock()
       defer this.streams_mutex.RUnlock()
       if this.streams == nil {
-        this.streams = make(map[string]*openinstrument_proto.ValueStream, 0)
+        this.streams = make(map[string]*oproto.ValueStream, 0)
       }
       for key, stream := range this.streams {
         k := variable.NewFromString(key)
@@ -490,8 +488,8 @@ func (this *StoreManager) GetValueStreams(v *variable.Variable, min_timestamp, m
   return c
 }
 
-func (this *StoreManager) AddValueStreams() chan *openinstrument_proto.ValueStream {
-  c := make(chan *openinstrument_proto.ValueStream, 10)
+func (this *StoreManager) AddValueStreams() chan *oproto.ValueStream {
+  c := make(chan *oproto.ValueStream, 10)
   go func() {
     for new_stream := range c {
       this.addValueStreamNoRecord(new_stream)
@@ -501,10 +499,10 @@ func (this *StoreManager) AddValueStreams() chan *openinstrument_proto.ValueStre
   return c
 }
 
-func (this *StoreManager) addValueStreamNoRecord(new_stream *openinstrument_proto.ValueStream) {
+func (this *StoreManager) addValueStreamNoRecord(new_stream *oproto.ValueStream) {
   this.streams_mutex.RLock()
   if this.streams == nil {
-    this.streams = make(map[string]*openinstrument_proto.ValueStream, 0)
+    this.streams = make(map[string]*oproto.ValueStream, 0)
   }
   new_variable := variable.NewFromProto(new_stream.Variable)
   stream, ok := this.streams[new_variable.String()]
@@ -529,7 +527,7 @@ func (this *StoreManager) SetAddress(address string) {
   this.address = address
 }
 
-func sortedKeys(m map[string]*openinstrument_proto.ValueStream) []string {
+func sortedKeys(m map[string]*oproto.ValueStream) []string {
   keys := make([]string, len(m))
   i := 0
   for k := range m {

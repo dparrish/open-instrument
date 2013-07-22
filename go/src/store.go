@@ -3,11 +3,11 @@ package main
 import (
   "code.google.com/p/goprotobuf/proto"
   "code.google.com/p/open-instrument"
+  "code.google.com/p/open-instrument/mutations"
   openinstrument_proto "code.google.com/p/open-instrument/proto"
   "code.google.com/p/open-instrument/store_config"
   "code.google.com/p/open-instrument/store_manager"
   "code.google.com/p/open-instrument/variable"
-  "code.google.com/p/open-instrument/mutations"
   "encoding/base64"
   "errors"
   "flag"
@@ -102,28 +102,28 @@ func Get(w http.ResponseWriter, req *http.Request) {
         switch mut.GetSampleType() {
         case openinstrument_proto.StreamMutation_NONE:
           mutation_channels.Add(mutations.MutateValues(uint64(mut.GetSampleFrequency()),
-                                                       mutation_channels.Last(),
-                                                       mutations.Interpolate))
+            mutation_channels.Last(),
+            mutations.Interpolate))
         case openinstrument_proto.StreamMutation_AVERAGE:
           mutation_channels.Add(mutations.MutateValues(uint64(mut.GetSampleFrequency()),
-                                                       mutation_channels.Last(),
-                                                       mutations.Mean))
+            mutation_channels.Last(),
+            mutations.Mean))
         case openinstrument_proto.StreamMutation_MIN:
           mutation_channels.Add(mutations.MutateValues(uint64(mut.GetSampleFrequency()),
-                                                       mutation_channels.Last(),
-                                                       mutations.Min))
+            mutation_channels.Last(),
+            mutations.Min))
         case openinstrument_proto.StreamMutation_MAX:
           mutation_channels.Add(mutations.MutateValues(uint64(mut.GetSampleFrequency()),
-                                                       mutation_channels.Last(),
-                                                       mutations.Max))
+            mutation_channels.Last(),
+            mutations.Max))
         case openinstrument_proto.StreamMutation_RATE:
           mutation_channels.Add(mutations.MutateValues(uint64(mut.GetSampleFrequency()),
-                                                       mutation_channels.Last(),
-                                                       mutations.Rate))
+            mutation_channels.Last(),
+            mutations.Rate))
         case openinstrument_proto.StreamMutation_RATE_SIGNED:
           mutation_channels.Add(mutations.MutateValues(uint64(mut.GetSampleFrequency()),
-                                                       mutation_channels.Last(),
-                                                       mutations.SignedRate))
+            mutation_channels.Last(),
+            mutations.SignedRate))
         }
       }
     }
@@ -227,6 +227,10 @@ func Args(w http.ResponseWriter, req *http.Request) {
   fmt.Fprintln(w, os.Args[1:])
 }
 
+func GetConfig(w http.ResponseWriter, req *http.Request) {
+  returnResponse(w, req, store_config.Config().Config)
+}
+
 func main() {
   log.SetFlags(log.Ldate | log.Ltime | log.Lshortfile)
   log.Printf("Current PID: %d", os.Getpid())
@@ -241,6 +245,7 @@ func main() {
   http.Handle("/get", http.HandlerFunc(Get))
   http.Handle("/add", http.HandlerFunc(Add))
   http.Handle("/args", http.HandlerFunc(Args))
+  http.Handle("/config", http.HandlerFunc(GetConfig))
   sock, e := net.ListenTCP("tcp", &net.TCPAddr{net.ParseIP(*address), *port})
   if e != nil {
     log.Fatal("Can't listen on %s: %s", net.JoinHostPort(*address, strconv.Itoa(*port)), e)

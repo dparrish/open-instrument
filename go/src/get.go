@@ -8,8 +8,8 @@ import (
   "fmt"
   "log"
   "net/http"
-  "strings"
   "os"
+  "strings"
   "time"
 )
 
@@ -35,10 +35,17 @@ func main() {
   flag.Parse()
 
   var client *openinstrument.StoreClient
+  var err error
   if *connect_address != "" {
-    client = openinstrument.NewDirectStoreClient(*connect_address)
+    client, err = openinstrument.NewAutoStoreClient(*connect_address)
+    if err != nil {
+      log.Fatal("Can't create StoreClient: %s", err)
+    }
   } else if *config_file != "" {
-    client = openinstrument.NewStoreClient(*config_file)
+    client, err = openinstrument.NewStoreClient(*config_file)
+    if err != nil {
+      log.Fatal("Can't create StoreClient: %s", err)
+    }
   } else {
     log.Fatal("Specify either --connect or --config")
   }
@@ -74,7 +81,7 @@ func main() {
       }
       i := openinstrument_proto.StreamMutation_NONE
       request.Mutation = append(request.Mutation, &openinstrument_proto.StreamMutation{
-        SampleType: &i,
+        SampleType:      &i,
         SampleFrequency: proto.Uint32(uint32(dur.Nanoseconds() / 1000000)),
       })
     } else if strings.ToLower(parts[0]) == "mean" {
@@ -87,7 +94,7 @@ func main() {
       }
       i := openinstrument_proto.StreamMutation_AVERAGE
       request.Mutation = append(request.Mutation, &openinstrument_proto.StreamMutation{
-        SampleType: &i,
+        SampleType:      &i,
         SampleFrequency: proto.Uint32(uint32(dur.Nanoseconds() / 1000000)),
       })
     } else if strings.ToLower(parts[0]) == "min" {
@@ -100,7 +107,7 @@ func main() {
       }
       i := openinstrument_proto.StreamMutation_MIN
       request.Mutation = append(request.Mutation, &openinstrument_proto.StreamMutation{
-        SampleType: &i,
+        SampleType:      &i,
         SampleFrequency: proto.Uint32(uint32(dur.Nanoseconds() / 1000000)),
       })
     } else if strings.ToLower(parts[0]) == "max" {
@@ -113,7 +120,7 @@ func main() {
       }
       i := openinstrument_proto.StreamMutation_MAX
       request.Mutation = append(request.Mutation, &openinstrument_proto.StreamMutation{
-        SampleType: &i,
+        SampleType:      &i,
         SampleFrequency: proto.Uint32(uint32(dur.Nanoseconds() / 1000000)),
       })
     } else if strings.ToLower(parts[0]) == "rate" {
@@ -127,7 +134,7 @@ func main() {
         log.Fatalf("Specify an argument to %s", parts[0])
       }
       agg := openinstrument_proto.StreamAggregation{
-        Label : strings.Split(parts[1], ","),
+        Label: strings.Split(parts[1], ","),
       }
 
       request.Aggregation = append(request.Aggregation, &agg)
@@ -135,8 +142,62 @@ func main() {
   }
 
   /*
-  if *request_rate {
-    if *request_interval != "" {
+    if *request_rate {
+      if *request_interval != "" {
+        sample_frequency, err := time.ParseDuration(*request_interval)
+        if err != nil {
+          log.Fatal("Invalid --interval:", err)
+        }
+        i := openinstrument_proto.StreamMutation_NONE
+        request.Mutation = append(request.Mutation, &openinstrument_proto.StreamMutation{
+          SampleType: &i,
+          SampleFrequency: proto.Uint32(uint32(sample_frequency.Nanoseconds() / 1000000)),
+        })
+      }
+      i := openinstrument_proto.StreamMutation_RATE
+      request.Mutation = append(request.Mutation, &openinstrument_proto.StreamMutation{
+        SampleType: &i,
+      })
+    } else if *request_mean {
+      if *request_interval == "" {
+        log.Fatal("--interval required")
+      }
+      sample_frequency, err := time.ParseDuration(*request_interval)
+      if err != nil {
+        log.Fatal("Invalid --interval:", err)
+      }
+      i := openinstrument_proto.StreamMutation_AVERAGE
+      request.Mutation = append(request.Mutation, &openinstrument_proto.StreamMutation{
+        SampleType: &i,
+        SampleFrequency: proto.Uint32(uint32(sample_frequency.Nanoseconds() / 1000000)),
+      })
+    } else if *request_max {
+      if *request_interval == "" {
+        log.Fatal("--interval required")
+      }
+      sample_frequency, err := time.ParseDuration(*request_interval)
+      if err != nil {
+        log.Fatal("Invalid --interval:", err)
+      }
+      i := openinstrument_proto.StreamMutation_MAX
+      request.Mutation = append(request.Mutation, &openinstrument_proto.StreamMutation{
+        SampleType: &i,
+        SampleFrequency: proto.Uint32(uint32(sample_frequency.Nanoseconds() / 1000000)),
+      })
+    } else if *request_min {
+      if *request_interval == "" {
+        log.Fatal("--interval required")
+      }
+      sample_frequency, err := time.ParseDuration(*request_interval)
+      if err != nil {
+        log.Fatal("Invalid --interval:", err)
+      }
+      i := openinstrument_proto.StreamMutation_MIN
+      request.Mutation = append(request.Mutation, &openinstrument_proto.StreamMutation{
+        SampleType: &i,
+        SampleFrequency: proto.Uint32(uint32(sample_frequency.Nanoseconds() / 1000000)),
+      })
+    } else if *request_interval != "" {
       sample_frequency, err := time.ParseDuration(*request_interval)
       if err != nil {
         log.Fatal("Invalid --interval:", err)
@@ -147,60 +208,6 @@ func main() {
         SampleFrequency: proto.Uint32(uint32(sample_frequency.Nanoseconds() / 1000000)),
       })
     }
-    i := openinstrument_proto.StreamMutation_RATE
-    request.Mutation = append(request.Mutation, &openinstrument_proto.StreamMutation{
-      SampleType: &i,
-    })
-  } else if *request_mean {
-    if *request_interval == "" {
-      log.Fatal("--interval required")
-    }
-    sample_frequency, err := time.ParseDuration(*request_interval)
-    if err != nil {
-      log.Fatal("Invalid --interval:", err)
-    }
-    i := openinstrument_proto.StreamMutation_AVERAGE
-    request.Mutation = append(request.Mutation, &openinstrument_proto.StreamMutation{
-      SampleType: &i,
-      SampleFrequency: proto.Uint32(uint32(sample_frequency.Nanoseconds() / 1000000)),
-    })
-  } else if *request_max {
-    if *request_interval == "" {
-      log.Fatal("--interval required")
-    }
-    sample_frequency, err := time.ParseDuration(*request_interval)
-    if err != nil {
-      log.Fatal("Invalid --interval:", err)
-    }
-    i := openinstrument_proto.StreamMutation_MAX
-    request.Mutation = append(request.Mutation, &openinstrument_proto.StreamMutation{
-      SampleType: &i,
-      SampleFrequency: proto.Uint32(uint32(sample_frequency.Nanoseconds() / 1000000)),
-    })
-  } else if *request_min {
-    if *request_interval == "" {
-      log.Fatal("--interval required")
-    }
-    sample_frequency, err := time.ParseDuration(*request_interval)
-    if err != nil {
-      log.Fatal("Invalid --interval:", err)
-    }
-    i := openinstrument_proto.StreamMutation_MIN
-    request.Mutation = append(request.Mutation, &openinstrument_proto.StreamMutation{
-      SampleType: &i,
-      SampleFrequency: proto.Uint32(uint32(sample_frequency.Nanoseconds() / 1000000)),
-    })
-  } else if *request_interval != "" {
-    sample_frequency, err := time.ParseDuration(*request_interval)
-    if err != nil {
-      log.Fatal("Invalid --interval:", err)
-    }
-    i := openinstrument_proto.StreamMutation_NONE
-    request.Mutation = append(request.Mutation, &openinstrument_proto.StreamMutation{
-      SampleType: &i,
-      SampleFrequency: proto.Uint32(uint32(sample_frequency.Nanoseconds() / 1000000)),
-    })
-  }
   */
 
   response, err := client.Get(&request)
@@ -214,7 +221,7 @@ func main() {
         fmt.Printf("%s\t%s\t", variable, time.Unix(int64(*value.Timestamp/1000), 0))
         if value.DoubleValue != nil {
           if is_rate {
-            fmt.Printf("%f\n", *value.DoubleValue * 1000.0)
+            fmt.Printf("%f\n", *value.DoubleValue*1000.0)
           } else {
             fmt.Printf("%f\n", *value.DoubleValue)
           }

@@ -24,7 +24,7 @@ func Mean(duration uint64, input chan *openinstrument_proto.Value, output chan *
       first = false
     }
 
-    if v.GetTimestamp() - first_timestamp > duration {
+    if v.GetTimestamp()-first_timestamp > duration {
       mean := sum / float64(count)
       output <- &openinstrument_proto.Value{
         Timestamp:   proto.Uint64(last_timestamp),
@@ -62,7 +62,7 @@ func SignedRate(duration uint64, input chan *openinstrument_proto.Value, output 
       first = false
       continue
     }
-    rate := (v.GetDoubleValue() - last_value) / float64(v.GetTimestamp() - last_timestamp)
+    rate := (v.GetDoubleValue() - last_value) / float64(v.GetTimestamp()-last_timestamp)
     output <- &openinstrument_proto.Value{
       Timestamp:   v.Timestamp,
       DoubleValue: proto.Float64(rate),
@@ -92,7 +92,7 @@ func Interpolate(duration uint64, input chan *openinstrument_proto.Value, output
   var timestamp uint64
   for v := range input {
     if previous_value == nil {
-      if v.GetTimestamp() % duration == 0 {
+      if v.GetTimestamp()%duration == 0 {
         // Value is exactly on a timestamp
         output <- v
         previous_value = v
@@ -111,17 +111,17 @@ func Interpolate(duration uint64, input chan *openinstrument_proto.Value, output
       rate := float64((v.GetDoubleValue() - previous_value.GetDoubleValue()))
       //log.Printf("Current rate is %f", rate)
       for ; timestamp <= v.GetTimestamp(); timestamp += duration {
-        pct := float64(timestamp - previous_value.GetTimestamp()) / float64(v.GetTimestamp() - previous_value.GetTimestamp())
+        pct := float64(timestamp-previous_value.GetTimestamp()) / float64(v.GetTimestamp()-previous_value.GetTimestamp())
         //log.Printf("pct = %d - %d / %d - %d", timestamp, previous_value.GetTimestamp(), v.GetTimestamp(), previous_value.GetTimestamp())
         new_value := previous_value.GetDoubleValue() + (rate * pct)
         //log.Printf("Filling in %f value %f at timestamp %d", pct, new_value, timestamp)
         output <- &openinstrument_proto.Value{
-          Timestamp: proto.Uint64(timestamp),
+          Timestamp:   proto.Uint64(timestamp),
           DoubleValue: proto.Float64(new_value),
         }
       }
       if previous_value.GetTimestamp() < v.GetTimestamp() {
-        if v.GetTimestamp() % duration == 0 {
+        if v.GetTimestamp()%duration == 0 {
           // Value is exactly on a timestamp
           //log.Printf("Value exactly at timestamp %d", timestamp)
           output <- v
@@ -147,7 +147,7 @@ func Min(duration uint64, input chan *openinstrument_proto.Value, output chan *o
       first = false
       continue
     }
-    if v.GetTimestamp() >= last_timestamp + duration {
+    if v.GetTimestamp() >= last_timestamp+duration {
       output <- &openinstrument_proto.Value{
         Timestamp:   proto.Uint64(v.GetTimestamp()),
         DoubleValue: proto.Float64(min),
@@ -174,7 +174,7 @@ func Max(duration uint64, input chan *openinstrument_proto.Value, output chan *o
       first = false
       continue
     }
-    if v.GetTimestamp() >= last_timestamp + duration {
+    if v.GetTimestamp() >= last_timestamp+duration {
       output <- &openinstrument_proto.Value{
         Timestamp:   proto.Uint64(v.GetTimestamp()),
         DoubleValue: proto.Float64(max),

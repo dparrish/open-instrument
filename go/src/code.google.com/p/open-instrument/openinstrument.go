@@ -4,11 +4,11 @@ import (
   "code.google.com/p/goprotobuf/proto"
   openinstrument_proto "code.google.com/p/open-instrument/proto"
   "code.google.com/p/open-instrument/variable"
-  "time"
   "errors"
   "fmt"
-  "sort"
   "os"
+  "sort"
+  "time"
 )
 
 func NewVariableFromString(textvar string) *variable.Variable {
@@ -151,8 +151,8 @@ func MergeValueStreams(streams []*openinstrument_proto.ValueStream) chan *openin
 func MergeStreamsBy(streams []*openinstrument_proto.ValueStream, by string) chan []*openinstrument_proto.ValueStream {
   c := make(chan []*openinstrument_proto.ValueStream)
   go func() {
-    unique_vars := make(map[string] bool)
-    unique_labels := make(map[string] bool)
+    unique_vars := make(map[string]bool)
+    unique_labels := make(map[string]bool)
     for _, stream := range streams {
       v := variable.NewFromProto(stream.Variable)
       unique_vars[v.Variable] = true
@@ -163,7 +163,7 @@ func MergeStreamsBy(streams []*openinstrument_proto.ValueStream, by string) chan
         unique_labels[label_value] = true
       }
     }
-    for varname, _ := range unique_vars {
+    for varname := range unique_vars {
       v := variable.NewFromString(varname)
       if by == "" {
         output := make([]*openinstrument_proto.ValueStream, 0)
@@ -178,7 +178,7 @@ func MergeStreamsBy(streams []*openinstrument_proto.ValueStream, by string) chan
           c <- output
         }
       } else {
-        for labelvalue, _ := range unique_labels {
+        for labelvalue := range unique_labels {
           output := make([]*openinstrument_proto.ValueStream, 0)
           for _, stream := range streams {
             testvar := variable.NewFromProto(stream.Variable)
@@ -205,10 +205,8 @@ func MergeStreamsBy(streams []*openinstrument_proto.ValueStream, by string) chan
   return c
 }
 
-
-
 type valueStreamChannelList struct {
-  input chan *openinstrument_proto.Value
+  input    chan *openinstrument_proto.Value
   channels []chan *openinstrument_proto.Value
 }
 
@@ -217,7 +215,7 @@ func (this *valueStreamChannelList) Add(c chan *openinstrument_proto.Value) {
 }
 
 func (this *valueStreamChannelList) Last() chan *openinstrument_proto.Value {
-  return this.channels[len(this.channels) - 1]
+  return this.channels[len(this.channels)-1]
 }
 
 func ValueStreamChannelList(initial chan *openinstrument_proto.Value) *valueStreamChannelList {
@@ -240,4 +238,3 @@ func Readdirnames(directory string) ([]string, error) {
   sort.Strings(names)
   return names, nil
 }
-

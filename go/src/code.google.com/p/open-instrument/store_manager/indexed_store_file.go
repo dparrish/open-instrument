@@ -18,7 +18,7 @@ var max_files_semaphore = make(openinstrument.Semaphore, 500)
 
 type IndexedStoreFile struct {
   Filename     string
-  FileSize          int64
+  FileSize     int64
   file         *openinstrument.ProtoFileReader
   MinTimestamp uint64
   MaxTimestamp uint64

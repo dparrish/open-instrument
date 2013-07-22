@@ -18,8 +18,8 @@ var _ = Suite(&MySuite{})
 
 func (s *MySuite) TestMutations(c *C) {
   write_values := func(ic chan *openinstrument_proto.Value) {
-    ic <- &openinstrument_proto.Value{Timestamp: proto.Uint64(0),   DoubleValue: proto.Float64(20)}
-    ic <- &openinstrument_proto.Value{Timestamp: proto.Uint64(60),  DoubleValue: proto.Float64(40)}
+    ic <- &openinstrument_proto.Value{Timestamp: proto.Uint64(0), DoubleValue: proto.Float64(20)}
+    ic <- &openinstrument_proto.Value{Timestamp: proto.Uint64(60), DoubleValue: proto.Float64(40)}
     ic <- &openinstrument_proto.Value{Timestamp: proto.Uint64(120), DoubleValue: proto.Float64(60)}
     ic <- &openinstrument_proto.Value{Timestamp: proto.Uint64(180), DoubleValue: proto.Float64(80)}
     ic <- &openinstrument_proto.Value{Timestamp: proto.Uint64(240), DoubleValue: proto.Float64(100)}
@@ -32,8 +32,8 @@ func (s *MySuite) TestMutations(c *C) {
     close(ic)
   }
   write_offset_values := func(ic chan *openinstrument_proto.Value) {
-    ic <- &openinstrument_proto.Value{Timestamp: proto.Uint64(0),   DoubleValue: proto.Float64(20)}
-    ic <- &openinstrument_proto.Value{Timestamp: proto.Uint64(61),  DoubleValue: proto.Float64(40)}
+    ic <- &openinstrument_proto.Value{Timestamp: proto.Uint64(0), DoubleValue: proto.Float64(20)}
+    ic <- &openinstrument_proto.Value{Timestamp: proto.Uint64(61), DoubleValue: proto.Float64(40)}
     ic <- &openinstrument_proto.Value{Timestamp: proto.Uint64(122), DoubleValue: proto.Float64(60)}
     ic <- &openinstrument_proto.Value{Timestamp: proto.Uint64(185), DoubleValue: proto.Float64(80)}
     ic <- &openinstrument_proto.Value{Timestamp: proto.Uint64(241), DoubleValue: proto.Float64(100)}
@@ -77,49 +77,49 @@ func (s *MySuite) TestMutations(c *C) {
   }
 
   /*
-  log.Println("Signed Rate")
-  ic = make(chan *openinstrument_proto.Value)
-  oc = mutations.MutateValues(300, ic, mutations.SignedRate)
-  go write_values(ic)
-  value = <-oc
-  c.Check(value.GetDoubleValue(), Equals, float64(1.0/3.0))
-  value = <-oc
-  c.Check(value.GetDoubleValue(), Equals, float64(1.0/3.0))
+    log.Println("Signed Rate")
+    ic = make(chan *openinstrument_proto.Value)
+    oc = mutations.MutateValues(300, ic, mutations.SignedRate)
+    go write_values(ic)
+    value = <-oc
+    c.Check(value.GetDoubleValue(), Equals, float64(1.0/3.0))
+    value = <-oc
+    c.Check(value.GetDoubleValue(), Equals, float64(1.0/3.0))
 
-  log.Println("Standard Deviation")
-  ic = make(chan *openinstrument_proto.Value)
-  oc = mutations.MutateValues(60, ic, mutations.StdDev)
-  go write_values(ic)
-  value = <-oc
-  c.Check(value.GetDoubleValue(), Equals, float64(2))
-  value = <-oc
-  c.Check(value.GetDoubleValue(), Equals, float64(47.5))
+    log.Println("Standard Deviation")
+    ic = make(chan *openinstrument_proto.Value)
+    oc = mutations.MutateValues(60, ic, mutations.StdDev)
+    go write_values(ic)
+    value = <-oc
+    c.Check(value.GetDoubleValue(), Equals, float64(2))
+    value = <-oc
+    c.Check(value.GetDoubleValue(), Equals, float64(47.5))
 
-  log.Println("Max")
-  ic = make(chan *openinstrument_proto.Value)
-  oc = mutations.MutateValues(60, ic, mutations.Max)
-  go write_values(ic)
-  value = <-oc
-  c.Check(value.GetDoubleValue(), Equals, float64(9))
-  value = <-oc
-  c.Check(value.GetDoubleValue(), Equals, float64(99))
+    log.Println("Max")
+    ic = make(chan *openinstrument_proto.Value)
+    oc = mutations.MutateValues(60, ic, mutations.Max)
+    go write_values(ic)
+    value = <-oc
+    c.Check(value.GetDoubleValue(), Equals, float64(9))
+    value = <-oc
+    c.Check(value.GetDoubleValue(), Equals, float64(99))
 
-  log.Println("Min")
-  ic = make(chan *openinstrument_proto.Value)
-  oc = mutations.MutateValues(60, ic, mutations.Min)
-  go write_values(ic)
-  value = <-oc
-  c.Check(value.GetDoubleValue(), Equals, float64(2))
-  value = <-oc
-  c.Check(value.GetDoubleValue(), Equals, float64(4))
+    log.Println("Min")
+    ic = make(chan *openinstrument_proto.Value)
+    oc = mutations.MutateValues(60, ic, mutations.Min)
+    go write_values(ic)
+    value = <-oc
+    c.Check(value.GetDoubleValue(), Equals, float64(2))
+    value = <-oc
+    c.Check(value.GetDoubleValue(), Equals, float64(4))
 
-  log.Println("Rate")
-  ic = make(chan *openinstrument_proto.Value)
-  oc = mutations.MutateValues(60, ic, mutations.Rate)
-  go write_values(ic)
-  value = <-oc
-  c.Check(value.GetDoubleValue(), Equals, float64(1))
-  value = <-oc
-  c.Check(value.GetDoubleValue(), Equals, float64(1.7592592592592593))
+    log.Println("Rate")
+    ic = make(chan *openinstrument_proto.Value)
+    oc = mutations.MutateValues(60, ic, mutations.Rate)
+    go write_values(ic)
+    value = <-oc
+    c.Check(value.GetDoubleValue(), Equals, float64(1))
+    value = <-oc
+    c.Check(value.GetDoubleValue(), Equals, float64(1.7592592592592593))
   */
 }
