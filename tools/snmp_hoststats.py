@@ -111,7 +111,7 @@ class Poller(object):
                                     self.config.Get(self.host, "password"))
 
     errorIndication, errorStatus, errorIndex, varBindTable = cmdgen.CommandGenerator().bulkCmd(
-        authData, cmdgen.UdpTransportTarget((self.ip, self.port)), 0, 25, prefix)
+        authData, cmdgen.UdpTransportTarget((self.ip, self.port)), 0, 25000, prefix)
 
     results = []
     if errorIndication:
@@ -153,6 +153,10 @@ class Poller(object):
         table[rowname] = {'index': int(oid[-1])}
       table[rowname][item] = value
     return table
+
+  def SnmpWalk(self, oid):
+    results = self.BulkGet(oid)
+    return results
 
   def PivotTable(self, table, field):
     results = {}
@@ -303,6 +307,43 @@ class Poller(object):
   def CollectSystemStats(self, addrequest):
     if self.config.Get(self.host, "poll_system_stats") != "1":
       return
+    time_ms = int(time.time() * 1000)
+    stats = {}
+    for stat, value in self.SnmpWalk((1,3,6,1,2,1,25,1)):
+      key = self.OIDToString(stat).replace("iso.org.dod.internet.mgmt.mib-2.host.hrSystem.", "")
+      stats[key] = value
+    try:
+      self.AddValue(addrequest, "/system/uptime{hostname=%s, srchost=%s, datatype=gauge}" % (self.host, platform.node()),
+          int(stats['hrSystemUptime.0'] / 100.0), time_ms)
+    except KeyError:
+      pass
+    try:
+      self.AddValue(addrequest, "/system/boot/kernel-commandline{hostname=%s, srchost=%s, datatype=string}" % (self.host, platform.node()),
+          str(stats['hrSystemInitialLoadParameters.0']), time_ms)
+    except KeyError:
+      pass
+    try:
+      self.AddValue(addrequest, "/system/num_users/{hostname=%s, srchost=%s, datatype=gauge}" % (self.host, platform.node()),
+          int(stats['hrSystemNumUsers.0']), time_ms)
+    except KeyError:
+      pass
+    try:
+      self.AddValue(addrequest, "/system/num_processes/{hostname=%s, srchost=%s, datatype=gauge}" % (self.host, platform.node()),
+          int(stats['hrSystemProcesses.0']), time_ms)
+    except KeyError:
+      pass
+
+    table = self.SnmpTable((1,3,6,1,2,1,25,2,3), "hrStorageDescr")  # HOST-RESOURCES-MIB::hrStorageTable
+    for filesystem, values in table.items():
+      if self.OIDToString(values['hrStorageType']) in ['1.3.6.1.2.1.25.2.1.2', '1.3.6.1.2.1.25.2.1.3']:
+        block_size = int(values['hrStorageAllocationUnits'])
+        args = "hostname=%s, srchost=%s, datatype=gauge, space=\"%s\"" % (self.host, platform.node(),
+                                                                          str(values['hrStorageDescr']))
+        self.AddValue(addrequest, "/system/ram/size{%s}" % args, int(values['hrStorageSize']) * block_size, time_ms)
+        self.AddValue(addrequest, "/system/ram/used{%s}" % args, int(values['hrStorageUsed']) * block_size, time_ms)
+        self.AddValue(addrequest, "/system/ram/available{%s}" % args,
+                      (int(values['hrStorageSize']) - int(values['hrStorageUsed'])) * block_size, time_ms)
+
 
   def Run(self):
     if self.config.Get(self.host, "skip") == "1":
@@ -312,10 +353,10 @@ class Poller(object):
         self.host, self.ip, self.community, self.config.Get(self.host, "store"))
     addrequest = proto.AddRequest()
 
+    self.CollectSystemStats(addrequest)
     self.CollectInterfaceStats(addrequest)
     self.CollectFilesystemStats(addrequest)
     self.CollectSocketStats(addrequest)
-    self.CollectSystemStats(addrequest)
 
     poll_end_time = time.time()
 

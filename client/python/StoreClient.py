@@ -103,7 +103,7 @@ class Variable(object):
     return self
 
   def GetLabel(self, label):
-    return self.labels[label]
+    return self.labels.get(label)
 
   def ClearLabel(self, label):
     del self.labels[label]
