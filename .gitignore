@@ -4,3 +4,7 @@
 gflags static/gflags
 gflags static/protojs
 gflags static/openinstrument.pb.js
+go/get
+go/list
+go/store
+deps

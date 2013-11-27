@@ -1,5 +1,5 @@
 include ../Makefile.inc
 
-SUBDIRS=cpp perl python
+SUBDIRS=perl python
 
 ## DEPENDENCIES START HERE (do not remove this line)

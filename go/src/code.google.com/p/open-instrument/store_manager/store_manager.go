@@ -5,6 +5,7 @@ package store_manager
 import (
   "code.google.com/p/goprotobuf/proto"
   "code.google.com/p/open-instrument"
+  "code.google.com/p/open-instrument/hashring"
   oproto "code.google.com/p/open-instrument/proto"
   "code.google.com/p/open-instrument/store_config"
   "code.google.com/p/open-instrument/variable"
@@ -35,11 +36,35 @@ type StoreManager struct {
   store_files     []*IndexedStoreFile
   address         string
   rotating_mutex  sync.Mutex
+  ring            *hashring.HashRing
 }
 
 func (this *StoreManager) Run() {
-  log.Println("Running StoreManager")
+  log.Printf("Running StoreManager for %s\n", PickValidString([]string{this.thisConfig().GetName(),
+    this.thisConfig().GetAddress()}))
   this.record_log_chan = make(chan *oproto.ValueStream, 1000)
+
+  config := store_config.Config()
+  num_servers := 0
+  for _, server := range config.Config.GetServer() {
+    if server.GetState() == oproto.StoreServer_UNKNOWN || server.GetState() == oproto.StoreServer_SHUTDOWN {
+      continue
+    }
+    num_servers++
+  }
+  log.Printf("Creating hash ring of size %d\n", num_servers*100)
+  this.ring = hashring.NewRing(num_servers * 100)
+  for _, server := range config.Config.GetServer() {
+    if server.GetState() == oproto.StoreServer_UNKNOWN || server.GetState() == oproto.StoreServer_SHUTDOWN {
+      continue
+    }
+    name := server.GetName()
+    if name == "" {
+      name = server.GetAddress()
+    }
+    this.ring.AddNode(name, 1)
+  }
+  this.ring.Bake()
 
   // Cache the list of datastore filenames
   this.store_files = make([]*IndexedStoreFile, 0)
@@ -66,6 +91,7 @@ func (this *StoreManager) Run() {
     duration := time.Since(start_time)
     log.Printf("Finished reading headers of datastore files in %s", duration)
   }
+  this.reshard()
 
   // Read the current recordlog
   duration := this.readRecordLog(filepath.Join(*datastore_path, "recordlog"),
@@ -83,8 +109,39 @@ func (this *StoreManager) Run() {
     <-tick
     this.closeIndexedFiles()
     this.mergeIndexedFiles()
+    this.reshard()
     continue
   }
+}
+
+func PickValidString(items []string) string {
+  for _, item := range items {
+    if item != "" {
+      return item
+    }
+  }
+  return ""
+}
+
+func (this *StoreManager) reshard() {
+  /*
+     this_server := PickValidString([]string{this.thisConfig().GetName(), this.thisConfig().GetAddress()})
+     i := 0
+     for _, storefile := range this.store_files {
+       for _, index := range storefile.Header.Index {
+         thisvar := variable.NewFromProto(index.Variable)
+         if this_server == this.ring.Hash(thisvar.String()) {
+           // Keep
+         } else {
+           // Move to another server
+         }
+         i++
+         if i > 20 {
+           break
+         }
+       }
+     }
+  */
 }
 
 func (this *StoreManager) closeIndexedFiles() {
@@ -111,11 +168,15 @@ func (this *StoreManager) closeIndexedFiles() {
   }
 }
 
+func (this *StoreManager) thisConfig() *oproto.StoreServer {
+  _, port, _ := net.SplitHostPort(this.address)
+  return store_config.Config().ThisServer(port)
+}
+
 func (this *StoreManager) mergeIndexedFiles() {
   this.rotating_mutex.Lock()
   defer this.rotating_mutex.Unlock()
-  _, port, _ := net.SplitHostPort(this.address)
-  config := store_config.Config().ThisServer(port)
+  config := this.thisConfig()
   if config == nil {
     log.Printf("mergeIndexedFiles couldn't find server record")
     return

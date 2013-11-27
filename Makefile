@@ -24,6 +24,6 @@ export CXXFLAGS=\
   -march=x86-64 \
   -std=c++0x \
 
-SUBDIRS=lib server client tools go
+SUBDIRS=lib client go
 
 ## DEPENDENCIES START HERE (do not remove this line)

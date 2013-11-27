@@ -68,7 +68,7 @@ class DataStoreServer : private noncopyable {
     config.SetConfigFilename(StringPrintf("%s/%s", FLAGS_datastore.c_str(), FLAGS_config_file.c_str()));
     if (!config.server(MyAddress()))
       throw runtime_error(StringPrintf("Could not find local address %s in store config", MyAddress().c_str()));
-    config.SetServerState(MyAddress(), proto::StoreServer::STARTING);
+    config.SetServerState(MyAddress(), proto::StoreServer::LOAD);
     server_.request_handler()->AddPath("/add$", &DataStoreServer::HandleAdd, this);
     server_.request_handler()->AddPath("/list$", &DataStoreServer::HandleList, this);
     server_.request_handler()->AddPath("/get$", &DataStoreServer::HandleGet, this);
@@ -80,7 +80,7 @@ class DataStoreServer : private noncopyable {
     VariableExporter::GetGlobalExporter()->SetExportLabel("job", "datastore");
     VariableExporter::GetGlobalExporter()->SetExportLabel("hostname", Socket::Hostname());
     VariableExporter::GetGlobalExporter()->StartExportThread(MyAddress(), 300);
-    config.SetServerState(MyAddress(), proto::StoreServer::RUNNING);
+    config.SetServerState(MyAddress(), proto::StoreServer::RUN);
   }
 
   bool HandleGetConfig(const HttpRequest &request, HttpReply *reply) {

@@ -1,5 +1,10 @@
 package openinstrument.proto;
 
+message LogMessage {
+  optional uint64 timestamp = 1;
+  optional string message = 2;
+}
+
 message Label {
   required string label = 1;
   optional string value = 2;
@@ -66,18 +71,22 @@ message StreamAggregation {
 
 message Value {
   // Milliseconds since epoch
+  optional StreamVariable variable = 5;
   required uint64 timestamp = 1;
   optional double double_value = 2;
   optional string string_value = 3;
 
   // Used for run-length encoding
   optional uint64 end_timestamp = 4;
-  optional StreamVariable variable = 5;
 }
 
 message ValueStream {
   optional StreamVariable variable = 2;
   repeated Value value = 4;
+
+  // An optional set of mutations that have been applied to this stream.
+  // If the stream contains the raw data, this should be empty.
+  repeated StreamMutation mutation = 5;
 }
 
 message GetRequest {
@@ -92,7 +101,7 @@ message GetRequest {
   repeated StreamAggregation aggregation = 7;
 
   // Limit to how many variables can be returned in a standard GetRequest. This can be overridden if required.
-  optional uint32 max_variables = 8 [ default = 100 ];
+  optional uint32 max_variables = 8;
 
   // This request has been forwarded by another store server and should not be forwarded again.
   // This shouldn't happen but is here as a failsafe.
@@ -109,7 +118,7 @@ message GetResponse {
   // Contains a separate stream for every mutation requested in GetRequest, in the same order. If no mutations are
   // requested, the response will contain a single stream of the raw data.
   repeated ValueStream stream = 3;
-  repeated Timer timer = 4;
+  repeated LogMessage timer = 4;
 }
 
 message AddRequest {
@@ -123,14 +132,14 @@ message AddRequest {
 message AddResponse {
   required bool success = 1;
   optional string errormessage = 2;
-  repeated Timer timer = 3;
+  repeated LogMessage timer = 3;
 }
 
 message ListRequest {
   optional StreamVariable prefix = 3;
 
   // Limit to how many variables can be returned in a standard ListRequest. This can be overridden if required.
-  optional uint32 max_variables = 2 [ default = 100 ];
+  optional uint32 max_variables = 2;
 
   // Maximum age of variable.
   // This controls how far back the search will go for variables that were used in the past but not currently.
@@ -145,21 +154,44 @@ message ListResponse {
   // empty.
   repeated ValueStream stream = 3;
   repeated StreamVariable variable = 4;
-  repeated Timer timer = 5;
+  repeated LogMessage timer = 5;
 }
 
 message StoreFileHeaderIndex {
   required StreamVariable variable = 1;
   required fixed64 offset = 2;
+  optional fixed32 num_values = 3 [ default = 0 ];
+  optional fixed64 min_timestamp = 4;
+  optional fixed64 max_timestamp = 5;
+}
+
+message CompactionLog {
+  optional uint64 start_time = 1;
+  optional uint64 end_time = 2;
+  repeated LogMessage log = 3;
+  optional uint64 old_streams = 4;
+  optional uint64 old_values = 5;
+  optional uint64 log_streams = 6;
+  optional uint64 log_values = 7;
+  optional uint64 out_streams = 8;
+  optional uint64 out_values = 9;
+  repeated string input_filename = 10;
+  repeated string output_filename = 11;
 }
 
 message StoreFileHeader {
-  required uint64 start_timestamp = 1;
-  required uint64 end_timestamp = 2;
+  optional uint32 version = 6 [ default = 1 ];
+  optional uint64 start_timestamp = 1;
+  optional uint64 end_timestamp = 2;
   repeated StreamVariable variable = 4;
   repeated StoreFileHeaderIndex index = 5;
+  optional string end_key = 7;
+  optional fixed64 footer_position = 9;
 }
 
+message StoreFileFooter {
+  repeated CompactionLog compaction_log = 1;
+}
 
 message RetentionPolicyItem {
   enum Target {
@@ -183,17 +215,21 @@ message RetentionPolicy {
 message StoreServer {
   enum State {
     UNKNOWN = 0;
-    STARTING = 1;
-    LOADING = 2;
-    RUNNING = 3;
+    LOAD = 1;
+    RUN = 2;
+    DRAIN = 3;
     READONLY = 4;
-    DRAINING = 5;
-    LAMEDUCK = 6;
-    SHUTDOWN = 7;
+    SHUTDOWN = 5;
   }
   required string address = 1;
   optional State state = 2;
   optional uint64 last_updated = 3;
+
+  // Optional name for use in the hash ring. This should never change once the
+  // server has been added but can be used to replace a server with another one
+  // on a different host.
+  // If this is not set, the address is used.
+  optional string name = 5;
 
   // Desired size in bytes for indexed datastore files
   optional uint64 target_indexed_file_size = 4;
@@ -203,9 +239,3 @@ message StoreConfig {
   repeated StoreServer server = 1;
   optional RetentionPolicy retention_policy = 2;
 }
-
-message Timer {
-  optional string name = 1;
-  required uint64 ms = 2;
-}
-

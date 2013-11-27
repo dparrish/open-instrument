@@ -20,25 +20,25 @@ func NewVariableFromProto(p *openinstrument_proto.StreamVariable) *variable.Vari
 }
 
 type Timer struct {
-  t          *openinstrument_proto.Timer
+  t          *openinstrument_proto.LogMessage
   start_time time.Time
-  name       string
+  message    string
 }
 
-func NewTimer(name string, t *openinstrument_proto.Timer) *Timer {
+func NewTimer(message string, t *openinstrument_proto.LogMessage) *Timer {
   return &Timer{
     start_time: time.Now(),
     t:          t,
-    name:       name,
+    message:    message,
   }
 }
 
 func (this *Timer) Stop() uint64 {
   duration := time.Since(this.start_time)
   if this.t != nil {
-    this.t.Ms = proto.Uint64(uint64(duration.Nanoseconds() / 1000000))
-    if this.name != "" {
-      this.t.Name = &this.name
+    this.t.Timestamp = proto.Uint64(uint64(duration.Nanoseconds() / 1000000))
+    if this.message != "" {
+      this.t.Message = &this.message
     }
   }
   return uint64(duration.Nanoseconds() / 1000000)

@@ -59,10 +59,30 @@ func (this *ProtoFileReader) ReadAt(pos int64, message proto.Message) (int, erro
   return this.Read(message)
 }
 
-func (this *ProtoFileReader) ValueStreamReader(n int) chan *openinstrument_proto.ValueStream {
-  c := make(chan *openinstrument_proto.ValueStream, n)
+func (this *ProtoFileReader) ValueStreamReader(chan_size int) chan *openinstrument_proto.ValueStream {
+  c := make(chan *openinstrument_proto.ValueStream, chan_size)
   go func() {
     for {
+      value := new(openinstrument_proto.ValueStream)
+      _, err := this.Read(value)
+      if err == io.EOF {
+        break
+      }
+      if err != nil {
+        log.Println(err)
+        break
+      }
+      c <- value
+    }
+    close(c)
+  }()
+  return c
+}
+
+func (this *ProtoFileReader) ValueStreamReaderUntil(max_pos uint64, chan_size int) chan *openinstrument_proto.ValueStream {
+  c := make(chan *openinstrument_proto.ValueStream, chan_size)
+  go func() {
+    for uint64(this.Tell()) < max_pos {
       value := new(openinstrument_proto.ValueStream)
       _, err := this.Read(value)
       if err == io.EOF {
@@ -94,17 +114,16 @@ func (this *ProtoFileReader) Read(message proto.Message) (int, error) {
         return 0, io.EOF
       }
       log.Printf("Error reading record header from recordlog: %s", err)
-      os.Exit(1)
       return 0, err
     }
 
     // Read Magic header
     if h.Magic != PROTO_MAGIC {
-      //log.Printf("Protobuf delimeter at %s:%x does not match %#x", this.filename, pos, PROTO_MAGIC)
+      log.Printf("Protobuf delimeter at %s:%x does not match %#x", this.filename, pos, PROTO_MAGIC)
       continue
     }
     if int64(h.Length) >= this.stat.Size() {
-      //log.Printf("Chunk length %d at %s:%x is greater than file size %d", h.Length, this.filename, pos, this.stat.Size())
+      log.Printf("Chunk length %d at %s:%x is greater than file size %d", h.Length, this.filename, pos, this.stat.Size())
       continue
     }
 
@@ -120,7 +139,7 @@ func (this *ProtoFileReader) Read(message proto.Message) (int, error) {
     var crc uint16
     err = binary.Read(this.file, binary.LittleEndian, &crc)
     if err != nil {
-      // log.Printf("Error reading CRC from recordlog: %s", err)
+      log.Printf("Error reading CRC from recordlog: %s", err)
       continue
     }
     checkcrc := crc16.Crc16(string(buf))
@@ -171,6 +190,10 @@ func (this *ProtoFileWriter) Tell() int64 {
 
 func (this *ProtoFileWriter) Stat() (os.FileInfo, error) {
   return this.file.Stat()
+}
+
+func (this *ProtoFileWriter) Sync() error {
+  return this.file.Sync()
 }
 
 func (this *ProtoFileWriter) WriteAt(pos int64, message proto.Message) (int, error) {

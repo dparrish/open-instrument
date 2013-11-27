@@ -69,7 +69,7 @@ func NewStoreClient(config_file string) (*StoreClient, error) {
 // NewDirectStoreClient creates a StoreClient that will talk to a single server.
 func NewDirectStoreClient(hostport string) *StoreClient {
   client := new(StoreClient)
-  state := oproto.StoreServer_RUNNING
+  state := oproto.StoreServer_RUN
   client.servers = append(make([]oproto.StoreServer, 0), oproto.StoreServer{
     Address: &hostport,
     State:   &state,
@@ -143,13 +143,13 @@ func (this *StoreClient) List(request *oproto.ListRequest) ([]*oproto.ListRespon
     switch server.GetState() {
     case oproto.StoreServer_UNKNOWN:
       continue
-    case oproto.StoreServer_STARTING:
+    case oproto.StoreServer_LOAD:
       continue
-    case oproto.StoreServer_LOADING:
+    case oproto.StoreServer_DRAIN:
+      continue
+    case oproto.StoreServer_READONLY:
       continue
     case oproto.StoreServer_SHUTDOWN:
-      continue
-    case oproto.StoreServer_LAMEDUCK:
       continue
     }
     waitgroup.Add(1)
@@ -203,13 +203,13 @@ func (this *StoreClient) Get(request *oproto.GetRequest) ([]*oproto.GetResponse,
     switch server.GetState() {
     case oproto.StoreServer_UNKNOWN:
       continue
-    case oproto.StoreServer_STARTING:
+    case oproto.StoreServer_LOAD:
       continue
-    case oproto.StoreServer_LOADING:
+    case oproto.StoreServer_DRAIN:
+      continue
+    case oproto.StoreServer_READONLY:
       continue
     case oproto.StoreServer_SHUTDOWN:
-      continue
-    case oproto.StoreServer_LAMEDUCK:
       continue
     }
     waitgroup.Add(1)
@@ -249,13 +249,13 @@ func (this *StoreClient) GetConfig() *oproto.StoreConfig {
     switch server.GetState() {
     case oproto.StoreServer_UNKNOWN:
       continue
-    case oproto.StoreServer_STARTING:
+    case oproto.StoreServer_LOAD:
       continue
-    case oproto.StoreServer_LOADING:
+    case oproto.StoreServer_DRAIN:
+      continue
+    case oproto.StoreServer_READONLY:
       continue
     case oproto.StoreServer_SHUTDOWN:
-      continue
-    case oproto.StoreServer_LAMEDUCK:
       continue
     }
     waitgroup.Add(1)

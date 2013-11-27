@@ -4,7 +4,7 @@ server {
 server {
   address: "192.168.1.6:8020"
 }
-# The retention policy is first-match
+# The retention policy is first-match.
 # You can estimate the size of the data store required.
 #   n = number of devices monitored
 #   t = average number of variables per device
@@ -17,6 +17,8 @@ server {
 #                = 5.2 billion
 #   total storage = n * t * s * ((5 * 365 * 86400 / 3600) + (28 * 86400 / 300))
 #                 = 77G
+#
+# Run-length encoding as used by the datastore will reduce this even further for variables that don't change often.
 retention_policy {
   policy {
     comment: "We don't use cpusets, always drop this variable"

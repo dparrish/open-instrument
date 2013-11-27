@@ -33,6 +33,9 @@ func Args(w http.ResponseWriter, req *http.Request) {
 func main() {
   log.SetFlags(log.Ldate | log.Ltime | log.Lshortfile)
   flag.Parse()
+  if len(flag.Args()) < 1 {
+    log.Fatal("Specify at least one variable to retrieve")
+  }
 
   var client *openinstrument.StoreClient
   var err error
@@ -142,72 +145,72 @@ func main() {
   }
 
   /*
-    if *request_rate {
-      if *request_interval != "" {
-        sample_frequency, err := time.ParseDuration(*request_interval)
-        if err != nil {
-          log.Fatal("Invalid --interval:", err)
-        }
-        i := openinstrument_proto.StreamMutation_NONE
-        request.Mutation = append(request.Mutation, &openinstrument_proto.StreamMutation{
-          SampleType: &i,
-          SampleFrequency: proto.Uint32(uint32(sample_frequency.Nanoseconds() / 1000000)),
-        })
-      }
-      i := openinstrument_proto.StreamMutation_RATE
-      request.Mutation = append(request.Mutation, &openinstrument_proto.StreamMutation{
-        SampleType: &i,
-      })
-    } else if *request_mean {
-      if *request_interval == "" {
-        log.Fatal("--interval required")
-      }
-      sample_frequency, err := time.ParseDuration(*request_interval)
-      if err != nil {
-        log.Fatal("Invalid --interval:", err)
-      }
-      i := openinstrument_proto.StreamMutation_AVERAGE
-      request.Mutation = append(request.Mutation, &openinstrument_proto.StreamMutation{
-        SampleType: &i,
-        SampleFrequency: proto.Uint32(uint32(sample_frequency.Nanoseconds() / 1000000)),
-      })
-    } else if *request_max {
-      if *request_interval == "" {
-        log.Fatal("--interval required")
-      }
-      sample_frequency, err := time.ParseDuration(*request_interval)
-      if err != nil {
-        log.Fatal("Invalid --interval:", err)
-      }
-      i := openinstrument_proto.StreamMutation_MAX
-      request.Mutation = append(request.Mutation, &openinstrument_proto.StreamMutation{
-        SampleType: &i,
-        SampleFrequency: proto.Uint32(uint32(sample_frequency.Nanoseconds() / 1000000)),
-      })
-    } else if *request_min {
-      if *request_interval == "" {
-        log.Fatal("--interval required")
-      }
-      sample_frequency, err := time.ParseDuration(*request_interval)
-      if err != nil {
-        log.Fatal("Invalid --interval:", err)
-      }
-      i := openinstrument_proto.StreamMutation_MIN
-      request.Mutation = append(request.Mutation, &openinstrument_proto.StreamMutation{
-        SampleType: &i,
-        SampleFrequency: proto.Uint32(uint32(sample_frequency.Nanoseconds() / 1000000)),
-      })
-    } else if *request_interval != "" {
-      sample_frequency, err := time.ParseDuration(*request_interval)
-      if err != nil {
-        log.Fatal("Invalid --interval:", err)
-      }
-      i := openinstrument_proto.StreamMutation_NONE
-      request.Mutation = append(request.Mutation, &openinstrument_proto.StreamMutation{
-        SampleType: &i,
-        SampleFrequency: proto.Uint32(uint32(sample_frequency.Nanoseconds() / 1000000)),
-      })
-    }
+     if *request_rate {
+       if *request_interval != "" {
+         sample_frequency, err := time.ParseDuration(*request_interval)
+         if err != nil {
+           log.Fatal("Invalid --interval:", err)
+         }
+         i := openinstrument_proto.StreamMutation_NONE
+         request.Mutation = append(request.Mutation, &openinstrument_proto.StreamMutation{
+           SampleType: &i,
+           SampleFrequency: proto.Uint32(uint32(sample_frequency.Nanoseconds() / 1000000)),
+         })
+       }
+       i := openinstrument_proto.StreamMutation_RATE
+       request.Mutation = append(request.Mutation, &openinstrument_proto.StreamMutation{
+         SampleType: &i,
+       })
+     } else if *request_mean {
+       if *request_interval == "" {
+         log.Fatal("--interval required")
+       }
+       sample_frequency, err := time.ParseDuration(*request_interval)
+       if err != nil {
+         log.Fatal("Invalid --interval:", err)
+       }
+       i := openinstrument_proto.StreamMutation_AVERAGE
+       request.Mutation = append(request.Mutation, &openinstrument_proto.StreamMutation{
+         SampleType: &i,
+         SampleFrequency: proto.Uint32(uint32(sample_frequency.Nanoseconds() / 1000000)),
+       })
+     } else if *request_max {
+       if *request_interval == "" {
+         log.Fatal("--interval required")
+       }
+       sample_frequency, err := time.ParseDuration(*request_interval)
+       if err != nil {
+         log.Fatal("Invalid --interval:", err)
+       }
+       i := openinstrument_proto.StreamMutation_MAX
+       request.Mutation = append(request.Mutation, &openinstrument_proto.StreamMutation{
+         SampleType: &i,
+         SampleFrequency: proto.Uint32(uint32(sample_frequency.Nanoseconds() / 1000000)),
+       })
+     } else if *request_min {
+       if *request_interval == "" {
+         log.Fatal("--interval required")
+       }
+       sample_frequency, err := time.ParseDuration(*request_interval)
+       if err != nil {
+         log.Fatal("Invalid --interval:", err)
+       }
+       i := openinstrument_proto.StreamMutation_MIN
+       request.Mutation = append(request.Mutation, &openinstrument_proto.StreamMutation{
+         SampleType: &i,
+         SampleFrequency: proto.Uint32(uint32(sample_frequency.Nanoseconds() / 1000000)),
+       })
+     } else if *request_interval != "" {
+       sample_frequency, err := time.ParseDuration(*request_interval)
+       if err != nil {
+         log.Fatal("Invalid --interval:", err)
+       }
+       i := openinstrument_proto.StreamMutation_NONE
+       request.Mutation = append(request.Mutation, &openinstrument_proto.StreamMutation{
+         SampleType: &i,
+         SampleFrequency: proto.Uint32(uint32(sample_frequency.Nanoseconds() / 1000000)),
+       })
+     }
   */
 
   response, err := client.Get(&request)

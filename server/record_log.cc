@@ -144,8 +144,6 @@ bool RecordLog::ReindexRecordLogFile(const string &input, MapType *log_data) con
   proto::ValueStream stream;
   while (reader.Next(&stream)) {
     Variable variable(stream.variable());
-    if (stream.has_deprecated_string_variable())
-      variable.FromString(stream.deprecated_string_variable());
     if (variable.ToString().empty())
       continue;
     MapType::iterator it = log_data->find(variable.ToString());

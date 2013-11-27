@@ -7,6 +7,8 @@ import (
   "errors"
   "fmt"
   "github.com/willf/bloom"
+  "io"
+  "log"
   "sort"
   "strings"
   "sync"
@@ -22,13 +24,14 @@ type IndexedStoreFile struct {
   file         *openinstrument.ProtoFileReader
   MinTimestamp uint64
   MaxTimestamp uint64
-  header       openinstrument_proto.StoreFileHeader
+  Header       openinstrument_proto.StoreFileHeader
   offsets      map[string]uint64
   last_use     time.Time
   header_read  bool
   bloomfilter  *bloom.BloomFilter
   in_use       sync.RWMutex
   stream_cache map[string]*openinstrument_proto.ValueStream
+  end_key      string
 }
 
 type By func(p1, p2 *IndexedStoreFile) bool
@@ -92,22 +95,22 @@ func (this *IndexedStoreFile) Open() error {
   }
 
   if !this.header_read {
-    n, err := this.file.Read(&this.header)
+    n, err := this.file.Read(&this.Header)
     if n != 1 || err != nil {
       this.file.Close()
       this.file = nil
       return errors.New(fmt.Sprintf("Can't read header from indexed store file %s: %s", this.Filename, err))
     }
-    this.MinTimestamp = this.header.GetStartTimestamp()
-    this.MaxTimestamp = this.header.GetEndTimestamp()
-    this.offsets = make(map[string]uint64, len(this.header.Index))
+    this.MinTimestamp = this.Header.GetStartTimestamp()
+    this.MaxTimestamp = this.Header.GetEndTimestamp()
+    this.offsets = make(map[string]uint64, len(this.Header.Index))
     stat, _ := this.file.Stat()
     this.FileSize = stat.Size()
 
     // Build a Bloom filter containing just the variable names.
     // This will be used to speed lookups.
-    this.bloomfilter = bloom.NewWithEstimates(uint(len(this.header.Index)), 0.1)
-    for _, index := range this.header.Index {
+    this.bloomfilter = bloom.NewWithEstimates(uint(len(this.Header.Index)), 0.1)
+    for _, index := range this.Header.Index {
       varname := variable.NewFromProto(index.Variable)
       this.offsets[varname.String()] = index.GetOffset()
       this.bloomfilter.Add([]byte(varname.Variable))
@@ -157,4 +160,29 @@ func (this *IndexedStoreFile) GetStreams(v *variable.Variable) []*openinstrument
     }
   }
   return ret
+}
+
+func (this *IndexedStoreFile) GetAllStreams() chan *openinstrument_proto.ValueStream {
+  c := make(chan *openinstrument_proto.ValueStream, 1000)
+  go func() {
+    this.Open()
+    this.in_use.Lock()
+    defer this.in_use.Unlock()
+    var header openinstrument_proto.StoreFileHeader
+    this.file.Read(&header)
+    for {
+      var vs openinstrument_proto.ValueStream
+      n, err := this.file.Read(&vs)
+      if n != 1 || err != nil {
+        if err == io.EOF {
+          break
+        }
+        log.Printf("Error reading ValueStream from %s: %s\n", this.Filename, err)
+        continue
+      }
+      c <- &vs
+    }
+    close(c)
+  }()
+  return c
 }

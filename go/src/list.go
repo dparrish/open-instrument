@@ -49,6 +49,9 @@ func StartServer() {
 func main() {
   log.SetFlags(log.Ldate | log.Ltime | log.Lshortfile)
   flag.Parse()
+  if len(flag.Args()) < 1 {
+    log.Fatal("Specify at least one variable to retrieve")
+  }
 
   var client *openinstrument.StoreClient
   var err error

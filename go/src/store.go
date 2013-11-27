@@ -3,15 +3,16 @@ package main
 import (
   "code.google.com/p/goprotobuf/proto"
   "code.google.com/p/open-instrument"
+  "code.google.com/p/open-instrument/datastore"
   "code.google.com/p/open-instrument/mutations"
   openinstrument_proto "code.google.com/p/open-instrument/proto"
   "code.google.com/p/open-instrument/store_config"
-  "code.google.com/p/open-instrument/store_manager"
   "code.google.com/p/open-instrument/variable"
   "encoding/base64"
   "errors"
   "flag"
   "fmt"
+  "html/template"
   "io/ioutil"
   "log"
   "net"
@@ -26,7 +27,7 @@ var port = flag.Int("port", 8020, "Port to listen on")
 var config_file = flag.String("config", "/r2/services/openinstrument/config.txt",
   "Path to the store configuration file. If the format is host:port:/path, then ZooKeeper will be used to access it.")
 
-var smanager store_manager.StoreManager
+var ds *datastore.Datastore
 
 func parseRequest(w http.ResponseWriter, req *http.Request, request proto.Message) error {
   body, _ := ioutil.ReadAll(req.Body)
@@ -84,7 +85,7 @@ func Get(w http.ResponseWriter, req *http.Request) {
     return
   }
   fmt.Println(openinstrument.ProtoText(&request))
-  stream_chan := smanager.GetValueStreams(request_variable, request.MinTimestamp, request.MaxTimestamp)
+  stream_chan := ds.Reader(request_variable, request.MinTimestamp, request.MaxTimestamp, true)
   streams := make([]*openinstrument_proto.ValueStream, 0)
   for stream := range stream_chan {
     streams = append(streams, stream)
@@ -163,25 +164,25 @@ func Add(w http.ResponseWriter, req *http.Request) {
     return
   }
 
-  stream_chan := smanager.AddValueStreams()
+  c := ds.Writer()
   for _, stream := range request.Stream {
-    stream_chan <- stream
+    c <- stream
   }
-  close(stream_chan)
+  close(c)
 
   response.Success = proto.Bool(true)
   returnResponse(w, req, &response)
 }
 
 func ListResponseAddTimer(name string, response *openinstrument_proto.ListResponse) *openinstrument.Timer {
-  response.Timer = append(response.Timer, &openinstrument_proto.Timer{})
+  response.Timer = append(response.Timer, &openinstrument_proto.LogMessage{})
   return openinstrument.NewTimer(name, response.Timer[len(response.Timer)-1])
 }
 
 func List(w http.ResponseWriter, req *http.Request) {
   var request openinstrument_proto.ListRequest
   var response openinstrument_proto.ListResponse
-  response.Timer = make([]*openinstrument_proto.Timer, 0)
+  response.Timer = make([]*openinstrument_proto.LogMessage, 0)
   if parseRequest(w, req, &request) != nil {
     return
   }
@@ -201,7 +202,7 @@ func List(w http.ResponseWriter, req *http.Request) {
   vars := make(map[string]*openinstrument_proto.StreamVariable)
   min_timestamp := time.Now().Add(time.Duration(-request.GetMaxAge()) * time.Millisecond)
   unix := uint64(min_timestamp.Unix()) * 1000
-  stream_chan := smanager.GetValueStreams(request_variable, &unix, nil)
+  stream_chan := ds.Reader(request_variable, &unix, nil, false)
   for stream := range stream_chan {
     vars[variable.NewFromProto(stream.Variable).String()] = stream.Variable
     if request.GetMaxVariables() > 0 && len(vars) == int(request.GetMaxVariables()) {
@@ -231,6 +232,27 @@ func GetConfig(w http.ResponseWriter, req *http.Request) {
   returnResponse(w, req, store_config.Config().Config)
 }
 
+type storeStatus struct {
+  Title  string
+  Blocks *map[string]*datastore.DatastoreBlock
+}
+
+func StoreStatus(w http.ResponseWriter, req *http.Request) {
+  t, err := template.ParseFiles("go/src/store_status.html")
+  if err != nil {
+    log.Printf("Couldn't find template file: %s", err)
+    return
+  }
+  p := storeStatus{
+    Title:  "Store Status",
+    Blocks: &ds.Blocks,
+  }
+  err = t.Execute(w, p)
+  if err != nil {
+    log.Println(err)
+  }
+}
+
 func main() {
   log.SetFlags(log.Ldate | log.Ltime | log.Lshortfile)
   log.Printf("Current PID: %d", os.Getpid())
@@ -246,12 +268,12 @@ func main() {
   http.Handle("/add", http.HandlerFunc(Add))
   http.Handle("/args", http.HandlerFunc(Args))
   http.Handle("/config", http.HandlerFunc(GetConfig))
+  http.Handle("/status", http.HandlerFunc(StoreStatus))
   sock, e := net.ListenTCP("tcp", &net.TCPAddr{net.ParseIP(*address), *port})
   if e != nil {
     log.Fatal("Can't listen on %s: %s", net.JoinHostPort(*address, strconv.Itoa(*port)), e)
   }
   log.Printf("Listening on %v", sock.Addr().String())
-  smanager.SetAddress(net.JoinHostPort(*address, strconv.Itoa(*port)))
-  go smanager.Run()
+  ds = datastore.Open("/r2/services/openinstrument")
   http.Serve(sock, nil)
 }

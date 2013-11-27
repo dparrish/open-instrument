@@ -42,10 +42,6 @@ int main(int argc, char *argv[]) {
     Variable var;
     var.FromValueStream(stream);
     // TODO(dparrish): Remove this once DEPRECATED_string_variable has been removed
-    if (stream.has_deprecated_string_variable()) {
-      var.FromString(stream.deprecated_string_variable());
-      cout << "old style variable name\n";
-    }
     if (var.ToString().empty()) {
       cout << "EMPTY VARIABLE\t";
     } else {
