@@ -1,7 +1,11 @@
-go get github.com/willf/bloom
-go get github.com/willf/bitset
-go get github.com/joaojeronimo/go-crc16
-go get github.com/stathat/treap
-go get launchpad.net/gozk
-go get github.com/warlockcc/golibs/hashring
-go get github.com/howeyc/fsnotify
+go get github.com/willf/bloom \
+       github.com/willf/bitset \
+       github.com/joaojeronimo/go-crc16 \
+       github.com/stathat/treap \
+       launchpad.net/gozk \
+       github.com/warlockcc/golibs/hashring \
+       github.com/howeyc/fsnotify \
+       github.com/nu7hatch/gouuid \
+       github.com/joaojeronimo/go-crc16 \
+       code.google.com/p/goprotobuf/proto
+

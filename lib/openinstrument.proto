@@ -71,7 +71,6 @@ message StreamAggregation {
 
 message Value {
   // Milliseconds since epoch
-  optional StreamVariable variable = 5;
   required uint64 timestamp = 1;
   optional double double_value = 2;
   optional string string_value = 3;

@@ -142,7 +142,7 @@ func (this *ProtoFileReader) Read(message proto.Message) (int, error) {
       log.Printf("Error reading CRC from recordlog: %s", err)
       continue
     }
-    checkcrc := crc16.Crc16(string(buf))
+    checkcrc := crc16.Crc16(buf)
     if checkcrc != crc {
       //log.Printf("CRC %x does not match %x", crc, checkcrc)
     }

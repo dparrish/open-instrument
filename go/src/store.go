@@ -20,6 +20,7 @@ import (
   "os"
   "strconv"
   "time"
+  _ "net/http/pprof"
 )
 
 var address = flag.String("address", "", "Address to listen on (blank for any)")
@@ -238,7 +239,7 @@ type storeStatus struct {
 }
 
 func StoreStatus(w http.ResponseWriter, req *http.Request) {
-  t, err := template.ParseFiles("go/src/store_status.html")
+  t, err := template.ParseFiles("src/store_status.html")
   if err != nil {
     log.Printf("Couldn't find template file: %s", err)
     return
@@ -269,7 +270,7 @@ func main() {
   http.Handle("/args", http.HandlerFunc(Args))
   http.Handle("/config", http.HandlerFunc(GetConfig))
   http.Handle("/status", http.HandlerFunc(StoreStatus))
-  sock, e := net.ListenTCP("tcp", &net.TCPAddr{net.ParseIP(*address), *port})
+  sock, e := net.ListenTCP("tcp", &net.TCPAddr{IP: net.ParseIP(*address), Port: *port})
   if e != nil {
     log.Fatal("Can't listen on %s: %s", net.JoinHostPort(*address, strconv.Itoa(*port)), e)
   }

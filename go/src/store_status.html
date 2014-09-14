@@ -1,6 +1,11 @@
 <html>
 <head>
   <title>OpenInstrument Datastore Status</title>
+  <meta charset="utf-8">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/foundation/5.2.1/css/foundation.min.css">
+  <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.0.7/angular.min.js"></script>
+  <!--<script src="https://cdnjs.cloudflare.com/ajax/libs/foundation/5.2.1/js/foundation.min.js"></script>-->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 </head>
 <body>
   <script>
@@ -12,66 +17,70 @@
   <h1>{{ .Title }}</h1>
 
   <h2>Datastore Blocks</h2>
-  <table border='1'>
-    <tr valign='top'>
-      <th>End Key</th>
-      <th>Id</th>
-      <th>Compacting?</th>
-      <th>Indexed</th>
-      <th>Log</th>
-      <th>New</th>
-      <th>Values T/L</th>
-      <th>Log</th>
-    </tr>
-    {{ range .Blocks }}
-    <tr valign='top'>
-      <td>{{ .EndKey }}</td>
-      <td>{{ .Id }}</td>
-      <td>{{ if .IsCompacting }}{{ .CompactDuration }}{{ end }}</td>
-      <td>{{ len .BlockHeader.Index }}</td>
-      <td>{{ len .LogStreams }}</td>
-      <td>{{ len .NewStreams }}</td>
-      <td>{{ .NumValues }} / {{ .NumLogValues }}</td>
-      <td>
-        <!--
-        <table>
-          <tr>
-            <th>Duration</th>
-            <th>Input S/V</th>
-            <th>Output S/V</th>
-            <th>Log</th>
-          </tr>
-          {{ range .BlockFooter.CompactionLog }}
-          <tr valign='top'>
-            <script>
-              var start_time = {{ .StartTime }};
-            </script>
-            <td><script>document.writeln(Duration({{ .EndTime }} - {{ .StartTime }})); </script></td>
-            <td>{{ .OldStreams }} / {{ .OldValues }}</td>
-            <td>{{ .OutStreams }} / {{ .OutValues }}</td>
-            <td>
-              <table cellspacing='1' cellpadding='0'>
-                {{ range .Log }}
-                <tr>
-                  <td>
-                    <script>
-                      document.writeln(Duration({{ .Timestamp }} - start_time));
-                    </script>
-                  </td>
-                  <td>
-                    {{ .Message }}
-                  </td>
-                </tr>
-                {{ end }}
-              </table>
-            </td>
-          </tr>
-          {{ end }}
-        </table>
-        -->
-      </td>
-    </tr>
-    {{ end }}
+  <table>
+    <thead>
+      <tr valign='top'>
+        <th>End Key</th>
+        <th>Id</th>
+        <th>Compacting?</th>
+        <th>Indexed</th>
+        <th>Log</th>
+        <th>New</th>
+        <th>Values T/L</th>
+        <th>Log</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{ range .Blocks }}
+      <tr valign='top'>
+        <td>{{ .EndKey }}</td>
+        <td>{{ .Id }}</td>
+        <td>{{ if .IsCompacting }}{{ .CompactDuration }}{{ end }}</td>
+        <td>{{ len .BlockHeader.Index }}</td>
+        <td>{{ len .LogStreams }}</td>
+        <td>{{ len .NewStreams }}</td>
+        <td>{{ .NumValues }} / {{ .NumLogValues }}</td>
+        <td>
+          <!--
+          <table>
+            <tr>
+              <th>Duration</th>
+              <th>Input S/V</th>
+              <th>Output S/V</th>
+              <th>Log</th>
+            </tr>
+            {{ range .BlockFooter.CompactionLog }}
+            <tr valign='top'>
+              <script>
+                var start_time = {{ .StartTime }};
+              </script>
+              <td><script>document.writeln(Duration({{ .EndTime }} - {{ .StartTime }})); </script></td>
+              <td>{{ .OldStreams }} / {{ .OldValues }}</td>
+              <td>{{ .OutStreams }} / {{ .OutValues }}</td>
+              <td>
+                <table cellspacing='1' cellpadding='0'>
+                  {{ range .Log }}
+                  <tr>
+                    <td>
+                      <script>
+                        document.writeln(Duration({{ .Timestamp }} - start_time));
+                      </script>
+                    </td>
+                    <td>
+                      {{ .Message }}
+                    </td>
+                  </tr>
+                  {{ end }}
+                </table>
+              </td>
+            </tr>
+            {{ end }}
+          </table>
+          -->
+        </td>
+      </tr>
+      {{ end }}
+    </tbody>
   </table>
 </body>
 </html>

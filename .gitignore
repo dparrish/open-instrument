@@ -8,3 +8,4 @@ go/get
 go/list
 go/store
 deps
+go/src/code.google.com/p/open-instrument/proto/openinstrument.pb.go
